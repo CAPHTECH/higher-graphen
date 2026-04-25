@@ -1,5 +1,7 @@
 //! Domain interpretation packages, templates, mappings, projections, and lift adapters for HigherGraphen.
 
+pub mod architecture;
+
 use higher_graphen_core::{CoreError, Id, Provenance, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

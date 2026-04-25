@@ -1,12 +1,12 @@
 case_id: hg_agent_plugin_bundle_cli_skill
 title: CLI and skill distribution bundle
 description: Package the HigherGraphen CLI, schemas, examples, and skills as a CLI-first agent distribution bundle. MCP, marketplace publication, and provider SDK integrations are out of scope.
-state: open
+state: closed
 labels: []
 metadata: {}
 extensions: {}
 created_at: 2026-04-25T12:21:55.123Z
-updated_at: 2026-04-25T12:31:41.996Z
+updated_at: 2026-04-25T12:50:37.574Z
 case_revision:
-  current: 29
-  last_event_id: 01KQ29ZMXCACQT82KBJS0CJFSC
+  current: 54
+  last_event_id: 01KQ2B29W66R42ZQ61HHP0TX9R

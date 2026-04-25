@@ -696,7 +696,10 @@
         "summary",
         "recommended_actions",
         "information_loss",
-        "source_ids"
+        "source_ids",
+        "human_review",
+        "ai_view",
+        "audit_trace"
       ],
       "properties": {
         "audience": {
@@ -737,8 +740,235 @@
           "items": {
             "$ref": "#/$defs/id"
           }
+        },
+        "human_review": {
+          "$ref": "#/$defs/human_review"
+        },
+        "ai_view": {
+          "$ref": "#/$defs/ai_view"
+        },
+        "audit_trace": {
+          "$ref": "#/$defs/audit_trace"
         }
       }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "records",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "ai_agent"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ai_projection_record"
+          },
+          "minItems": 1,
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "candidate:billing-status-api"
+              }
+            }
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_projection_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_type",
+        "summary",
+        "source_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_type": {
+          "enum": [
+            "cell",
+            "incidence",
+            "check_result",
+            "obstruction",
+            "completion_candidate",
+            "completion_review"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "review_status": {
+          "enum": [
+            "unreviewed",
+            "reviewed",
+            "rejected",
+            "accepted"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "audit_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "source_ids",
+        "information_loss",
+        "traces"
+      ],
+      "properties": {
+        "audience": {
+          "const": "audit"
+        },
+        "purpose": {
+          "const": "audit_trace"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projection_trace"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "represented_in"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "represented_in": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "human_review",
+              "ai_view",
+              "audit_trace"
+            ]
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_source_ids": {
+      "type": "array",
+      "contains": {
+        "const": "obstruction:order-service-direct-billing-db-access"
+      },
+      "minItems": 9,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "projection_information_loss": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/information_loss"
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
     },
     "information_loss": {
       "type": "object",

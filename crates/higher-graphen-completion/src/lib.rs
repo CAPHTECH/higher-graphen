@@ -215,6 +215,114 @@ impl CompletionDetectionResult {
     }
 }
 
+/// Explicit accept/reject decision for a completion candidate.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionReviewDecision {
+    /// Accept the proposed structure for downstream creation or promotion.
+    Accepted,
+    /// Reject the proposed structure and keep it out of accepted facts.
+    Rejected,
+}
+
+impl CompletionReviewDecision {
+    /// Returns the review status represented by this explicit decision.
+    #[must_use]
+    pub fn review_status(self) -> ReviewStatus {
+        match self {
+            Self::Accepted => ReviewStatus::Accepted,
+            Self::Rejected => ReviewStatus::Rejected,
+        }
+    }
+}
+
+/// Reviewer-supplied request to explicitly accept or reject one candidate.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompletionReviewRequest {
+    /// Candidate identifier the request applies to.
+    pub candidate_id: Id,
+    /// Explicit accept/reject decision.
+    pub decision: CompletionReviewDecision,
+    /// Human or workflow reviewer identifier.
+    pub reviewer_id: Id,
+    /// Reviewer-supplied rationale for the decision.
+    pub reason: String,
+    /// Optional externally supplied review time, such as RFC 3339 text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reviewed_at: Option<String>,
+}
+
+impl CompletionReviewRequest {
+    /// Creates a validated explicit completion review request.
+    pub fn new(
+        candidate_id: Id,
+        decision: CompletionReviewDecision,
+        reviewer_id: Id,
+        reason: impl Into<String>,
+    ) -> Result<Self> {
+        Ok(Self {
+            candidate_id,
+            decision,
+            reviewer_id,
+            reason: required_text("reason", reason)?,
+            reviewed_at: None,
+        })
+    }
+
+    /// Creates a validated explicit acceptance request.
+    pub fn accepted(candidate_id: Id, reviewer_id: Id, reason: impl Into<String>) -> Result<Self> {
+        Self::new(
+            candidate_id,
+            CompletionReviewDecision::Accepted,
+            reviewer_id,
+            reason,
+        )
+    }
+
+    /// Creates a validated explicit rejection request.
+    pub fn rejected(candidate_id: Id, reviewer_id: Id, reason: impl Into<String>) -> Result<Self> {
+        Self::new(
+            candidate_id,
+            CompletionReviewDecision::Rejected,
+            reviewer_id,
+            reason,
+        )
+    }
+
+    /// Returns this request with externally supplied review time metadata.
+    pub fn with_reviewed_at(mut self, reviewed_at: impl Into<String>) -> Result<Self> {
+        self.reviewed_at = Some(required_text("reviewed_at", reviewed_at)?);
+        Ok(self)
+    }
+}
+
+/// Auditable result of an explicit completion review action.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompletionReviewRecord {
+    /// Original review request supplied by the reviewer or workflow.
+    pub request: CompletionReviewRequest,
+    /// Source candidate snapshot preserved before any downstream action.
+    pub candidate: CompletionCandidate,
+    /// Resulting review status from the explicit decision.
+    pub outcome_review_status: ReviewStatus,
+    /// Accepted completion payload when the decision is accepted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accepted_completion: Option<AcceptedCompletion>,
+    /// Rejected completion payload when the decision is rejected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rejected_completion: Option<RejectedCompletion>,
+}
+
+impl CompletionReviewRecord {
+    /// Returns the explicit decision represented by this record.
+    #[must_use]
+    pub fn decision(&self) -> CompletionReviewDecision {
+        self.request.decision
+    }
+}
+
 /// Stateless MVP completion engine for explicit in-memory rule proposals.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SimpleCompletionEngine;
@@ -246,6 +354,15 @@ impl SimpleCompletionEngine {
         reason: impl Into<String>,
     ) -> Result<RejectedCompletion> {
         reject_completion(candidate, reviewer_id, reason)
+    }
+
+    /// Reviews a completion candidate through the existing review helper.
+    pub fn review_candidate(
+        &self,
+        candidate: &CompletionCandidate,
+        request: CompletionReviewRequest,
+    ) -> Result<CompletionReviewRecord> {
+        review_completion(candidate, request)
     }
 }
 
@@ -439,6 +556,53 @@ pub fn reject_completion(
     })
 }
 
+/// Reviews a completion candidate with an explicit accept/reject request.
+///
+/// The source candidate is cloned into the returned audit record and is never
+/// mutated or silently promoted by this helper.
+pub fn review_completion(
+    candidate: &CompletionCandidate,
+    request: CompletionReviewRequest,
+) -> Result<CompletionReviewRecord> {
+    if request.candidate_id != candidate.id {
+        return Err(malformed_field(
+            "candidate_id",
+            format!(
+                "review request targets {}, but candidate snapshot is {}",
+                request.candidate_id, candidate.id
+            ),
+        ));
+    }
+
+    let outcome_review_status = request.decision.review_status();
+    let (accepted_completion, rejected_completion) = match request.decision {
+        CompletionReviewDecision::Accepted => (
+            Some(accept_completion(
+                candidate,
+                request.reviewer_id.clone(),
+                request.reason.clone(),
+            )?),
+            None,
+        ),
+        CompletionReviewDecision::Rejected => (
+            None,
+            Some(reject_completion(
+                candidate,
+                request.reviewer_id.clone(),
+                request.reason.clone(),
+            )?),
+        ),
+    };
+
+    Ok(CompletionReviewRecord {
+        request,
+        candidate: candidate.clone(),
+        outcome_review_status,
+        accepted_completion,
+        rejected_completion,
+    })
+}
+
 fn ensure_unreviewed_candidates(candidates: &[CompletionCandidate]) -> Result<()> {
     if candidates
         .iter()
@@ -588,6 +752,92 @@ mod tests {
 
         assert_eq!(result.candidates[0].review_status, ReviewStatus::Unreviewed);
         assert_eq!(accepted.review_status, ReviewStatus::Accepted);
+    }
+
+    #[test]
+    fn review_request_records_explicit_acceptance_without_mutating_candidate() {
+        let candidate = candidate();
+        let request = CompletionReviewRequest::accepted(
+            candidate.id.clone(),
+            id("reviewer.architect"),
+            "Reviewed plan",
+        )
+        .expect("valid request")
+        .with_reviewed_at("2026-04-25T00:00:00Z")
+        .expect("valid review time");
+
+        let record = review_completion(&candidate, request).expect("review record");
+
+        assert_eq!(candidate.review_status, ReviewStatus::Unreviewed);
+        assert_eq!(record.decision(), CompletionReviewDecision::Accepted);
+        assert_eq!(record.candidate.review_status, ReviewStatus::Unreviewed);
+        assert_eq!(record.outcome_review_status, ReviewStatus::Accepted);
+        assert_eq!(record.request.reason, "Reviewed plan");
+        assert_eq!(
+            record.request.reviewed_at.as_deref(),
+            Some("2026-04-25T00:00:00Z")
+        );
+        let accepted = record
+            .accepted_completion
+            .expect("accepted completion payload");
+        assert_eq!(accepted.review_status, ReviewStatus::Accepted);
+        assert_eq!(
+            accepted.accepted_structure.structure_id,
+            Some(id("cell.contract"))
+        );
+        assert!(record.rejected_completion.is_none());
+    }
+
+    #[test]
+    fn review_request_records_explicit_rejection() {
+        let candidate = candidate();
+        let request = CompletionReviewRequest::rejected(
+            candidate.id.clone(),
+            id("reviewer.architect"),
+            "Duplicate of an existing contract",
+        )
+        .expect("valid request");
+
+        let record = SimpleCompletionEngine
+            .review_candidate(&candidate, request)
+            .expect("review record");
+
+        assert_eq!(record.decision(), CompletionReviewDecision::Rejected);
+        assert_eq!(record.candidate.review_status, ReviewStatus::Unreviewed);
+        assert_eq!(record.outcome_review_status, ReviewStatus::Rejected);
+        let rejected = record
+            .rejected_completion
+            .expect("rejected completion payload");
+        assert_eq!(rejected.review_status, ReviewStatus::Rejected);
+        assert_eq!(
+            rejected.rejected_structure.structure_id,
+            Some(id("cell.contract"))
+        );
+        assert!(record.accepted_completion.is_none());
+    }
+
+    #[test]
+    fn review_request_rejects_candidate_mismatch_and_empty_metadata() {
+        let candidate = candidate();
+        let mismatch = CompletionReviewRequest::accepted(
+            id("candidate.other"),
+            id("reviewer.architect"),
+            "Reviewed",
+        )
+        .expect("valid request");
+
+        let error = review_completion(&candidate, mismatch).expect_err("candidate mismatch");
+
+        assert_eq!(error.code(), "malformed_field");
+        assert!(
+            CompletionReviewRequest::accepted(candidate.id.clone(), id("reviewer"), "  ").is_err()
+        );
+        assert!(
+            CompletionReviewRequest::rejected(candidate.id, id("reviewer"), "Rejected")
+                .expect("valid request")
+                .with_reviewed_at(" ")
+                .is_err()
+        );
     }
 
     #[test]

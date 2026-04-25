@@ -1,0 +1,583 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.architecture.input_lift.report.v1",
+  "title": "HigherGraphen Architecture Input Lift Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.architecture.input_lift.report.v1"
+    },
+    "report_type": {
+      "const": "architecture_input_lift"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "runtime_package",
+        "runtime_crate",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "const": "highergraphen architecture input lift"
+        },
+        "runtime_package": {
+          "const": "higher-graphen-runtime"
+        },
+        "runtime_crate": {
+          "const": "higher_graphen_runtime"
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_schema",
+        "source",
+        "space",
+        "contexts",
+        "cells",
+        "incidences"
+      ],
+      "properties": {
+        "input_schema": {
+          "const": "highergraphen.architecture.input.v1"
+        },
+        "source": {
+          "type": "object"
+        },
+        "space": {
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "cell_ids",
+            "incidence_ids",
+            "complex_ids",
+            "context_ids"
+          ]
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "minItems": 1
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cell"
+          },
+          "minItems": 1
+        },
+        "incidences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/incidence"
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "accepted_fact_ids",
+        "inferred_structure_ids",
+        "completion_candidates"
+      ],
+      "properties": {
+        "status": {
+          "const": "lifted"
+        },
+        "accepted_fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "inferred_structure_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "completion_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/completion_candidate"
+          }
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "information_loss",
+        "source_ids",
+        "human_review",
+        "ai_view",
+        "audit_trace"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "human_review": {
+          "$ref": "#/$defs/human_review"
+        },
+        "ai_view": {
+          "$ref": "#/$defs/ai_view"
+        },
+        "audit_trace": {
+          "$ref": "#/$defs/audit_trace"
+        }
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "records",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "ai_agent"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ai_projection_record"
+          },
+          "minItems": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_projection_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_type",
+        "summary",
+        "source_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_type": {
+          "enum": [
+            "cell",
+            "incidence",
+            "check_result",
+            "obstruction",
+            "completion_candidate",
+            "completion_review"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "review_status": {
+          "enum": [
+            "unreviewed",
+            "reviewed",
+            "rejected",
+            "accepted"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "audit_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "source_ids",
+        "information_loss",
+        "traces"
+      ],
+      "properties": {
+        "audience": {
+          "const": "audit"
+        },
+        "purpose": {
+          "const": "audit_trace"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projection_trace"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "represented_in"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "represented_in": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "human_review",
+              "ai_view",
+              "audit_trace"
+            ]
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_source_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1
+    },
+    "projection_information_loss": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/information_loss"
+      },
+      "minItems": 1
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "source_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "dimension",
+        "cell_type",
+        "label",
+        "context_ids",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "dimension": {
+          "const": 0
+        },
+        "cell_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "incidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "from_cell_id",
+        "to_cell_id",
+        "relation_type",
+        "orientation",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "from_cell_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_cell_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "orientation": {
+          "enum": [
+            "directed",
+            "undirected"
+          ]
+        },
+        "weight": {
+          "type": "number"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "source": {
+          "type": "object"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_status": {
+          "const": "accepted"
+        },
+        "extraction_method": {
+          "const": "architecture_input_lift.v1"
+        }
+      }
+    },
+    "completion_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "missing_type",
+        "suggested_structure",
+        "inferred_from",
+        "rationale",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "missing_type": {
+          "type": "string"
+        },
+        "suggested_structure": {
+          "type": "object"
+        },
+        "inferred_from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    }
+  }
+}

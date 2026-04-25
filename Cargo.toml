@@ -10,6 +10,7 @@ members = [
     "crates/higher-graphen-interpretation",
     "crates/higher-graphen-runtime",
     "examples/architecture",
+    "tools/casegraphen",
     "tools/highergraphen-cli",
 ]
 resolver = "2"

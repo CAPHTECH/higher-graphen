@@ -2,9 +2,11 @@
 
 use crate::error::{RuntimeError, RuntimeResult};
 use crate::reports::{
+    AiProjectionRecord, AiProjectionRecordType, AiProjectionView,
     ArchitectureDirectDbAccessSmokeProjection, ArchitectureDirectDbAccessSmokeReport,
     ArchitectureDirectDbAccessSmokeResult, ArchitectureDirectDbAccessSmokeScenario,
-    ArchitectureSmokeStatus, ProjectionAudience, ProjectionPurpose, ReportEnvelope, ReportMetadata,
+    ArchitectureSmokeStatus, AuditProjectionView, HumanReviewProjectionView, ProjectionAudience,
+    ProjectionPurpose, ProjectionTrace, ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
 use higher_graphen_completion::{
     detect_completion_candidates, CompletionCandidate, CompletionDetectionInput, CompletionRule,
@@ -308,30 +310,64 @@ fn report_result(
 fn report_projection(
     result: &ArchitectureDirectDbAccessSmokeResult,
 ) -> RuntimeResult<ArchitectureDirectDbAccessSmokeProjection> {
-    let source_ids = projection_source_ids()?;
-    let loss = InformationLoss::declared(
+    let source_ids = projection_source_ids(result)?;
+    let human_loss = InformationLoss::declared(
         "Projection summarizes the full space, invariant check, obstruction, and completion candidate.",
         source_ids.clone(),
     )?;
-
-    Ok(ArchitectureDirectDbAccessSmokeProjection {
+    let ai_loss = InformationLoss::declared(
+        "AI view keeps source identifiers, provenance, confidence, and review status but omits full nested scenario payloads.",
+        source_ids.clone(),
+    )?;
+    let audit_loss = InformationLoss::declared(
+        "Audit trace records represented source identifiers and view coverage but omits full object payloads.",
+        source_ids.clone(),
+    )?;
+    let summary =
+        "Order Service directly reads Billing DB across Orders and Billing context boundaries."
+            .to_owned();
+    let recommended_actions = vec![
+        "Route billing status access through Billing Service or a Billing Service API.".to_owned(),
+        "Remove the direct Order Service read from Billing DB.".to_owned(),
+    ];
+    let human_review = HumanReviewProjectionView {
         audience: ProjectionAudience::Human,
         purpose: ProjectionPurpose::ArchitectureReview,
-        summary:
-            "Order Service directly reads Billing DB across Orders and Billing context boundaries."
-                .to_owned(),
-        recommended_actions: vec![
-            "Route billing status access through Billing Service or a Billing Service API."
-                .to_owned(),
-            "Remove the direct Order Service read from Billing DB.".to_owned(),
-        ],
-        information_loss: vec![loss],
-        source_ids: result_source_ids(result, source_ids),
+        summary,
+        recommended_actions,
+        source_ids: source_ids.clone(),
+        information_loss: vec![human_loss],
+    };
+    let ai_view = AiProjectionView {
+        audience: ProjectionAudience::AiAgent,
+        purpose: ProjectionPurpose::ArchitectureReview,
+        records: ai_projection_records(result),
+        source_ids: source_ids.clone(),
+        information_loss: vec![ai_loss],
+    };
+    let audit_trace = AuditProjectionView {
+        audience: ProjectionAudience::Audit,
+        purpose: ProjectionPurpose::AuditTrace,
+        source_ids,
+        information_loss: vec![audit_loss],
+        traces: audit_traces(ai_view.source_ids.clone()),
+    };
+
+    Ok(ProjectionViewSet {
+        audience: human_review.audience,
+        purpose: human_review.purpose,
+        summary: human_review.summary.clone(),
+        recommended_actions: human_review.recommended_actions.clone(),
+        information_loss: human_review.information_loss.clone(),
+        source_ids: human_review.source_ids.clone(),
+        human_review,
+        ai_view,
+        audit_trace,
     })
 }
 
-fn projection_source_ids() -> RuntimeResult<Vec<Id>> {
-    Ok(vec![
+fn projection_source_ids(result: &ArchitectureDirectDbAccessSmokeResult) -> RuntimeResult<Vec<Id>> {
+    let mut ids = vec![
         id(ARCHITECTURE_SPACE)?,
         id(ORDER_SERVICE)?,
         id(BILLING_SERVICE)?,
@@ -339,17 +375,150 @@ fn projection_source_ids() -> RuntimeResult<Vec<Id>> {
         id(ORDER_READS_BILLING_DB)?,
         id(BILLING_OWNS_BILLING_DB)?,
         id(NO_CROSS_CONTEXT_DB_ACCESS)?,
-        id(DIRECT_DB_ACCESS_OBSTRUCTION)?,
-        id(BILLING_STATUS_API_CANDIDATE)?,
-    ])
+    ];
+    push_unique(&mut ids, result.violated_invariant_id.clone());
+    for obstruction in &result.obstructions {
+        push_unique(&mut ids, obstruction.id.clone());
+        push_unique(&mut ids, obstruction.space_id.clone());
+        for cell_id in &obstruction.location_cell_ids {
+            push_unique(&mut ids, cell_id.clone());
+        }
+        for context_id in &obstruction.location_context_ids {
+            push_unique(&mut ids, context_id.clone());
+        }
+    }
+    for candidate in &result.completion_candidates {
+        for source_id in completion_candidate_source_ids(candidate) {
+            push_unique(&mut ids, source_id);
+        }
+    }
+    Ok(ids)
 }
 
-fn result_source_ids(
+fn ai_projection_records(
     result: &ArchitectureDirectDbAccessSmokeResult,
-    mut source_ids: Vec<Id>,
-) -> Vec<Id> {
-    source_ids.push(result.violated_invariant_id.clone());
+) -> Vec<AiProjectionRecord> {
+    let mut records = Vec::new();
+    let check_source_ids = result
+        .check_result
+        .violation
+        .as_ref()
+        .map(|violation| {
+            let mut ids = vec![result.check_result.target_id.clone()];
+            for cell_id in &violation.location_cell_ids {
+                push_unique(&mut ids, cell_id.clone());
+            }
+            for context_id in &violation.location_context_ids {
+                push_unique(&mut ids, context_id.clone());
+            }
+            ids
+        })
+        .unwrap_or_else(|| vec![result.check_result.target_id.clone()]);
+    records.push(AiProjectionRecord {
+        id: result.check_result.target_id.clone(),
+        record_type: AiProjectionRecordType::CheckResult,
+        summary: result
+            .check_result
+            .violation
+            .as_ref()
+            .map(|violation| violation.message.clone())
+            .unwrap_or_else(|| "Invariant check completed without violation.".to_owned()),
+        source_ids: check_source_ids,
+        confidence: None,
+        review_status: None,
+        severity: result
+            .check_result
+            .violation
+            .as_ref()
+            .map(|violation| violation.severity),
+        provenance: None,
+    });
+
+    records.extend(result.obstructions.iter().map(|obstruction| {
+        let mut source_ids = vec![obstruction.id.clone(), obstruction.space_id.clone()];
+        for cell_id in &obstruction.location_cell_ids {
+            push_unique(&mut source_ids, cell_id.clone());
+        }
+        for context_id in &obstruction.location_context_ids {
+            push_unique(&mut source_ids, context_id.clone());
+        }
+        AiProjectionRecord {
+            id: obstruction.id.clone(),
+            record_type: AiProjectionRecordType::Obstruction,
+            summary: obstruction.explanation.summary.clone(),
+            source_ids,
+            confidence: Some(obstruction.provenance.confidence),
+            review_status: Some(obstruction.provenance.review_status),
+            severity: Some(obstruction.severity),
+            provenance: Some(obstruction.provenance.clone()),
+        }
+    }));
+
+    records.extend(
+        result
+            .completion_candidates
+            .iter()
+            .map(|candidate| AiProjectionRecord {
+                id: candidate.id.clone(),
+                record_type: AiProjectionRecordType::CompletionCandidate,
+                summary: candidate.suggested_structure.summary.clone(),
+                source_ids: completion_candidate_source_ids(candidate),
+                confidence: Some(candidate.confidence),
+                review_status: Some(candidate.review_status),
+                severity: None,
+                provenance: None,
+            }),
+    );
+
+    records
+}
+
+fn completion_candidate_source_ids(candidate: &CompletionCandidate) -> Vec<Id> {
+    let mut ids = vec![candidate.id.clone(), candidate.space_id.clone()];
+    if let Some(structure_id) = &candidate.suggested_structure.structure_id {
+        push_unique(&mut ids, structure_id.clone());
+    }
+    for related_id in &candidate.suggested_structure.related_ids {
+        push_unique(&mut ids, related_id.clone());
+    }
+    for inferred_from in &candidate.inferred_from {
+        push_unique(&mut ids, inferred_from.clone());
+    }
+    ids
+}
+
+fn audit_traces(source_ids: Vec<Id>) -> Vec<ProjectionTrace> {
     source_ids
+        .into_iter()
+        .map(|source_id| ProjectionTrace {
+            role: source_role(&source_id).to_owned(),
+            source_id,
+            represented_in: vec![
+                "human_review".to_owned(),
+                "ai_view".to_owned(),
+                "audit_trace".to_owned(),
+            ],
+        })
+        .collect()
+}
+
+fn source_role(source_id: &Id) -> &'static str {
+    match source_id.as_str() {
+        ARCHITECTURE_SPACE => "space",
+        ORDER_SERVICE | BILLING_SERVICE | BILLING_DB | BILLING_STATUS_API_CELL => "cell",
+        ORDER_READS_BILLING_DB | BILLING_OWNS_BILLING_DB => "incidence",
+        ORDER_CONTEXT | BILLING_CONTEXT | ARCHITECTURE_CONTEXT => "context",
+        NO_CROSS_CONTEXT_DB_ACCESS => "invariant",
+        DIRECT_DB_ACCESS_OBSTRUCTION => "obstruction",
+        BILLING_STATUS_API_CANDIDATE => "completion_candidate",
+        _ => "source",
+    }
+}
+
+fn push_unique(ids: &mut Vec<Id>, id: Id) {
+    if !ids.contains(&id) {
+        ids.push(id);
+    }
 }
 
 fn provenance() -> RuntimeResult<Provenance> {

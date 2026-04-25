@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.projection.v1",
+  "title": "HigherGraphen Case Projection Definition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "projection_id",
+    "audience"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.projection.v1"
+    },
+    "projection_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audience": {
+      "enum": [
+        "human_review",
+        "ai_agent",
+        "audit",
+        "system"
+      ]
+    },
+    "include_sources": {
+      "type": "boolean"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

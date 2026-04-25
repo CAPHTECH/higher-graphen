@@ -1,0 +1,7 @@
+{
+  "schema": "highergraphen.case.coverage_policy.v1",
+  "policy_id": "coverage-policy:architecture-boundary",
+  "coverage_goal_ids": [],
+  "require_explicit_relations": false,
+  "metadata": {}
+}

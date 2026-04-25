@@ -1,0 +1,48 @@
+{
+  "schema": "highergraphen.cli_skill_bundle.v1",
+  "name": "highergraphen-cli-skill-bundle",
+  "version": "0.1.0",
+  "description": "Provider-neutral package for the current HigherGraphen CLI and skill integration surface.",
+  "provider_neutral": true,
+  "distribution_mode": "cli_skill_bundle",
+  "entrypoints": {
+    "cli_command": "highergraphen architecture smoke direct-db-access --format json",
+    "cargo_command": "cargo run -q -p highergraphen-cli -- architecture smoke direct-db-access --format json",
+    "contract_validator": "python3 scripts/validate-cli-report-contract.py",
+    "bundle_smoke_check": "python3 integrations/cli-skill-bundle/check-bundle.py"
+  },
+  "contract_references": {
+    "cli_reference": "docs/cli/highergraphen.md",
+    "agent_handoff": "docs/specs/agent-tooling-handoff.md",
+    "agent_integration_spec": "docs/specs/ai-agent-integration.md",
+    "report_schema": "schemas/reports/architecture-direct-db-access-smoke.report.schema.json",
+    "report_fixture": "schemas/reports/architecture-direct-db-access-smoke.report.example.json",
+    "contract_validator": "scripts/validate-cli-report-contract.py",
+    "bundle_contract_reference": "integrations/cli-skill-bundle/references/cli-contract.md"
+  },
+  "skills": [
+    {
+      "name": "highergraphen",
+      "source": "skills/highergraphen/SKILL.md",
+      "bundle_path": "integrations/cli-skill-bundle/skills/highergraphen/SKILL.md",
+      "sync_policy": "byte_for_byte"
+    },
+    {
+      "name": "architecture-review",
+      "source": "docs/specs/ai-agent-integration.md#reference-workflow-architecture-review",
+      "bundle_path": "integrations/cli-skill-bundle/skills/architecture-review/SKILL.md",
+      "sync_policy": "derived_reference"
+    }
+  ],
+  "checks": [
+    "python3 integrations/cli-skill-bundle/check-bundle.py",
+    "python3 scripts/validate-cli-report-contract.py"
+  ],
+  "out_of_scope": [
+    "mcp_server",
+    "provider_marketplace_publication",
+    "provider_sdk_integration",
+    "provider_specific_manifest"
+  ]
+}
+

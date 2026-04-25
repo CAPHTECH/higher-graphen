@@ -21,10 +21,11 @@ The original proposal remains available as source material:
 12. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
 13. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
 14. [`cli/highergraphen.md`](cli/highergraphen.md)
-15. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-16. [`specs/engine-traits.md`](specs/engine-traits.md)
-17. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-18. [`mvp-roadmap.md`](mvp-roadmap.md)
+15. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+16. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+17. [`specs/engine-traits.md`](specs/engine-traits.md)
+18. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+19. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -44,6 +45,7 @@ The original proposal remains available as source material:
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |
 | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
 | [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for the first `highergraphen` command. |
+| [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using the first HigherGraphen report contract. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |

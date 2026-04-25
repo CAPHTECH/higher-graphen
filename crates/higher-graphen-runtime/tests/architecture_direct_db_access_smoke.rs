@@ -3,8 +3,8 @@
 use higher_graphen_core::{Id, ReviewStatus, Severity};
 use higher_graphen_obstruction::ObstructionType;
 use higher_graphen_runtime::{
-    run_architecture_direct_db_access_smoke, ArchitectureSmokeStatus, ProjectionAudience,
-    ProjectionPurpose,
+    run_architecture_direct_db_access_smoke, AiProjectionRecordType, ArchitectureSmokeStatus,
+    ProjectionAudience, ProjectionPurpose,
 };
 use serde_json::{json, Value};
 
@@ -151,6 +151,52 @@ fn projection_is_traceable_human_architecture_review() {
     assert!(projection
         .source_ids
         .contains(&id(BILLING_STATUS_API_CANDIDATE)));
+    assert!(projection.source_ids.contains(&id(BILLING_STATUS_API_CELL)));
+    assert_eq!(projection.human_review.audience, ProjectionAudience::Human);
+    assert!(!projection.human_review.information_loss.is_empty());
+    assert_eq!(projection.ai_view.audience, ProjectionAudience::AiAgent);
+    assert!(!projection.ai_view.information_loss.is_empty());
+    assert!(projection.ai_view.source_ids.contains(&id(BILLING_DB)));
+    let obstruction_record = projection
+        .ai_view
+        .records
+        .iter()
+        .find(|record| record.id == id(DIRECT_DB_ACCESS_OBSTRUCTION))
+        .expect("obstruction AI record");
+    assert_eq!(
+        obstruction_record.record_type,
+        AiProjectionRecordType::Obstruction
+    );
+    assert_eq!(
+        obstruction_record.review_status,
+        Some(ReviewStatus::Unreviewed)
+    );
+    assert_eq!(
+        obstruction_record.confidence.expect("confidence").value(),
+        1.0
+    );
+    assert!(obstruction_record.provenance.is_some());
+    let candidate_record = projection
+        .ai_view
+        .records
+        .iter()
+        .find(|record| record.id == id(BILLING_STATUS_API_CANDIDATE))
+        .expect("candidate AI record");
+    assert_eq!(
+        candidate_record.confidence.expect("confidence").value(),
+        0.9
+    );
+    assert_eq!(
+        candidate_record.review_status,
+        Some(ReviewStatus::Unreviewed)
+    );
+    assert_eq!(projection.audit_trace.audience, ProjectionAudience::Audit);
+    assert!(!projection.audit_trace.information_loss.is_empty());
+    assert!(projection
+        .audit_trace
+        .traces
+        .iter()
+        .any(|trace| trace.source_id == id(BILLING_STATUS_API_CELL)));
 }
 
 #[test]
@@ -171,6 +217,14 @@ fn report_serializes_lower_snake_case_values_and_round_trips() {
     );
     assert_eq!(value["projection"]["audience"], json!("human"));
     assert_eq!(value["projection"]["purpose"], json!("architecture_review"));
+    assert_eq!(
+        value["projection"]["ai_view"]["audience"],
+        json!("ai_agent")
+    );
+    assert_eq!(
+        value["projection"]["audit_trace"]["purpose"],
+        json!("audit_trace")
+    );
 
     let json_text = serde_json::to_string(&report).expect("serialize report text");
     let round_tripped: Value = serde_json::from_str(&json_text).expect("parse report json");

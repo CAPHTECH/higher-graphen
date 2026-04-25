@@ -1,12 +1,12 @@
 case_id: hg_architecture_end_to_end_reference
 title: Architecture Product end-to-end reference
 description: Combine input lifting, interpretation, invariant checks, obstructions, completions, review workflow, and projections into the first complete reference product scenario. MCP is out of scope.
-state: open
+state: closed
 labels: []
 metadata: {}
 extensions: {}
 created_at: 2026-04-25T12:21:55.723Z
-updated_at: 2026-04-25T12:32:46.062Z
+updated_at: 2026-04-25T14:17:35.914Z
 case_revision:
-  current: 51
-  last_event_id: 01KQ2A1KFEYTBTQQRARTMFH818
+  current: 86
+  last_event_id: 01KQ2G1HXAQBQ0E1GWG23RNRHS

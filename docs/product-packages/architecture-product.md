@@ -22,6 +22,18 @@ The product maps architecture vocabulary onto HigherGraphen primitives.
 | Completion Candidate | Proposed API, proposed test, proposed interface, proposed ownership clarification. |
 | Projection | Architecture review report, design risk summary, developer action plan. |
 
+The reusable interpretation package is exposed by
+`higher_graphen_interpretation::architecture::architecture_interpretation_package`.
+It registers:
+
+- Vocabulary mappings for components, APIs, databases, events, requirements,
+  tests, ownership, and access.
+- Invariant templates for boundary, ownership, requirement verification, and
+  projection information-loss rules.
+- Projection templates for architecture review reports, design risk summaries,
+  and developer action plans.
+- A bounded JSON lift adapter for `highergraphen.architecture.input.v1`.
+
 ## Inputs
 
 Initial inputs may include:
@@ -100,3 +112,21 @@ This scenario is successful when HigherGraphen can:
 5. Produce a completion candidate.
 6. Project the result into a human-readable architecture review.
 
+## End-to-End Reference
+
+The checked-in reference workflow lives under
+`examples/architecture/reference/`. It is intentionally compact and
+deterministic:
+
+1. Lift `architecture-reference.input.json` through
+   `highergraphen architecture input lift`.
+2. Run the direct database access smoke workflow to produce the invariant
+   violation, obstruction, unreviewed completion candidate, and human/AI/audit
+   projections.
+3. Accept `candidate:billing-status-api` through
+   `highergraphen completion review accept`.
+4. Validate and project the workflow with the file-based `casegraphen` tool.
+
+The exact commands are documented in
+`examples/architecture/reference/README.md`, and the generated reports are kept
+in `examples/architecture/reference/reports/`.

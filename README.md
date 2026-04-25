@@ -24,6 +24,7 @@ documentation is derived from the original proposal in
 - [`docs/specs/package-boundaries.md`](docs/specs/package-boundaries.md) - Package and repository boundaries
 - [`docs/specs/intermediate-tools-map.md`](docs/specs/intermediate-tools-map.md) - Core packages and intermediate `*graphen` tools
 - [`docs/specs/ai-agent-integration.md`](docs/specs/ai-agent-integration.md) - Skills, plugins, MCP, and marketplace integration strategy
+- [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification
 - [`docs/product-packages/architecture-product.md`](docs/product-packages/architecture-product.md) - Reference Architecture Product

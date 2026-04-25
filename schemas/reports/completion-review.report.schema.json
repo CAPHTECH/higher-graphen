@@ -1,0 +1,651 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.completion.review.report.v1",
+  "title": "HigherGraphen Completion Review Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.completion.review.report.v1"
+    },
+    "report_type": {
+      "const": "completion_review"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "runtime_package",
+        "runtime_crate",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "enum": [
+            "highergraphen completion review accept",
+            "highergraphen completion review reject"
+          ]
+        },
+        "runtime_package": {
+          "const": "higher-graphen-runtime"
+        },
+        "runtime_crate": {
+          "const": "higher_graphen_runtime"
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_report",
+        "candidate"
+      ],
+      "properties": {
+        "source_report": {
+          "$ref": "#/$defs/source_report"
+        },
+        "candidate": {
+          "$ref": "#/$defs/completion_candidate"
+        }
+      }
+    },
+    "source_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "report_type",
+        "report_version",
+        "command"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "report_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "report_version": {
+          "type": "integer"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "review_record"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "review_record": {
+          "$ref": "#/$defs/review_record"
+        }
+      }
+    },
+    "review_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "candidate",
+        "outcome_review_status"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/review_request"
+        },
+        "candidate": {
+          "$ref": "#/$defs/completion_candidate"
+        },
+        "outcome_review_status": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "accepted_completion": {
+          "$ref": "#/$defs/accepted_completion"
+        },
+        "rejected_completion": {
+          "$ref": "#/$defs/rejected_completion"
+        }
+      }
+    },
+    "review_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "decision",
+        "reviewer_id",
+        "reason"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "decision": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "completion_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "missing_type",
+        "suggested_structure",
+        "rationale",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "missing_type": {
+          "$ref": "#/$defs/missing_type"
+        },
+        "suggested_structure": {
+          "$ref": "#/$defs/suggested_structure"
+        },
+        "inferred_from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "accepted_completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "space_id",
+        "missing_type",
+        "accepted_structure",
+        "rationale",
+        "confidence",
+        "reviewer_id",
+        "reason",
+        "review_status"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "missing_type": {
+          "$ref": "#/$defs/missing_type"
+        },
+        "accepted_structure": {
+          "$ref": "#/$defs/suggested_structure"
+        },
+        "inferred_from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_status": {
+          "const": "accepted"
+        }
+      }
+    },
+    "rejected_completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "space_id",
+        "missing_type",
+        "rejected_structure",
+        "rationale",
+        "confidence",
+        "reviewer_id",
+        "reason",
+        "review_status"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "missing_type": {
+          "$ref": "#/$defs/missing_type"
+        },
+        "rejected_structure": {
+          "$ref": "#/$defs/suggested_structure"
+        },
+        "inferred_from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_status": {
+          "const": "rejected"
+        }
+      }
+    },
+    "suggested_structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "structure_type",
+        "summary"
+      ],
+      "properties": {
+        "structure_id": {
+          "$ref": "#/$defs/id"
+        },
+        "structure_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "related_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "missing_type": {
+      "enum": [
+        "cell",
+        "incidence",
+        "morphism",
+        "constraint",
+        "invariant",
+        "section",
+        "projection",
+        "context"
+      ]
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "information_loss",
+        "source_ids",
+        "human_review",
+        "ai_view",
+        "audit_trace"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "completion_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "human_review": {
+          "$ref": "#/$defs/human_review"
+        },
+        "ai_view": {
+          "$ref": "#/$defs/ai_view"
+        },
+        "audit_trace": {
+          "$ref": "#/$defs/audit_trace"
+        }
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "completion_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "records",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "ai_agent"
+        },
+        "purpose": {
+          "const": "completion_review"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ai_projection_record"
+          },
+          "minItems": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        }
+      }
+    },
+    "ai_projection_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_type",
+        "summary",
+        "source_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_type": {
+          "enum": [
+            "cell",
+            "incidence",
+            "check_result",
+            "obstruction",
+            "completion_candidate",
+            "completion_review"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "review_status": {
+          "enum": [
+            "unreviewed",
+            "reviewed",
+            "rejected",
+            "accepted"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "provenance": {
+          "type": "object"
+        }
+      }
+    },
+    "audit_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "source_ids",
+        "information_loss",
+        "traces"
+      ],
+      "properties": {
+        "audience": {
+          "const": "audit"
+        },
+        "purpose": {
+          "const": "audit_trace"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        },
+        "information_loss": {
+          "$ref": "#/$defs/projection_information_loss"
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projection_trace"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "represented_in"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "represented_in": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "human_review",
+              "ai_view",
+              "audit_trace"
+            ]
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "projection_source_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1
+    },
+    "projection_information_loss": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/information_loss"
+      },
+      "minItems": 1
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "source_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/projection_source_ids"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema": "highergraphen.case.coverage_policy.v1",
+  "policy_id": "coverage-policy:architecture-reference",
+  "coverage_goal_ids": [
+    "coverage:architecture-reference-end-to-end"
+  ],
+  "require_explicit_relations": true,
+  "metadata": {
+    "reference_workflow": "architecture_product_end_to_end"
+  }
+}

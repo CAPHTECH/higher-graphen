@@ -56,6 +56,22 @@ agent behavior underspecified.
 | Prompt templates | Task-specific prompts for common workflows and projections. |
 | Schemas | Stable JSON schemas for inputs, outputs, reports, candidates, and obstructions. |
 
+## Current CLI Skill Path
+
+The first executable agent integration path is intentionally smaller than the
+full strategy above:
+
+```text
+highergraphen CLI -> JSON report schema -> repository-owned skill
+```
+
+The current repository skill is
+[`skills/highergraphen/SKILL.md`](../../skills/highergraphen/SKILL.md). Agents
+should use it with `scripts/validate-cli-report-contract.py` and the
+Architecture Product smoke report schema. MCP servers, provider plugin bundles,
+marketplace metadata, and provider-specific manifests remain future optional
+work that should consume the same CLI and schema contract.
+
 ## Recommended Repository Layout
 
 The repository should keep agent integrations separate from core crates:
@@ -129,7 +145,7 @@ The first agent skill set should cover the primary HigherGraphen workflows.
 
 | Skill | Agent should use it when | Main tools used |
 | --- | --- | --- |
-| `highergraphen` | The task is to model a target world as higher structure. | Core CLI, MCP structural operations. |
+| `highergraphen` | The task is to run or interpret the first HigherGraphen Architecture Product smoke workflow, or later to model a target world as higher structure. | Current `highergraphen` CLI, report schema, and contract validator; future MCP structural operations. |
 | `casegraphen` | The task is to create, compare, inspect, or complete structured cases. | Case tooling, space tooling, projection tooling. |
 | `morphographen` | The task is to check transformations, mappings, migrations, or preservation. | Morphism tooling, invariant tooling. |
 | `contextgraphen` | The task involves context boundaries, semantic mismatch, local/global consistency, or gluing. | Context tooling, obstruction tooling. |
@@ -219,9 +235,12 @@ An architecture review agent workflow should look like this:
 Recommended order:
 
 1. Define stable CLI and JSON schemas for the Architecture Product scenario.
-2. Add an MCP server around the same operations.
-3. Create the first agent skill for architecture review.
-4. Package the CLI, MCP metadata, schemas, and skills into a plugin bundle.
+2. Create the repository-owned CLI skill and no-network contract validation
+   path.
+3. Add an MCP server around the same operations only after the CLI plus skill
+   contract is stable.
+4. Package the CLI, optional MCP metadata, schemas, and skills into a plugin
+   bundle.
 5. Add marketplace metadata only after the plugin structure is stable.
 6. Repeat for the primary intermediate tools.
 

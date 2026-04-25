@@ -3,14 +3,28 @@
 version = 3
 
 [[package]]
+name = "casegraphen"
+version = "0.1.0"
+dependencies = [
+ "higher-graphen-core",
+ "higher-graphen-projection",
+ "higher-graphen-space",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "higher-graphen-architecture-smoke"
 version = "0.1.0"
 dependencies = [
+ "casegraphen",
  "higher-graphen-completion",
  "higher-graphen-core",
  "higher-graphen-invariant",
  "higher-graphen-obstruction",
+ "higher-graphen-runtime",
  "higher-graphen-space",
+ "serde_json",
 ]
 
 [[package]]
@@ -75,6 +89,7 @@ version = "0.1.0"
 dependencies = [
  "higher-graphen-completion",
  "higher-graphen-core",
+ "higher-graphen-interpretation",
  "higher-graphen-invariant",
  "higher-graphen-obstruction",
  "higher-graphen-projection",
@@ -95,6 +110,7 @@ dependencies = [
 name = "highergraphen-cli"
 version = "0.1.0"
 dependencies = [
+ "higher-graphen-core",
  "higher-graphen-runtime",
  "serde_json",
 ]

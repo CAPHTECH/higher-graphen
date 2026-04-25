@@ -30,6 +30,13 @@ pub enum RuntimeError {
         /// Supported version or range.
         supported: String,
     },
+    /// Runtime received an input schema outside the supported bounded contract.
+    UnsupportedInputSchema {
+        /// Unsupported input schema identifier.
+        schema: String,
+        /// Supported input schema identifier or range.
+        supported: String,
+    },
     /// Report serialization failed.
     Serialization {
         /// Diagnostic explanation for humans.
@@ -45,6 +52,7 @@ impl RuntimeError {
             Self::Core { .. } => "core",
             Self::WorkflowConstruction { .. } => "workflow_construction",
             Self::UnsupportedReportVersion { .. } => "unsupported_report_version",
+            Self::UnsupportedInputSchema { .. } => "unsupported_input_schema",
             Self::Serialization { .. } => "serialization",
         }
     }
@@ -56,6 +64,16 @@ impl RuntimeError {
         Self::WorkflowConstruction {
             workflow: workflow.into(),
             reason: reason.into(),
+        }
+    }
+
+    pub(crate) fn unsupported_input_schema(
+        schema: impl Into<String>,
+        supported: impl Into<String>,
+    ) -> Self {
+        Self::UnsupportedInputSchema {
+            schema: schema.into(),
+            supported: supported.into(),
         }
     }
 
@@ -88,6 +106,11 @@ impl fmt::Display for RuntimeError {
             Self::UnsupportedReportVersion { version, supported } => write!(
                 formatter,
                 "{}: unsupported report version {version}; supported {supported}",
+                self.code()
+            ),
+            Self::UnsupportedInputSchema { schema, supported } => write!(
+                formatter,
+                "{}: unsupported input schema {schema:?}; supported {supported}",
                 self.code()
             ),
             Self::Serialization { reason } => {

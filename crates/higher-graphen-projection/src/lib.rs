@@ -9,8 +9,12 @@ use serde::{Deserialize, Serialize};
 pub enum ProjectionAudience {
     /// A human reader.
     Human,
-    /// An AI agent or model.
+    /// A general AI model.
     Ai,
+    /// An AI agent consuming source-stable records.
+    AiAgent,
+    /// An audit or traceability consumer.
+    Audit,
     /// A software developer.
     Developer,
     /// An architecture or design reviewer.

@@ -1,12 +1,12 @@
 case_id: hg_projection_views_and_loss
 title: Projection views and information loss
 description: Expand projection outputs for human, AI, and audit consumers while keeping declared information loss and source IDs mandatory. MCP is out of scope.
-state: open
+state: closed
 labels: []
 metadata: {}
 extensions: {}
 created_at: 2026-04-25T12:21:55.469Z
-updated_at: 2026-04-25T12:32:11.468Z
+updated_at: 2026-04-25T13:34:34.409Z
 case_revision:
-  current: 34
-  last_event_id: 01KQ2A0HPCZP60RC1MEEKKWBMY
+  current: 63
+  last_event_id: 01KQ2DJRX96PXMKZ2F3BY222XH

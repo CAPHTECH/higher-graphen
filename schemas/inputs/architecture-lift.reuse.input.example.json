@@ -1,0 +1,110 @@
+{
+  "schema": "highergraphen.architecture.input.v1",
+  "source": {
+    "kind": "document",
+    "uri": "schemas/inputs/architecture-lift.reuse.input.example.json",
+    "title": "Architecture input lift reuse fixture",
+    "captured_at": "2026-04-25T00:00:00Z",
+    "confidence": 0.9
+  },
+  "space": {
+    "id": "space:architecture-product-reuse",
+    "name": "Architecture Product Reuse",
+    "description": "Bounded JSON fixture proving the architecture lift adapter supports non-database vocabulary."
+  },
+  "contexts": [
+    {
+      "id": "context:orders",
+      "name": "Orders"
+    },
+    {
+      "id": "context:platform-events",
+      "name": "Platform Events"
+    },
+    {
+      "id": "context:architecture-review",
+      "name": "Architecture Review"
+    }
+  ],
+  "components": [
+    {
+      "id": "cell:order-service-reuse",
+      "type": "service",
+      "label": "Order Service",
+      "context_id": "context:orders",
+      "source_local_id": "components.order_service",
+      "confidence": 0.95
+    },
+    {
+      "id": "cell:order-status-api",
+      "type": "api",
+      "label": "Order Status API",
+      "context_id": "context:orders",
+      "source_local_id": "components.order_status_api",
+      "confidence": 0.9
+    },
+    {
+      "id": "cell:order-placed-event",
+      "type": "event",
+      "label": "Order Placed Event",
+      "context_id": "context:platform-events",
+      "source_local_id": "components.order_placed_event",
+      "confidence": 0.85
+    },
+    {
+      "id": "cell:req-order-status-visible",
+      "type": "requirement",
+      "label": "Order status is visible",
+      "context_id": "context:architecture-review",
+      "source_local_id": "requirements.order_status_visible",
+      "confidence": 0.9
+    },
+    {
+      "id": "cell:test-order-status-contract",
+      "type": "test",
+      "label": "Order status contract test",
+      "context_id": "context:architecture-review",
+      "source_local_id": "tests.order_status_contract",
+      "confidence": 0.9
+    }
+  ],
+  "relations": [
+    {
+      "id": "incidence:order-service-calls-order-status-api",
+      "type": "calls_api",
+      "from": "cell:order-service-reuse",
+      "to": "cell:order-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.calls_order_status_api",
+      "confidence": 0.9
+    },
+    {
+      "id": "incidence:order-service-publishes-order-placed",
+      "type": "publishes_event",
+      "from": "cell:order-service-reuse",
+      "to": "cell:order-placed-event",
+      "orientation": "directed",
+      "source_local_id": "relations.publishes_order_placed",
+      "confidence": 0.82
+    },
+    {
+      "id": "incidence:req-realized-by-order-status-api",
+      "type": "realizes_requirement",
+      "from": "cell:req-order-status-visible",
+      "to": "cell:order-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.requirement_to_api",
+      "confidence": 0.86
+    },
+    {
+      "id": "incidence:order-status-api-covered-by-contract-test",
+      "type": "covered_by_test",
+      "from": "cell:order-status-api",
+      "to": "cell:test-order-status-contract",
+      "orientation": "directed",
+      "source_local_id": "relations.api_to_test",
+      "confidence": 0.88
+    }
+  ],
+  "inferred_structures": []
+}

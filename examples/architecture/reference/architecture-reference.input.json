@@ -1,0 +1,151 @@
+{
+  "schema": "highergraphen.architecture.input.v1",
+  "source": {
+    "kind": "document",
+    "uri": "examples/architecture/reference/architecture-reference.input.json",
+    "title": "Architecture Product end-to-end reference fixture",
+    "captured_at": "2026-04-25T00:00:00Z",
+    "confidence": 0.96
+  },
+  "space": {
+    "id": "space:architecture-product-reference",
+    "name": "Architecture Product Reference",
+    "description": "Compact end-to-end fixture with services, an API, a database, a requirement, a test, and one reviewable inferred structure."
+  },
+  "contexts": [
+    {
+      "id": "context:orders",
+      "name": "Orders"
+    },
+    {
+      "id": "context:billing",
+      "name": "Billing"
+    },
+    {
+      "id": "context:architecture-review",
+      "name": "Architecture Review"
+    }
+  ],
+  "components": [
+    {
+      "id": "cell:order-service",
+      "type": "service",
+      "label": "Order Service",
+      "context_id": "context:orders",
+      "source_local_id": "components.order_service",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:billing-service",
+      "type": "service",
+      "label": "Billing Service",
+      "context_id": "context:billing",
+      "source_local_id": "components.billing_service",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:billing-db",
+      "type": "database",
+      "label": "Billing DB",
+      "context_id": "context:billing",
+      "source_local_id": "components.billing_db",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:order-status-api",
+      "type": "api",
+      "label": "Order Status API",
+      "context_id": "context:orders",
+      "source_local_id": "components.order_status_api",
+      "confidence": 0.94
+    },
+    {
+      "id": "cell:req-billing-status-visible",
+      "type": "requirement",
+      "label": "Order view shows billing status",
+      "context_id": "context:architecture-review",
+      "source_local_id": "requirements.billing_status_visible",
+      "confidence": 0.92
+    },
+    {
+      "id": "cell:test-order-status-contract",
+      "type": "test",
+      "label": "Order status contract test",
+      "context_id": "context:architecture-review",
+      "source_local_id": "tests.order_status_contract",
+      "confidence": 0.9
+    }
+  ],
+  "relations": [
+    {
+      "id": "incidence:order-service-reads-billing-db",
+      "type": "reads_database",
+      "from": "cell:order-service",
+      "to": "cell:billing-db",
+      "orientation": "directed",
+      "source_local_id": "relations.order_reads_billing_db",
+      "confidence": 0.95
+    },
+    {
+      "id": "incidence:billing-service-owns-billing-db",
+      "type": "owns_database",
+      "from": "cell:billing-service",
+      "to": "cell:billing-db",
+      "orientation": "directed",
+      "source_local_id": "relations.billing_owns_billing_db",
+      "confidence": 1.0
+    },
+    {
+      "id": "incidence:order-service-calls-order-status-api",
+      "type": "calls_api",
+      "from": "cell:order-service",
+      "to": "cell:order-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.order_calls_order_status_api",
+      "confidence": 0.9
+    },
+    {
+      "id": "incidence:req-billing-status-realized-by-billing-service",
+      "type": "realizes_requirement",
+      "from": "cell:req-billing-status-visible",
+      "to": "cell:billing-service",
+      "orientation": "directed",
+      "source_local_id": "relations.requirement_to_billing_service",
+      "confidence": 0.86
+    },
+    {
+      "id": "incidence:billing-service-covered-by-order-status-contract",
+      "type": "covered_by_test",
+      "from": "cell:billing-service",
+      "to": "cell:test-order-status-contract",
+      "orientation": "directed",
+      "source_local_id": "relations.billing_service_to_contract_test",
+      "confidence": 0.84
+    }
+  ],
+  "inferred_structures": [
+    {
+      "id": "candidate:billing-status-api",
+      "missing_type": "cell",
+      "structure_id": "cell:billing-status-api",
+      "structure_type": "api",
+      "summary": "Billing Service should expose a billing status query API.",
+      "related_ids": [
+        "cell:billing-service",
+        "cell:order-service",
+        "cell:billing-db",
+        "cell:req-billing-status-visible"
+      ],
+      "inferred_from": [
+        "incidence:order-service-reads-billing-db",
+        "incidence:billing-service-owns-billing-db"
+      ],
+      "rationale": "Order Service needs billing status without directly reading Billing DB.",
+      "context_ids": [
+        "context:architecture-review"
+      ],
+      "confidence": 0.86,
+      "source_local_id": "inferences.billing_status_api"
+    }
+  ]
+}

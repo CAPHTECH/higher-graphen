@@ -1,0 +1,415 @@
+{
+  "input": {
+    "path": "examples/architecture/reference/casegraphen-reference.case.graph.json",
+    "projection": "examples/architecture/reference/casegraphen-reference.projection.json"
+  },
+  "metadata": {
+    "command": "casegraphen project",
+    "core_packages": [
+      "higher-graphen-core",
+      "higher-graphen-space"
+    ],
+    "tool_package": "tools/casegraphen"
+  },
+  "projection": {
+    "ai_view": {
+      "cases": [
+        {
+          "case_type": "reference",
+          "cell_ids": [
+            "cell:order-service",
+            "cell:billing-service",
+            "cell:billing-db",
+            "cell:order-status-api",
+            "cell:req-billing-status-visible",
+            "cell:test-order-status-contract"
+          ],
+          "context_ids": [
+            "context:orders",
+            "context:billing",
+            "context:architecture-review"
+          ],
+          "expected_outcomes": [
+            {
+              "id": "outcome:architecture-input-lifted",
+              "summary": "Accepted facts are lifted and inferred structures remain unreviewed completion candidates."
+            }
+          ],
+          "id": "case:architecture-reference-input-lift",
+          "incidence_ids": [
+            "incidence:order-service-reads-billing-db",
+            "incidence:billing-service-owns-billing-db",
+            "incidence:order-service-calls-order-status-api",
+            "incidence:req-billing-status-realized-by-billing-service",
+            "incidence:billing-service-covered-by-order-status-contract"
+          ],
+          "observed_outcomes": [
+            {
+              "id": "outcome:architecture-input-lifted",
+              "summary": "Accepted facts are lifted and inferred structures remain unreviewed completion candidates."
+            }
+          ],
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "captured_at": "2026-04-25T00:00:00Z",
+              "kind": "document",
+              "title": "Architecture Product end-to-end reference fixture",
+              "uri": "examples/architecture/reference/architecture-reference.input.json"
+            }
+          },
+          "scenario_ids": [
+            "scenario:architecture-reference-workflow"
+          ],
+          "situation_summary": "A compact architecture document is lifted into accepted cells and incidences while inferred structure remains a completion candidate.",
+          "source_ids": [
+            "source:architecture-reference-input",
+            "source:architecture-input-lift-report"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "tags": [
+            "architecture",
+            "input-lift",
+            "reference"
+          ],
+          "title": "Architecture reference input lift"
+        },
+        {
+          "case_type": "smoke",
+          "cell_ids": [
+            "cell:order-service",
+            "cell:billing-service",
+            "cell:billing-db"
+          ],
+          "context_ids": [
+            "context:orders",
+            "context:billing"
+          ],
+          "expected_outcomes": [
+            {
+              "id": "outcome:violation-detected",
+              "summary": "The direct cross-context database access invariant is violated and produces an obstruction."
+            }
+          ],
+          "id": "case:direct-db-access-smoke",
+          "incidence_ids": [
+            "incidence:order-service-reads-billing-db",
+            "incidence:billing-service-owns-billing-db"
+          ],
+          "observed_outcomes": [
+            {
+              "id": "outcome:violation-detected",
+              "summary": "The direct cross-context database access invariant is violated and produces an obstruction."
+            }
+          ],
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/reports/architecture-direct-db-access-smoke.report.json"
+            }
+          },
+          "scenario_ids": [
+            "scenario:direct-db-boundary"
+          ],
+          "situation_summary": "Order Service reads Billing DB directly across the Orders and Billing contexts.",
+          "source_ids": [
+            "source:architecture-smoke-report"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "tags": [
+            "architecture",
+            "invariant",
+            "obstruction"
+          ],
+          "title": "Direct database access violation"
+        },
+        {
+          "case_type": "review",
+          "cell_ids": [
+            "cell:order-service",
+            "cell:billing-service",
+            "cell:billing-status-api"
+          ],
+          "context_ids": [
+            "context:orders",
+            "context:billing",
+            "context:architecture-review"
+          ],
+          "expected_outcomes": [
+            {
+              "id": "outcome:candidate-explicitly-accepted",
+              "summary": "The review report records an accepted outcome for candidate:billing-status-api."
+            }
+          ],
+          "id": "case:completion-review-accept",
+          "incidence_ids": [
+            "incidence:order-service-reads-billing-db"
+          ],
+          "observed_outcomes": [
+            {
+              "id": "outcome:candidate-explicitly-accepted",
+              "summary": "The review report records an accepted outcome for candidate:billing-status-api."
+            }
+          ],
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/reports/completion-review-accepted.report.json"
+            }
+          },
+          "scenario_ids": [
+            "scenario:completion-review"
+          ],
+          "situation_summary": "The billing status API completion candidate is accepted by an architecture reviewer without mutating the source candidate snapshot.",
+          "source_ids": [
+            "source:completion-review-report"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "tags": [
+            "completion",
+            "review",
+            "reference"
+          ],
+          "title": "Completion candidate accepted by explicit review"
+        }
+      ],
+      "conflicts": [],
+      "coverage_goals": [
+        {
+          "coverage_type": "reference_workflow",
+          "dimensions": [
+            0,
+            1
+          ],
+          "id": "coverage:architecture-reference-end-to-end",
+          "min_cases_per_target": 1,
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/README.md"
+            }
+          },
+          "required_ids": [
+            "scenario:architecture-reference-workflow",
+            "scenario:direct-db-boundary",
+            "scenario:completion-review",
+            "cell:order-service",
+            "cell:billing-service",
+            "cell:billing-db",
+            "cell:order-status-api",
+            "cell:req-billing-status-visible",
+            "cell:test-order-status-contract",
+            "cell:billing-status-api",
+            "incidence:order-service-reads-billing-db",
+            "incidence:billing-service-owns-billing-db",
+            "incidence:order-service-calls-order-status-api",
+            "incidence:req-billing-status-realized-by-billing-service",
+            "incidence:billing-service-covered-by-order-status-contract",
+            "context:orders",
+            "context:billing",
+            "context:architecture-review"
+          ],
+          "severity_if_uncovered": "high",
+          "source_ids": [
+            "source:reference-workflow-docs"
+          ],
+          "space_id": "space:architecture-product-reference"
+        }
+      ],
+      "missing_cases": [],
+      "scenarios": [
+        {
+          "coverage_target_ids": [
+            "coverage:architecture-reference-end-to-end"
+          ],
+          "id": "scenario:architecture-reference-workflow",
+          "parameters": {
+            "input_schema": "highergraphen.architecture.input.v1",
+            "review_action": "accept"
+          },
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/README.md"
+            }
+          },
+          "required_cell_types": [
+            "service",
+            "database",
+            "api",
+            "requirement",
+            "test"
+          ],
+          "required_context_ids": [
+            "context:orders",
+            "context:billing",
+            "context:architecture-review"
+          ],
+          "scenario_type": "end_to_end",
+          "source_ids": [
+            "source:architecture-reference-input",
+            "source:reference-workflow-docs"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "title": "Architecture Product end-to-end workflow"
+        },
+        {
+          "coverage_target_ids": [
+            "coverage:architecture-reference-end-to-end"
+          ],
+          "id": "scenario:direct-db-boundary",
+          "parameters": {
+            "source_cell_type": "service",
+            "target_cell_type": "database"
+          },
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/reports/architecture-direct-db-access-smoke.report.json"
+            }
+          },
+          "required_cell_types": [
+            "service",
+            "database"
+          ],
+          "required_context_ids": [
+            "context:orders",
+            "context:billing"
+          ],
+          "scenario_type": "boundary",
+          "source_ids": [
+            "source:architecture-smoke-report"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "title": "Service crosses a DB ownership boundary"
+        },
+        {
+          "coverage_target_ids": [
+            "coverage:architecture-reference-end-to-end"
+          ],
+          "id": "scenario:completion-review",
+          "parameters": {
+            "candidate_id": "candidate:billing-status-api",
+            "reviewer_id": "reviewer:architecture-lead"
+          },
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "examples/architecture/reference/reports/completion-review-accepted.report.json"
+            }
+          },
+          "required_cell_types": [
+            "api"
+          ],
+          "required_context_ids": [
+            "context:architecture-review"
+          ],
+          "scenario_type": "review",
+          "source_ids": [
+            "source:completion-review-report"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "title": "Completion candidate review"
+        }
+      ]
+    },
+    "audit_trace": {
+      "boundary_coverage": {
+        "represented_boundary_ids": [],
+        "represented_context_ids": [],
+        "uncovered_context_ids": []
+      },
+      "information_loss": [
+        "projection summarizes case bodies and does not mutate source graph"
+      ],
+      "per_source_case_ids": {
+        "source:architecture-input-lift-report": [
+          "case:architecture-reference-input-lift"
+        ],
+        "source:architecture-reference-input": [
+          "case:architecture-reference-input-lift"
+        ],
+        "source:architecture-smoke-report": [
+          "case:direct-db-access-smoke"
+        ],
+        "source:completion-review-report": [
+          "case:completion-review-accept"
+        ]
+      },
+      "source_ids": [
+        "source:architecture-input-lift-report",
+        "source:architecture-reference-input",
+        "source:architecture-smoke-report",
+        "source:completion-review-report",
+        "source:reference-workflow-docs"
+      ]
+    },
+    "human_review": {
+      "case_summaries": [
+        {
+          "case_id": "case:architecture-reference-input-lift",
+          "case_type": "reference",
+          "source_ids": [
+            "source:architecture-reference-input",
+            "source:architecture-input-lift-report"
+          ],
+          "summary": "A compact architecture document is lifted into accepted cells and incidences while inferred structure remains a completion candidate.",
+          "title": "Architecture reference input lift"
+        },
+        {
+          "case_id": "case:direct-db-access-smoke",
+          "case_type": "smoke",
+          "source_ids": [
+            "source:architecture-smoke-report"
+          ],
+          "summary": "Order Service reads Billing DB directly across the Orders and Billing contexts.",
+          "title": "Direct database access violation"
+        },
+        {
+          "case_id": "case:completion-review-accept",
+          "case_type": "review",
+          "source_ids": [
+            "source:completion-review-report"
+          ],
+          "summary": "The billing status API completion candidate is accepted by an architecture reviewer without mutating the source candidate snapshot.",
+          "title": "Completion candidate accepted by explicit review"
+        }
+      ],
+      "conflict_explanations": [],
+      "missing_case_prompts": [],
+      "recommended_review_actions": [
+        "no review action required by this projection"
+      ]
+    }
+  },
+  "report_type": "case_project",
+  "report_version": 1,
+  "result": {
+    "information_loss": [
+      "projection summarizes case bodies and does not mutate source graph"
+    ],
+    "omitted_source_ids": [],
+    "projection_result": "projected",
+    "selected_source_ids": [
+      "source:architecture-input-lift-report",
+      "source:architecture-reference-input",
+      "source:architecture-smoke-report",
+      "source:completion-review-report",
+      "source:reference-workflow-docs"
+    ]
+  },
+  "schema": "highergraphen.case.project.report.v1"
+}

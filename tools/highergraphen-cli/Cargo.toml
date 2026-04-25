@@ -14,6 +14,7 @@ name = "highergraphen"
 path = "src/main.rs"
 
 [dependencies]
+higher-graphen-core.workspace = true
 higher-graphen-runtime.workspace = true
 serde_json.workspace = true
 

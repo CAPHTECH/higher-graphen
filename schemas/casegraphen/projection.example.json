@@ -1,0 +1,7 @@
+{
+  "schema": "highergraphen.case.projection.v1",
+  "projection_id": "projection:ai-review",
+  "audience": "ai_agent",
+  "include_sources": true,
+  "metadata": {}
+}

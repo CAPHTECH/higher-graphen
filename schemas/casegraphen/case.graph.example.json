@@ -1,0 +1,133 @@
+{
+  "schema": "highergraphen.case.graph.v1",
+  "case_graph_id": "case_graph:architecture-smoke",
+  "space_id": "space:architecture-product-smoke",
+  "cases": [
+    {
+      "id": "case:direct-db-access-smoke",
+      "space_id": "space:architecture-product-smoke",
+      "title": "Direct DB access smoke scenario",
+      "case_type": "smoke",
+      "situation_summary": "Order Service reads Billing DB directly.",
+      "scenario_ids": [
+        "scenario:service-db-boundary"
+      ],
+      "cell_ids": [
+        "cell:order-service",
+        "cell:billing-db"
+      ],
+      "incidence_ids": [
+        "incidence:order-service-reads-billing-db"
+      ],
+      "context_ids": [
+        "context:orders"
+      ],
+      "expected_outcomes": [
+        {
+          "id": "outcome:violation-detected",
+          "summary": "Direct cross-context DB access is reported."
+        }
+      ],
+      "observed_outcomes": [
+        {
+          "id": "outcome:violation-detected",
+          "summary": "No violation was reported."
+        }
+      ],
+      "source_ids": [
+        "source:architecture-input"
+      ],
+      "tags": [
+        "architecture",
+        "boundary"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "scenario:service-db-boundary",
+      "space_id": "space:architecture-product-smoke",
+      "title": "Service crosses a DB ownership boundary",
+      "scenario_type": "boundary",
+      "parameters": {
+        "source_cell_type": "service",
+        "target_cell_type": "database"
+      },
+      "required_context_ids": [
+        "context:orders",
+        "context:billing"
+      ],
+      "required_cell_types": [
+        "service",
+        "database"
+      ],
+      "coverage_target_ids": [
+        "coverage:owned-db-access"
+      ],
+      "source_ids": [
+        "source:architecture-scenario-template"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      }
+    }
+  ],
+  "coverage_goals": [
+    {
+      "id": "coverage:owned-db-access",
+      "space_id": "space:architecture-product-smoke",
+      "coverage_type": "boundary",
+      "required_ids": [
+        "cell:order-service",
+        "cell:billing-db",
+        "context:orders",
+        "context:billing"
+      ],
+      "dimensions": [
+        0,
+        1
+      ],
+      "min_cases_per_target": 1,
+      "severity_if_uncovered": "high",
+      "source_ids": [
+        "source:architecture-requirements"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation:case-covers-boundary",
+      "relation_type": "covers",
+      "from_id": "case:direct-db-access-smoke",
+      "to_id": "coverage:owned-db-access",
+      "evidence_ids": [],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      }
+    }
+  ],
+  "review_records": [],
+  "metadata": {}
+}
