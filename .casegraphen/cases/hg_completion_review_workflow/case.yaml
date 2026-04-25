@@ -1,0 +1,12 @@
+case_id: hg_completion_review_workflow
+title: Completion candidate review workflow
+description: Add explicit accept/reject handling for completion candidates while preserving the rule that candidates are never silently promoted. MCP is out of scope.
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T12:21:55.383Z
+updated_at: 2026-04-25T12:21:55.464Z
+case_revision:
+  current: 18
+  last_event_id: 01KQ29DR48Y4R026BJCX03AAVZ

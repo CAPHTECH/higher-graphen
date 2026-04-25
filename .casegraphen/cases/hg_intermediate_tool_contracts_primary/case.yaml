@@ -1,0 +1,12 @@
+case_id: hg_intermediate_tool_contracts_primary
+title: Primary intermediate tool contracts
+description: Turn the intermediate tools map into implementable contracts for the first `*graphen` tool family without building every command at once. MCP is out of scope.
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T12:21:55.557Z
+updated_at: 2026-04-25T12:21:55.634Z
+case_revision:
+  current: 17
+  last_event_id: 01KQ29DR9J53CZF0Q0SQ91JAET

@@ -1,0 +1,12 @@
+case_id: hg_casegraphen_tool_foundation
+title: casegraphen tool foundation
+description: Implement the first intermediate tool around structured cases. MCP is out of scope.
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T12:21:55.638Z
+updated_at: 2026-04-25T12:21:55.718Z
+case_revision:
+  current: 18
+  last_event_id: 01KQ29DRC601QRGGEH2CRXN0CH
