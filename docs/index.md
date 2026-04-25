@@ -8,30 +8,32 @@ The original proposal remains available as source material:
 ## Recommended Reading Order
 
 1. [`overview.md`](overview.md)
-2. [`concepts/core-concepts.md`](concepts/core-concepts.md)
-3. [`concepts/higher-structure-model.md`](concepts/higher-structure-model.md)
-4. [`concepts/theoretical-foundations.md`](concepts/theoretical-foundations.md)
-5. [`specs/package-boundaries.md`](specs/package-boundaries.md)
-6. [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md)
-7. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
-8. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
-9. [`specs/core-contracts.md`](specs/core-contracts.md)
-10. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
-11. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
-12. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
-13. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
-14. [`cli/highergraphen.md`](cli/highergraphen.md)
-15. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-16. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-17. [`specs/engine-traits.md`](specs/engine-traits.md)
-18. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-19. [`mvp-roadmap.md`](mvp-roadmap.md)
+2. [`concepts/ai-operator-paradigm.md`](concepts/ai-operator-paradigm.md)
+3. [`concepts/core-concepts.md`](concepts/core-concepts.md)
+4. [`concepts/higher-structure-model.md`](concepts/higher-structure-model.md)
+5. [`concepts/theoretical-foundations.md`](concepts/theoretical-foundations.md)
+6. [`specs/package-boundaries.md`](specs/package-boundaries.md)
+7. [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md)
+8. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
+9. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
+10. [`specs/core-contracts.md`](specs/core-contracts.md)
+11. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
+12. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
+13. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
+14. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
+15. [`cli/highergraphen.md`](cli/highergraphen.md)
+16. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+17. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+18. [`specs/engine-traits.md`](specs/engine-traits.md)
+19. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+20. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
 | Document | Purpose |
 | --- | --- |
 | [`overview.md`](overview.md) | Defines the product, the problem space, and the intended positioning. |
+| [`concepts/ai-operator-paradigm.md`](concepts/ai-operator-paradigm.md) | Explains the shift from human-operated products to AI-operated products that expose higher-order structure directly. |
 | [`concepts/core-concepts.md`](concepts/core-concepts.md) | Establishes the official vocabulary used by all later documents. |
 | [`concepts/higher-structure-model.md`](concepts/higher-structure-model.md) | Describes how cells, complexes, contexts, morphisms, invariants, obstructions, completions, and projections fit together. |
 | [`concepts/theoretical-foundations.md`](concepts/theoretical-foundations.md) | Records the mathematical and computer science concepts used as engineering primitives. |
