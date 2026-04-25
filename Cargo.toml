@@ -1,0 +1,40 @@
+[workspace]
+members = [
+    "crates/higher-graphen-core",
+    "crates/higher-graphen-space",
+    "crates/higher-graphen-morphism",
+    "crates/higher-graphen-invariant",
+    "crates/higher-graphen-obstruction",
+    "crates/higher-graphen-completion",
+    "crates/higher-graphen-projection",
+    "crates/higher-graphen-interpretation",
+    "examples/architecture",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["HigherGraphen Contributors"]
+readme = "README.md"
+repository = "https://github.com/CAPHTECH/higher-graphen"
+
+[workspace.dependencies]
+higher-graphen-core = { version = "0.1.0", path = "crates/higher-graphen-core" }
+higher-graphen-space = { version = "0.1.0", path = "crates/higher-graphen-space" }
+higher-graphen-morphism = { version = "0.1.0", path = "crates/higher-graphen-morphism" }
+higher-graphen-invariant = { version = "0.1.0", path = "crates/higher-graphen-invariant" }
+higher-graphen-obstruction = { version = "0.1.0", path = "crates/higher-graphen-obstruction" }
+higher-graphen-completion = { version = "0.1.0", path = "crates/higher-graphen-completion" }
+higher-graphen-projection = { version = "0.1.0", path = "crates/higher-graphen-projection" }
+higher-graphen-interpretation = { version = "0.1.0", path = "crates/higher-graphen-interpretation" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

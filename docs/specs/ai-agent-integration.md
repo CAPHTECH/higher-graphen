@@ -104,6 +104,25 @@ The exact folder names can change when provider packaging rules are confirmed.
 The important boundary is that provider-specific manifests should not leak into
 core crates.
 
+## Agent-Facing Naming Contract
+
+Agent-facing names must follow the repository naming contract in
+[`package-boundaries.md`](package-boundaries.md):
+
+| Surface | Name rule | Example |
+| --- | --- | --- |
+| Umbrella skill | Lowercase product name without punctuation. | `highergraphen` |
+| Intermediate tool skill | Bare `*graphen` tool name. | `casegraphen` |
+| Architecture workflow skill | Domain workflow name, not a package name. | `architecture-review` |
+| Plugin bundle directory | Provider directory plus umbrella bundle name. | `integrations/claude/plugins/highergraphen/` |
+| Marketplace display name | Product casing for humans. | `HigherGraphen` |
+| CLI command family | Tool command names mirror intermediate tool names. | `casegraphen`, `morphographen` |
+| MCP server name | Product-scoped service name. | `highergraphen-mcp` |
+
+Provider-specific identifiers may require a namespace or reverse-DNS prefix at
+implementation time. Such identifiers should derive from the names above
+instead of introducing a second naming family.
+
 ## Minimum Agent Skill Set
 
 The first agent skill set should cover the primary HigherGraphen workflows.
@@ -207,4 +226,3 @@ Recommended order:
 6. Repeat for the primary intermediate tools.
 
 This order keeps provider-specific packaging behind a stable tool contract.
-

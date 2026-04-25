@@ -14,10 +14,13 @@ The original proposal remains available as source material:
 5. [`specs/package-boundaries.md`](specs/package-boundaries.md)
 6. [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md)
 7. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
-8. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-9. [`specs/engine-traits.md`](specs/engine-traits.md)
-10. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-11. [`mvp-roadmap.md`](mvp-roadmap.md)
+8. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
+9. [`specs/core-contracts.md`](specs/core-contracts.md)
+10. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
+11. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+12. [`specs/engine-traits.md`](specs/engine-traits.md)
+13. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+14. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -30,6 +33,9 @@ The original proposal remains available as source material:
 | [`specs/package-boundaries.md`](specs/package-boundaries.md) | Defines crate boundaries, repository layout, and dependency direction. |
 | [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md) | Maps core packages to intermediate `*graphen` tools and their theoretical foundations. |
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
+| [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
+| [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
+| [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md) | Defines package-level implementation plans for non-core MVP crates. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |

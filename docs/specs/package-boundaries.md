@@ -74,6 +74,27 @@ Repository and package names should use `higher-graphen` as the stable prefix.
 The shorter name `Graphen` should not be used as the product name because it can
 be confused with graphene, the carbon material.
 
+The implementation naming contract is:
+
+| Surface | Rule | Example |
+| --- | --- | --- |
+| Repository | Lowercase kebab-case product name. | `higher-graphen` |
+| Workspace path | Rust packages live under `crates/<cargo-package>/`. | `crates/higher-graphen-core/` |
+| Rust Cargo package | `higher-graphen-<component>` for core packages. | `higher-graphen-core` |
+| Rust import crate | Replace hyphens with underscores. | `higher_graphen_core` |
+| npm package | Use the `@higher-graphen` scope with a short component name. | `@higher-graphen/core` |
+| Python distribution | Use the same hyphenated package family as Rust. | `higher-graphen-core` |
+| Python import path | Use the `higher_graphen` namespace package. | `higher_graphen.core` |
+| Intermediate tool name | Use bare lowercase `*graphen`; do not prefix with `higher-graphen`. | `casegraphen` |
+| Intermediate tool package | Tool packages live under `tools/<tool-name>/`. | `tools/casegraphen/` |
+| Agent-facing skill name | Use the same bare tool name for tool-specific skills. | `casegraphen` |
+| Agent plugin bundle name | Use `highergraphen` for the umbrella bundle; tool skills sit inside it. | `highergraphen` |
+
+Core packages and intermediate tools intentionally use different naming
+families. A core package is a reusable library such as `higher-graphen-morphism`;
+an intermediate tool is an operational interpretation such as `morphographen`.
+Bindings may expose both, but they must preserve this distinction.
+
 Recommended external naming:
 
 ```text

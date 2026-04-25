@@ -1,0 +1,777 @@
+//! Space, cell, incidence, complex, boundary, and storage abstractions for HigherGraphen.
+
+use higher_graphen_core::{CoreError, Id, Provenance, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Non-negative cell dimension.
+pub type Dimension = u32;
+
+/// Directionality for an incidence between cells.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IncidenceOrientation {
+    /// The incidence has a source and target direction.
+    Directed,
+    /// The incidence connects cells without source-target direction.
+    Undirected,
+}
+
+/// Structural kind represented by a complex.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComplexType {
+    /// A typed graph complex.
+    TypedGraph,
+    /// A hypergraph complex.
+    Hypergraph,
+    /// A simplicial complex.
+    SimplicialComplex,
+    /// A cell complex.
+    CellComplex,
+    /// A downstream structural kind that is not product-specific.
+    Custom(String),
+}
+
+/// Top-level structural container for cells, incidences, complexes, and contexts.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Space {
+    /// Stable space identifier.
+    pub id: Id,
+    /// Human-readable space name.
+    pub name: String,
+    /// Optional space description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Cells owned by the space.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cell_ids: Vec<Id>,
+    /// Incidences owned by the space.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub incidence_ids: Vec<Id>,
+    /// Complexes owned by the space.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub complex_ids: Vec<Id>,
+    /// Context identifiers referenced by cells in the space.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context_ids: Vec<Id>,
+}
+
+impl Space {
+    /// Creates a space with empty structural membership lists.
+    #[must_use]
+    pub fn new(id: Id, name: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: name.into().trim().to_owned(),
+            description: None,
+            cell_ids: Vec::new(),
+            incidence_ids: Vec::new(),
+            complex_ids: Vec::new(),
+            context_ids: Vec::new(),
+        }
+    }
+
+    /// Returns this space with an optional description.
+    #[must_use]
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+}
+
+/// Typed structural element inside a space.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Cell {
+    /// Stable cell identifier.
+    pub id: Id,
+    /// Owning space identifier.
+    pub space_id: Id,
+    /// Cell dimension.
+    pub dimension: Dimension,
+    /// Abstract or downstream-owned cell type.
+    pub cell_type: String,
+    /// Optional display label.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Lower-dimensional cells on this cell's boundary.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub boundary: Vec<Id>,
+    /// Higher-dimensional cells that include this cell on their boundary.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub coboundary: Vec<Id>,
+    /// Contexts in which this cell participates.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context_ids: Vec<Id>,
+    /// Source and review metadata for this cell.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+}
+
+impl Cell {
+    /// Creates a cell with empty boundary, coboundary, and context membership.
+    #[must_use]
+    pub fn new(id: Id, space_id: Id, dimension: Dimension, cell_type: impl Into<String>) -> Self {
+        Self {
+            id,
+            space_id,
+            dimension,
+            cell_type: cell_type.into().trim().to_owned(),
+            label: None,
+            boundary: Vec::new(),
+            coboundary: Vec::new(),
+            context_ids: Vec::new(),
+            provenance: None,
+        }
+    }
+
+    /// Returns this cell with a display label.
+    #[must_use]
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Returns this cell with a boundary cell identifier appended.
+    #[must_use]
+    pub fn with_boundary_cell(mut self, cell_id: Id) -> Self {
+        push_unique(&mut self.boundary, cell_id);
+        self
+    }
+
+    /// Returns this cell with a context identifier appended.
+    #[must_use]
+    pub fn with_context(mut self, context_id: Id) -> Self {
+        push_unique(&mut self.context_ids, context_id);
+        self
+    }
+
+    /// Returns this cell with source and review metadata.
+    #[must_use]
+    pub fn with_provenance(mut self, provenance: Provenance) -> Self {
+        self.provenance = Some(provenance);
+        self
+    }
+}
+
+/// Relation record between two cells in a space.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Incidence {
+    /// Stable incidence identifier.
+    pub id: Id,
+    /// Owning space identifier.
+    pub space_id: Id,
+    /// Source cell identifier.
+    pub from_cell_id: Id,
+    /// Target cell identifier.
+    pub to_cell_id: Id,
+    /// Abstract relation type.
+    pub relation_type: String,
+    /// Relation directionality.
+    pub orientation: IncidenceOrientation,
+    /// Optional finite relation weight.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weight: Option<f64>,
+    /// Source and review metadata for this incidence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+}
+
+impl Incidence {
+    /// Creates an incidence without weight or provenance.
+    #[must_use]
+    pub fn new(
+        id: Id,
+        space_id: Id,
+        from_cell_id: Id,
+        to_cell_id: Id,
+        relation_type: impl Into<String>,
+        orientation: IncidenceOrientation,
+    ) -> Self {
+        Self {
+            id,
+            space_id,
+            from_cell_id,
+            to_cell_id,
+            relation_type: relation_type.into().trim().to_owned(),
+            orientation,
+            weight: None,
+            provenance: None,
+        }
+    }
+
+    /// Returns this incidence with a finite weight.
+    #[must_use]
+    pub fn with_weight(mut self, weight: f64) -> Self {
+        self.weight = Some(weight);
+        self
+    }
+
+    /// Returns this incidence with source and review metadata.
+    #[must_use]
+    pub fn with_provenance(mut self, provenance: Provenance) -> Self {
+        self.provenance = Some(provenance);
+        self
+    }
+}
+
+/// Organized collection of cells and incidences inside one space.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Complex {
+    /// Stable complex identifier.
+    pub id: Id,
+    /// Owning space identifier.
+    pub space_id: Id,
+    /// Human-readable complex name.
+    pub name: String,
+    /// Cells included in the complex.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cell_ids: Vec<Id>,
+    /// Incidences included in the complex.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub incidence_ids: Vec<Id>,
+    /// Highest dimension across included cells.
+    pub max_dimension: Dimension,
+    /// Structural complex kind.
+    pub complex_type: ComplexType,
+}
+
+impl Complex {
+    /// Creates an empty complex with max dimension zero.
+    #[must_use]
+    pub fn new(id: Id, space_id: Id, name: impl Into<String>, complex_type: ComplexType) -> Self {
+        Self {
+            id,
+            space_id,
+            name: name.into().trim().to_owned(),
+            cell_ids: Vec::new(),
+            incidence_ids: Vec::new(),
+            max_dimension: 0,
+            complex_type,
+        }
+    }
+}
+
+/// Cell query selectors supported by the MVP in-memory store.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CellQuery {
+    /// Optional owning space filter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<Id>,
+    /// Optional cell type filter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell_type: Option<String>,
+    /// Optional cell dimension filter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dimension: Option<Dimension>,
+    /// Optional context membership filter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_id: Option<Id>,
+}
+
+impl CellQuery {
+    /// Creates an unconstrained cell query.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns this query with a space filter.
+    #[must_use]
+    pub fn in_space(mut self, space_id: Id) -> Self {
+        self.space_id = Some(space_id);
+        self
+    }
+
+    /// Returns this query with a cell type filter.
+    #[must_use]
+    pub fn of_type(mut self, cell_type: impl Into<String>) -> Self {
+        self.cell_type = Some(cell_type.into().trim().to_owned());
+        self
+    }
+
+    /// Returns this query with a dimension filter.
+    #[must_use]
+    pub fn with_dimension(mut self, dimension: Dimension) -> Self {
+        self.dimension = Some(dimension);
+        self
+    }
+
+    /// Returns this query with a context membership filter.
+    #[must_use]
+    pub fn in_context(mut self, context_id: Id) -> Self {
+        self.context_id = Some(context_id);
+        self
+    }
+
+    fn matches(&self, cell: &Cell) -> bool {
+        if let Some(space_id) = &self.space_id {
+            if &cell.space_id != space_id {
+                return false;
+            }
+        }
+        if let Some(cell_type) = &self.cell_type {
+            if &cell.cell_type != cell_type {
+                return false;
+            }
+        }
+        if let Some(dimension) = self.dimension {
+            if cell.dimension != dimension {
+                return false;
+            }
+        }
+        if let Some(context_id) = &self.context_id {
+            if !cell.context_ids.contains(context_id) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// In-memory MVP store for spaces, cells, incidences, complexes, and basic cell queries.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct InMemorySpaceStore {
+    spaces: BTreeMap<Id, Space>,
+    cells: BTreeMap<Id, Cell>,
+    incidences: BTreeMap<Id, Incidence>,
+    complexes: BTreeMap<Id, Complex>,
+}
+
+impl InMemorySpaceStore {
+    /// Creates an empty in-memory store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Inserts a space and returns the normalized stored value.
+    pub fn insert_space(&mut self, space: Space) -> Result<Space> {
+        let mut space = space;
+        space.name = normalize_required("name", space.name)?;
+        space.cell_ids = unique_ids(space.cell_ids);
+        space.incidence_ids = unique_ids(space.incidence_ids);
+        space.complex_ids = unique_ids(space.complex_ids);
+        space.context_ids = unique_ids(space.context_ids);
+        self.ensure_space_absent(&space.id)?;
+
+        self.spaces.insert(space.id.clone(), space.clone());
+        Ok(space)
+    }
+
+    /// Inserts a cell, registers it with its space, and updates boundary coboundaries.
+    pub fn insert_cell(&mut self, cell: Cell) -> Result<Cell> {
+        let mut cell = cell;
+        cell.cell_type = normalize_required("cell_type", cell.cell_type)?;
+        cell.boundary = unique_ids(cell.boundary);
+        cell.coboundary = unique_ids(cell.coboundary);
+        cell.context_ids = unique_ids(cell.context_ids);
+        self.ensure_cell_absent(&cell.id)?;
+        self.validate_cell_references(&cell)?;
+
+        self.cells.insert(cell.id.clone(), cell.clone());
+        self.register_cell_in_space(&cell);
+        self.register_boundary_coboundaries(&cell);
+        Ok(cell)
+    }
+
+    /// Inserts an incidence after validating both endpoint cells are in the same space.
+    pub fn insert_incidence(&mut self, incidence: Incidence) -> Result<Incidence> {
+        let mut incidence = incidence;
+        incidence.relation_type = normalize_required("relation_type", incidence.relation_type)?;
+        self.ensure_incidence_absent(&incidence.id)?;
+        self.validate_incidence_references(&incidence)?;
+
+        self.incidences
+            .insert(incidence.id.clone(), incidence.clone());
+        let space = self
+            .spaces
+            .get_mut(&incidence.space_id)
+            .expect("validated incidence space should exist");
+        push_unique(&mut space.incidence_ids, incidence.id.clone());
+        Ok(incidence)
+    }
+
+    /// Inserts a complex after validating membership and recomputing max dimension.
+    pub fn insert_complex(&mut self, complex: Complex) -> Result<Complex> {
+        let mut complex = complex;
+        complex.name = normalize_required("name", complex.name)?;
+        complex.cell_ids = unique_ids(complex.cell_ids);
+        complex.incidence_ids = unique_ids(complex.incidence_ids);
+        self.ensure_complex_absent(&complex.id)?;
+        complex.max_dimension = self.validate_complex_references(&complex)?;
+
+        self.complexes.insert(complex.id.clone(), complex.clone());
+        let space = self
+            .spaces
+            .get_mut(&complex.space_id)
+            .expect("validated complex space should exist");
+        push_unique(&mut space.complex_ids, complex.id.clone());
+        Ok(complex)
+    }
+
+    /// Constructs, inserts, and returns a complex from existing cells and incidences.
+    pub fn construct_complex(
+        &mut self,
+        id: Id,
+        space_id: Id,
+        name: impl Into<String>,
+        complex_type: ComplexType,
+        cell_ids: impl IntoIterator<Item = Id>,
+        incidence_ids: impl IntoIterator<Item = Id>,
+    ) -> Result<Complex> {
+        let mut complex = Complex::new(id, space_id, name, complex_type);
+        complex.cell_ids = unique_ids(cell_ids);
+        complex.incidence_ids = unique_ids(incidence_ids);
+        self.insert_complex(complex)
+    }
+
+    /// Returns a space by identifier.
+    #[must_use]
+    pub fn space(&self, id: &Id) -> Option<&Space> {
+        self.spaces.get(id)
+    }
+
+    /// Returns a cell by identifier.
+    #[must_use]
+    pub fn cell(&self, id: &Id) -> Option<&Cell> {
+        self.cells.get(id)
+    }
+
+    /// Returns an incidence by identifier.
+    #[must_use]
+    pub fn incidence(&self, id: &Id) -> Option<&Incidence> {
+        self.incidences.get(id)
+    }
+
+    /// Returns a complex by identifier.
+    #[must_use]
+    pub fn complex(&self, id: &Id) -> Option<&Complex> {
+        self.complexes.get(id)
+    }
+
+    /// Returns cells matching all supplied query selectors.
+    #[must_use]
+    pub fn query_cells(&self, query: &CellQuery) -> Vec<Cell> {
+        self.cells
+            .values()
+            .filter(|cell| query.matches(cell))
+            .cloned()
+            .collect()
+    }
+
+    fn ensure_space_absent(&self, id: &Id) -> Result<()> {
+        ensure_absent(self.spaces.contains_key(id), "space_id", id)
+    }
+
+    fn ensure_cell_absent(&self, id: &Id) -> Result<()> {
+        ensure_absent(self.cells.contains_key(id), "cell_id", id)
+    }
+
+    fn ensure_incidence_absent(&self, id: &Id) -> Result<()> {
+        ensure_absent(self.incidences.contains_key(id), "incidence_id", id)
+    }
+
+    fn ensure_complex_absent(&self, id: &Id) -> Result<()> {
+        ensure_absent(self.complexes.contains_key(id), "complex_id", id)
+    }
+
+    fn validate_cell_references(&self, cell: &Cell) -> Result<()> {
+        self.ensure_space_exists(&cell.space_id)?;
+        for boundary_id in &cell.boundary {
+            let boundary = self.cell_in_space("boundary", boundary_id, &cell.space_id)?;
+            if boundary.dimension >= cell.dimension {
+                return Err(malformed(
+                    "boundary",
+                    "boundary cells must have lower dimension than the owning cell",
+                ));
+            }
+        }
+        for coboundary_id in &cell.coboundary {
+            let coboundary = self.cell_in_space("coboundary", coboundary_id, &cell.space_id)?;
+            if coboundary.dimension <= cell.dimension {
+                return Err(malformed(
+                    "coboundary",
+                    "coboundary cells must have higher dimension than the owning cell",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_incidence_references(&self, incidence: &Incidence) -> Result<()> {
+        self.ensure_space_exists(&incidence.space_id)?;
+        self.cell_in_space("from_cell_id", &incidence.from_cell_id, &incidence.space_id)?;
+        self.cell_in_space("to_cell_id", &incidence.to_cell_id, &incidence.space_id)?;
+        if let Some(weight) = incidence.weight {
+            if !weight.is_finite() {
+                return Err(malformed("weight", "incidence weight must be finite"));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_complex_references(&self, complex: &Complex) -> Result<Dimension> {
+        self.ensure_space_exists(&complex.space_id)?;
+        for incidence_id in &complex.incidence_ids {
+            self.incidence_in_space(incidence_id, &complex.space_id)?;
+        }
+
+        let mut max_dimension = 0;
+        for cell_id in &complex.cell_ids {
+            let cell = self.cell_in_space("cell_ids", cell_id, &complex.space_id)?;
+            max_dimension = max_dimension.max(cell.dimension);
+        }
+        Ok(max_dimension)
+    }
+
+    fn ensure_space_exists(&self, space_id: &Id) -> Result<()> {
+        if self.spaces.contains_key(space_id) {
+            Ok(())
+        } else {
+            Err(missing("space_id", space_id))
+        }
+    }
+
+    fn cell_in_space(&self, field: &str, cell_id: &Id, space_id: &Id) -> Result<&Cell> {
+        let cell = self
+            .cells
+            .get(cell_id)
+            .ok_or_else(|| missing(field, cell_id))?;
+        if &cell.space_id == space_id {
+            Ok(cell)
+        } else {
+            Err(wrong_space(field, cell_id, space_id, &cell.space_id))
+        }
+    }
+
+    fn incidence_in_space(&self, incidence_id: &Id, space_id: &Id) -> Result<&Incidence> {
+        let incidence = self
+            .incidences
+            .get(incidence_id)
+            .ok_or_else(|| missing("incidence_ids", incidence_id))?;
+        if &incidence.space_id == space_id {
+            Ok(incidence)
+        } else {
+            Err(wrong_space(
+                "incidence_ids",
+                incidence_id,
+                space_id,
+                &incidence.space_id,
+            ))
+        }
+    }
+
+    fn register_cell_in_space(&mut self, cell: &Cell) {
+        let space = self
+            .spaces
+            .get_mut(&cell.space_id)
+            .expect("validated cell space should exist");
+        push_unique(&mut space.cell_ids, cell.id.clone());
+        for context_id in &cell.context_ids {
+            push_unique(&mut space.context_ids, context_id.clone());
+        }
+    }
+
+    fn register_boundary_coboundaries(&mut self, cell: &Cell) {
+        for boundary_id in &cell.boundary {
+            let boundary = self
+                .cells
+                .get_mut(boundary_id)
+                .expect("validated boundary cell should exist");
+            push_unique(&mut boundary.coboundary, cell.id.clone());
+        }
+    }
+}
+
+fn normalize_required(field: &str, value: String) -> Result<String> {
+    let normalized = value.trim().to_owned();
+    if normalized.is_empty() {
+        Err(malformed(field, "value must not be empty after trimming"))
+    } else {
+        Ok(normalized)
+    }
+}
+
+fn unique_ids(ids: impl IntoIterator<Item = Id>) -> Vec<Id> {
+    let mut unique = Vec::new();
+    for id in ids {
+        push_unique(&mut unique, id);
+    }
+    unique
+}
+
+fn push_unique(ids: &mut Vec<Id>, id: Id) {
+    if !ids.contains(&id) {
+        ids.push(id);
+    }
+}
+
+fn ensure_absent(occupied: bool, field: &str, id: &Id) -> Result<()> {
+    if occupied {
+        Err(malformed(
+            field,
+            format!("identifier {id} already exists in the store"),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn missing(field: &str, id: &Id) -> CoreError {
+    malformed(
+        field,
+        format!("identifier {id} does not exist in the store"),
+    )
+}
+
+fn wrong_space(field: &str, id: &Id, expected: &Id, actual: &Id) -> CoreError {
+    malformed(
+        field,
+        format!("identifier {id} belongs to space {actual}, expected {expected}"),
+    )
+}
+
+fn malformed(field: &str, reason: impl Into<String>) -> CoreError {
+    CoreError::MalformedField {
+        field: field.to_owned(),
+        reason: reason.into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(value: &str) -> Id {
+        Id::new(value).expect("valid test id")
+    }
+
+    fn seeded_store() -> InMemorySpaceStore {
+        let mut store = InMemorySpaceStore::new();
+        store
+            .insert_space(Space::new(id("space-a"), "Abstract space"))
+            .expect("insert space");
+        store
+    }
+
+    #[test]
+    fn inserts_cells_and_queries_by_space_type_dimension_and_context() {
+        let mut store = seeded_store();
+        let context_id = id("context-alpha");
+        let cell = Cell::new(id("cell-1"), id("space-a"), 0, "entity")
+            .with_label("Entity")
+            .with_context(context_id.clone());
+        store.insert_cell(cell).expect("insert cell");
+
+        let query = CellQuery::new()
+            .in_space(id("space-a"))
+            .of_type("entity")
+            .with_dimension(0)
+            .in_context(context_id.clone());
+        let results = store.query_cells(&query);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, id("cell-1"));
+        assert_eq!(
+            store.space(&id("space-a")).expect("space").context_ids,
+            vec![context_id]
+        );
+    }
+
+    #[test]
+    fn cell_insertion_updates_boundary_coboundary_membership() {
+        let mut store = seeded_store();
+        store
+            .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
+            .expect("insert boundary cell");
+        let edge =
+            Cell::new(id("edge-a"), id("space-a"), 1, "edge").with_boundary_cell(id("point-a"));
+        store.insert_cell(edge).expect("insert edge");
+
+        let point = store.cell(&id("point-a")).expect("point cell");
+        let edge = store.cell(&id("edge-a")).expect("edge cell");
+        assert_eq!(point.coboundary, vec![id("edge-a")]);
+        assert_eq!(edge.boundary, vec![id("point-a")]);
+    }
+
+    #[test]
+    fn incidence_insertion_requires_cells_from_the_same_space() {
+        let mut store = seeded_store();
+        store
+            .insert_cell(Cell::new(id("source"), id("space-a"), 0, "node"))
+            .expect("insert source");
+        store
+            .insert_cell(Cell::new(id("target"), id("space-a"), 0, "node"))
+            .expect("insert target");
+
+        let incidence = Incidence::new(
+            id("incidence-a"),
+            id("space-a"),
+            id("source"),
+            id("target"),
+            "relates",
+            IncidenceOrientation::Directed,
+        )
+        .with_weight(1.0);
+        store.insert_incidence(incidence).expect("insert incidence");
+
+        let space = store.space(&id("space-a")).expect("space");
+        assert_eq!(space.incidence_ids, vec![id("incidence-a")]);
+        assert!(store.incidence(&id("incidence-a")).is_some());
+    }
+
+    #[test]
+    fn complex_construction_validates_membership_and_computes_max_dimension() {
+        let mut store = seeded_store();
+        store
+            .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
+            .expect("insert point");
+        store
+            .insert_cell(Cell::new(id("edge-a"), id("space-a"), 1, "edge"))
+            .expect("insert edge");
+        store
+            .insert_incidence(Incidence::new(
+                id("incidence-a"),
+                id("space-a"),
+                id("point-a"),
+                id("edge-a"),
+                "bounds",
+                IncidenceOrientation::Directed,
+            ))
+            .expect("insert incidence");
+
+        let complex = store
+            .construct_complex(
+                id("complex-a"),
+                id("space-a"),
+                "Typed graph",
+                ComplexType::TypedGraph,
+                [id("point-a"), id("edge-a")],
+                [id("incidence-a")],
+            )
+            .expect("construct complex");
+
+        assert_eq!(complex.max_dimension, 1);
+        assert_eq!(
+            store.space(&id("space-a")).expect("space").complex_ids,
+            vec![id("complex-a")]
+        );
+    }
+
+    #[test]
+    fn invalid_references_return_core_malformed_field_errors() {
+        let mut store = seeded_store();
+        let error = store
+            .insert_cell(Cell::new(id("orphan"), id("missing-space"), 0, "node"))
+            .expect_err("missing space should fail");
+
+        assert_eq!(error.code(), "malformed_field");
+    }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "higher-graphen-projection"
+description = "Projection definitions, selectors, results, and renderers for HigherGraphen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+higher-graphen-core.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

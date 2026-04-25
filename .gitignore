@@ -1,0 +1,3 @@
+target/
+.casegraphen/.lock
+.casegraphen/cache/

@@ -30,6 +30,9 @@ Source proposal:
 | 17. Naming policy | [`specs/package-boundaries.md`](specs/package-boundaries.md) |
 | 18. Summary | [`overview.md`](overview.md) |
 | Later clarification: packages plus tools plus AI-agent distribution | [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md), [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) |
+| Later clarification: pre-implementation static analysis policy | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) |
+| Later clarification: `higher-graphen-core` implementation contract | [`specs/core-contracts.md`](specs/core-contracts.md), [`specs/rust-core-model.md`](specs/rust-core-model.md), [`specs/package-boundaries.md`](specs/package-boundaries.md) |
+| Later clarification: non-core package workplans | [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md), [`specs/package-boundaries.md`](specs/package-boundaries.md), [`specs/engine-traits.md`](specs/engine-traits.md) |
 
 ## Trace Policy
 
