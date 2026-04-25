@@ -1,0 +1,842 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.workflow.report.v1",
+  "title": "HigherGraphen CaseGraphen Workflow Reasoning Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "input",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.workflow.report.v1"
+    },
+    "report_type": {
+      "const": "case_workflow_reasoning"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "input": {
+      "$ref": "#/$defs/input"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection_bundle"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "enum": [
+        "info",
+        "warning",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "source_local_id": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source_ref"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "recorded_at": {
+          "type": "string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "extraction_method": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "tool_package",
+        "core_packages"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_package": {
+          "const": "tools/casegraphen"
+        },
+        "core_packages": {
+          "type": "array",
+          "contains": {
+            "const": "higher-graphen-core"
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_graph_schema",
+        "workflow_graph_id",
+        "case_graph_id",
+        "space_id",
+        "projection_profile_ids"
+      ],
+      "properties": {
+        "workflow_graph_schema": {
+          "const": "highergraphen.case.workflow.graph.v1"
+        },
+        "workflow_graph_id": {
+          "$ref": "#/$defs/id"
+        },
+        "case_graph_id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "projection_profile_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "readiness",
+        "obstructions",
+        "completion_candidates",
+        "evidence_findings",
+        "projection",
+        "correspondence",
+        "evolution"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "blocked",
+            "incomplete",
+            "obstructions_detected",
+            "review_required",
+            "invalid_workflow"
+          ]
+        },
+        "readiness": {
+          "$ref": "#/$defs/readiness_result"
+        },
+        "obstructions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/obstruction"
+          }
+        },
+        "completion_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/completion_candidate"
+          }
+        },
+        "evidence_findings": {
+          "$ref": "#/$defs/evidence_findings"
+        },
+        "projection": {
+          "$ref": "#/$defs/projection_result"
+        },
+        "correspondence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/correspondence_result"
+          }
+        },
+        "evolution": {
+          "$ref": "#/$defs/evolution_result"
+        }
+      }
+    },
+    "readiness_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluated_work_item_ids",
+        "ready_item_ids",
+        "not_ready_items",
+        "rule_results"
+      ],
+      "properties": {
+        "evaluated_work_item_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "ready_item_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "not_ready_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/not_ready_item"
+          }
+        },
+        "rule_results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/readiness_rule_result"
+          }
+        }
+      }
+    },
+    "not_ready_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_item_id",
+        "state",
+        "hard_dependency_ids",
+        "external_wait_ids",
+        "evidence_requirement_ids",
+        "proof_requirement_ids",
+        "obstruction_ids"
+      ],
+      "properties": {
+        "work_item_id": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hard_dependency_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "external_wait_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "evidence_requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "proof_requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "obstruction_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "readiness_rule_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rule_id",
+        "target_work_item_id",
+        "ready",
+        "obstruction_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "rule_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_work_item_id": {
+          "$ref": "#/$defs/id"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "obstruction_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "obstruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "obstruction_type",
+        "affected_ids",
+        "source_constraint_id",
+        "witness_ids",
+        "explanation",
+        "severity",
+        "required_resolution",
+        "blocking",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "obstruction_type": {
+          "enum": [
+            "unresolved_dependency",
+            "external_wait",
+            "missing_evidence",
+            "missing_proof",
+            "invalid_transition",
+            "contradiction",
+            "impossible_closure",
+            "projection_loss",
+            "correspondence_mismatch",
+            "review_required"
+          ]
+        },
+        "affected_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_constraint_id": {
+          "$ref": "#/$defs/id"
+        },
+        "witness_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "required_resolution": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "completion_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_type",
+        "target_ids",
+        "suggested_structure",
+        "inferred_from",
+        "rationale",
+        "confidence",
+        "review_status",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_type": {
+          "enum": [
+            "missing_task",
+            "missing_evidence",
+            "missing_test",
+            "missing_decision",
+            "missing_dependency_relation",
+            "missing_case",
+            "missing_projection",
+            "missing_review_action",
+            "missing_proof"
+          ]
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "suggested_structure": {
+          "type": "object"
+        },
+        "inferred_from": {
+          "$ref": "#/$defs/id_array"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "evidence_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted_evidence_ids",
+        "source_backed_evidence_ids",
+        "inference_record_ids",
+        "unreviewed_inference_ids",
+        "promoted_evidence_ids",
+        "boundary_violations",
+        "findings"
+      ],
+      "properties": {
+        "accepted_evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_backed_evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "inference_record_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "unreviewed_inference_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "promoted_evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "boundary_violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_boundary_violation"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_finding"
+          }
+        }
+      }
+    },
+    "evidence_boundary_violation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "evidence_id",
+        "violation_type",
+        "explanation",
+        "severity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "violation_type": {
+          "enum": [
+            "inference_projected_as_evidence",
+            "missing_source",
+            "missing_review_promotion",
+            "rejected_evidence_used"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        }
+      }
+    },
+    "evidence_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "finding_type",
+        "evidence_ids",
+        "summary",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "finding_type": {
+          "enum": [
+            "accepted_evidence_present",
+            "source_backed_pending_review",
+            "inference_separated",
+            "promotion_required",
+            "evidence_missing"
+          ]
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "projection_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_profile_id",
+        "audience",
+        "represented_ids",
+        "omitted_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "projection_profile_id": {
+          "$ref": "#/$defs/id"
+        },
+        "audience": {
+          "enum": [
+            "human_review",
+            "ai_agent",
+            "audit",
+            "system"
+          ]
+        },
+        "represented_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/information_loss"
+          }
+        }
+      }
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "represented_ids",
+        "omitted_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "represented_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "correspondence_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "correspondence_type",
+        "left_ids",
+        "right_ids",
+        "mismatch_evidence_ids",
+        "transferable_pattern_ids",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "correspondence_type": {
+          "enum": [
+            "equivalent",
+            "similar_with_loss",
+            "scenario_pattern_match",
+            "conflicting",
+            "not_comparable",
+            "transferable_mitigation",
+            "transferable_completion"
+          ]
+        },
+        "left_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "right_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "mismatch_evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "transferable_pattern_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "evolution_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision_id",
+        "previous_revision_id",
+        "transition_ids",
+        "appeared_obstruction_ids",
+        "resolved_obstruction_ids",
+        "accepted_completion_ids",
+        "rejected_completion_ids",
+        "persisted_shape_ids",
+        "invariant_breaks"
+      ],
+      "properties": {
+        "revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "previous_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "transition_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "appeared_obstruction_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "resolved_obstruction_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "accepted_completion_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "rejected_completion_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "persisted_shape_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "invariant_breaks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/invariant_break"
+          }
+        }
+      }
+    },
+    "invariant_break": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition_id",
+        "invariant_id",
+        "witness_ids"
+      ],
+      "properties": {
+        "transition_id": {
+          "$ref": "#/$defs/id"
+        },
+        "invariant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "witness_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "projection_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_review",
+        "ai_view",
+        "audit_trace"
+      ],
+      "properties": {
+        "human_review": {
+          "$ref": "#/$defs/projection_view"
+        },
+        "ai_view": {
+          "$ref": "#/$defs/projection_view"
+        },
+        "audit_trace": {
+          "$ref": "#/$defs/projection_view"
+        }
+      }
+    },
+    "projection_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "records",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "enum": [
+            "human_review",
+            "ai_agent",
+            "audit",
+            "system"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projection_record"
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/information_loss"
+          }
+        }
+      }
+    },
+    "projection_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_type",
+        "summary",
+        "source_ids",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_type": {
+          "enum": [
+            "work_item",
+            "readiness",
+            "obstruction",
+            "completion_candidate",
+            "evidence_finding",
+            "projection",
+            "correspondence",
+            "evolution"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    }
+  }
+}

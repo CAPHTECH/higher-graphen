@@ -2,6 +2,9 @@ use crate::model::{
     CaseGraph, CoveragePolicy, ProjectionDefinition, CASE_GRAPH_SCHEMA, COVERAGE_POLICY_SCHEMA,
     PROJECTION_SCHEMA,
 };
+use crate::workflow_model::{
+    WorkflowCaseGraph, WORKFLOW_GRAPH_SCHEMA, WORKFLOW_GRAPH_SCHEMA_VERSION,
+};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::{
@@ -89,6 +92,13 @@ pub fn read_projection(path: &Path) -> StoreResult<ProjectionDefinition> {
     Ok(projection)
 }
 
+pub fn read_workflow_graph(path: &Path) -> StoreResult<WorkflowCaseGraph> {
+    let graph: WorkflowCaseGraph = read_json(path)?;
+    require_schema(path, &graph.schema, WORKFLOW_GRAPH_SCHEMA)?;
+    require_schema_version(path, graph.schema_version, WORKFLOW_GRAPH_SCHEMA_VERSION)?;
+    Ok(graph)
+}
+
 pub fn write_report(path: &Path, report: &impl serde::Serialize) -> StoreResult<()> {
     write_json(path, report)
 }
@@ -139,6 +149,16 @@ fn require_schema(path: &Path, actual: &str, expected: &str) -> StoreResult<()> 
     })
 }
 
+fn require_schema_version(path: &Path, actual: u32, expected: u32) -> StoreResult<()> {
+    if actual == expected {
+        return Ok(());
+    }
+    Err(StoreError::Contract {
+        path: path.to_owned(),
+        reason: format!("unsupported schema version {actual}; expected {expected}"),
+    })
+}
+
 fn is_graph_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
@@ -185,6 +205,27 @@ mod tests {
             json!("case_graph:architecture-smoke")
         );
         assert!(path.exists());
+
+        fs::remove_dir_all(root).expect("remove temp store");
+    }
+
+    #[test]
+    fn read_workflow_graph_rejects_unsupported_schema() {
+        let root = std::env::temp_dir().join(format!(
+            "casegraphen-workflow-store-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("create temp store");
+        let path = root.join("bad.workflow.graph.json");
+        let mut value: Value = serde_json::from_str(include_str!(
+            "../../../schemas/casegraphen/workflow.graph.example.json"
+        ))
+        .expect("workflow graph example");
+        value["schema"] = json!("highergraphen.case.workflow.graph.v0");
+        write_json(&path, &value).expect("write workflow graph");
+
+        let error = read_workflow_graph(&path).expect_err("unsupported schema");
+        assert!(error.to_string().contains("unsupported schema"));
 
         fs::remove_dir_all(root).expect("remove temp store");
     }

@@ -2,8 +2,9 @@
 
 The `highergraphen` command is the operational CLI for HigherGraphen runtime
 workflows. It exposes the deterministic Architecture Product direct database
-access smoke workflow, the bounded architecture input lift workflow, and the
-explicit completion review workflow as stable JSON reports.
+access smoke workflow, the bounded architecture input lift workflow, the
+bounded Feed Product reader workflow, and the explicit completion review
+workflow as stable JSON reports.
 
 For the underlying implementation contract, see
 [`runtime-cli-scope.md`](../specs/runtime-cli-scope.md) and
@@ -51,6 +52,17 @@ structures from the input are preserved as unreviewed completion candidates and
 are not promoted into accepted cells.
 
 ```sh
+highergraphen feed reader run --input <path> --format json [--output <path>]
+```
+
+This command reads a bounded Feed Product JSON v1 fixture and emits a compact
+RSS-reader-style analysis report. It lifts source feeds and entries into a
+source-indexed observation space, preserves correspondence hints, emits
+completion and obstruction candidates, and projects the result into timeline,
+topic digest, and audit views. It does not fetch network feeds, parse raw RSS or
+Atom XML, schedule refreshes, persist read state, or render a UI.
+
+```sh
 highergraphen completion review accept \
   --input <path> \
   --candidate <id> \
@@ -82,6 +94,7 @@ the source report and do not promote the candidate into accepted facts.
 | --- | --- | --- |
 | `--format json` | Yes | Emits the stable JSON report. No human text format is supported yet. |
 | `--input <path>` | For `architecture input lift` | Reads the bounded architecture JSON input document. |
+| `--input <path>` | For `feed reader run` | Reads the bounded Feed Product JSON input fixture. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
 | `--reviewer <id>` | For `completion review` | Records the explicit reviewer or workflow identifier. |
@@ -120,6 +133,14 @@ Lift the checked-in architecture input fixture:
   --format json
 ```
 
+Run the checked-in Feed Product reader fixture:
+
+```sh
+./target/debug/highergraphen feed reader run \
+  --input schemas/inputs/feed-lift.input.example.json \
+  --format json
+```
+
 Write the report to a file:
 
 ```sh
@@ -135,6 +156,15 @@ Write a lifted input report to a file:
   --input schemas/inputs/architecture-lift.input.example.json \
   --format json \
   --output architecture-input-lift.report.json
+```
+
+Write a Feed Product reader report to a file:
+
+```sh
+./target/debug/highergraphen feed reader run \
+  --input schemas/inputs/feed-lift.input.example.json \
+  --format json \
+  --output feed-reader.report.json
 ```
 
 Accept a completion candidate from a generated report:
@@ -216,6 +246,25 @@ The input lift report has `result.status` set to `"lifted"`, records accepted
 cell and incidence IDs under `result.accepted_fact_ids`, and records unreviewed
 completion candidate IDs under `result.inferred_structure_ids`.
 
+The Feed Product reader report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.feed.reader.report.v1` |
+| Report type | `feed_reader` |
+| Report version | `1` |
+| Input schema | [`feed-lift.input.schema.json`](../../schemas/inputs/feed-lift.input.schema.json) |
+| Input fixture | [`feed-lift.input.example.json`](../../schemas/inputs/feed-lift.input.example.json) |
+| Report schema | [`feed-reader.report.schema.json`](../../schemas/reports/feed-reader.report.schema.json) |
+| Example fixture | [`feed-reader.report.example.json`](../../schemas/reports/feed-reader.report.example.json) |
+| Runtime runner | `higher_graphen_runtime::run_feed_reader` |
+
+The Feed Product reader report has `result.status` set to
+`"obstructions_detected"` for the checked-in fixture, records observed entry
+IDs, inferred topic/event IDs, correspondences, completion candidates, and
+obstructions, then projects them into `timeline`, `topic_digest`, and
+`audit_trace` views with explicit `information_loss`.
+
 The completion review report uses this contract:
 
 | Surface | Value |
@@ -245,6 +294,9 @@ Consumers must preserve these semantics:
   review report and never edits or silently promotes the source candidate.
 - The input lift path treats JSON `components` and `relations` as accepted
   facts and JSON `inferred_structures` as unreviewed candidates.
+- The feed reader path treats JSON `source_feeds` and `entries` as accepted
+  local fixture facts, while completion and obstruction hints remain report
+  findings for review.
 - Agent skills and future tool surfaces should consume the CLI output or runtime
   runner and validate against the schema instead of reimplementing the workflow.
 
@@ -254,9 +306,13 @@ These are intentionally unsupported in the current CLI:
 
 - Human-readable output formats.
 - Architecture input formats beyond the bounded JSON v1 document.
+- Feed input formats beyond the bounded JSON v1 fixture.
+- Network fetching, scheduling, database persistence, read state, UI rendering,
+  and production RSS/Atom parsing.
 - MCP server behavior.
 - Provider-specific plugin, marketplace, or manifest behavior.
 - Provider-specific skills beyond the repository-owned
   `skills/highergraphen/SKILL.md` CLI skill.
 - Additional `highergraphen` subcommands beyond `architecture smoke
-  direct-db-access`, `architecture input lift`, and `completion review`.
+  direct-db-access`, `architecture input lift`, `feed reader run`, and
+  `completion review`.

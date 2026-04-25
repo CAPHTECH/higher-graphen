@@ -72,6 +72,21 @@ HigherGraphen is decomposed and verified while keeping local runtime artifacts,
 private cases, customer data, and commercial-only strategy out of the
 repository.
 
+## License And Commercial Boundary
+
+HigherGraphen's public core is licensed under the
+[Apache License 2.0](LICENSE).
+
+The public repository is intended to contain the shared higher-structure core,
+baseline intermediate tools, schemas, documentation, public examples, skills,
+and public CaseGraphen development traces. Production interpretation packages,
+hosted execution, customer-specific assets, private evaluation datasets,
+commercial strategy, and private operations material belong outside this public
+repository unless they are explicitly open-sourced later.
+
+See [`COMMERCIAL_BOUNDARY.md`](COMMERCIAL_BOUNDARY.md) for the publication
+boundary.
+
 ## Documentation
 
 - [`docs/index.md`](docs/index.md) - Documentation index and reading order
@@ -92,6 +107,7 @@ repository.
 - [`docs/source-trace.md`](docs/source-trace.md) - Trace from proposal sections to official documents
 - [`docs/adr/0001-rust-first-polyglot-friendly.md`](docs/adr/0001-rust-first-polyglot-friendly.md) - Architecture decision record
 - [`.casegraphen/README.md`](.casegraphen/README.md) - Public development case graph and publication rules
+- [`COMMERCIAL_BOUNDARY.md`](COMMERCIAL_BOUNDARY.md) - Public/commercial repository boundary
 
 ## Design Principle
 

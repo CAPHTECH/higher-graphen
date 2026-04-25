@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.feed.input.v1",
+  "title": "HigherGraphen Feed Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "space",
+    "source_feeds",
+    "entries"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.feed.input.v1"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "space": {
+      "$ref": "#/$defs/space"
+    },
+    "source_feeds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_feed"
+      },
+      "minItems": 1
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      },
+      "minItems": 1
+    },
+    "correspondence_hints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/correspondence_hint"
+      }
+    },
+    "completion_hints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/completion_hint"
+      }
+    },
+    "obstruction_hints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/obstruction_hint"
+      }
+    },
+    "projection_requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projection_request"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "confidence"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "document",
+            "log",
+            "api",
+            "human",
+            "ai",
+            "code",
+            "external"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "captured_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_local_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time_axis": {
+          "enum": [
+            "published_at",
+            "updated_at"
+          ]
+        }
+      }
+    },
+    "source_feed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "context_id",
+        "title",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "context_id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "official",
+            "community",
+            "counterpoint",
+            "aggregator",
+            "blog",
+            "news",
+            "external"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trust_level": {
+          "enum": [
+            "official",
+            "trusted",
+            "community",
+            "unverified"
+          ]
+        },
+        "expected_update_cadence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source_id",
+        "title",
+        "published_at",
+        "summary",
+        "topic_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_local_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "correspondence_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "hint_type",
+        "entry_ids",
+        "summary",
+        "rationale",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "hint_type": {
+          "enum": [
+            "same_topic",
+            "duplicate",
+            "follow_up",
+            "counterpoint"
+          ]
+        },
+        "entry_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 2
+        },
+        "topic_id": {
+          "$ref": "#/$defs/id"
+        },
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "completion_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "missing_type",
+        "summary",
+        "rationale",
+        "inferred_from",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "missing_type": {
+          "enum": [
+            "official_source",
+            "counterpoint",
+            "entry_metadata",
+            "timeline_context",
+            "source_feed"
+          ]
+        },
+        "subject_id": {
+          "$ref": "#/$defs/id"
+        },
+        "topic_id": {
+          "$ref": "#/$defs/id"
+        },
+        "expected_source_kind": {
+          "enum": [
+            "official",
+            "community",
+            "counterpoint",
+            "aggregator",
+            "blog",
+            "news",
+            "external"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inferred_from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "obstruction_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "obstruction_type",
+        "entry_ids",
+        "summary",
+        "rationale",
+        "severity",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "obstruction_type": {
+          "enum": [
+            "feed_content_conflict",
+            "timestamp_conflict",
+            "broken_source_reference",
+            "topic_mismatch"
+          ]
+        },
+        "entry_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "critical"
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "projection_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "audience",
+        "purpose",
+        "source_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "audience": {
+          "enum": [
+            "human",
+            "ai_agent",
+            "audit"
+          ]
+        },
+        "purpose": {
+          "enum": [
+            "timeline",
+            "topic_digest",
+            "audit_trace"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "information_loss_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

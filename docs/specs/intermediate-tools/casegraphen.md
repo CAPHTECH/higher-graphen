@@ -10,6 +10,12 @@ core package responsibilities.
 coverage, missing cases, conflicting cases, and case projections. The first
 supported surfaces are CLI plus agent skill. MCP is out of scope.
 
+The next-stage workflow reasoning contract is defined in
+[`casegraphen-workflow-reasoning-engine.md`](casegraphen-workflow-reasoning-engine.md).
+That document extends this baseline case graph tool toward readiness,
+obstruction, completion, evidence-boundary, projection, correspondence, and
+evolution reasoning inside the `higher-graphen` workspace.
+
 ## Scope
 
 `casegraphen` captures concrete situations and scenarios as structured cases

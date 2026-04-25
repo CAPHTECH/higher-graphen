@@ -273,10 +273,14 @@ fn schema_fixture_paths() -> Vec<PathBuf> {
         "schemas/casegraphen/case.graph.example.json",
         "schemas/casegraphen/coverage.policy.example.json",
         "schemas/casegraphen/projection.example.json",
+        "schemas/casegraphen/workflow.graph.example.json",
+        "schemas/casegraphen/workflow.report.example.json",
         "schemas/casegraphen/case.graph.schema.json",
         "schemas/casegraphen/coverage.policy.schema.json",
         "schemas/casegraphen/projection.schema.json",
         "schemas/casegraphen/case.report.schema.json",
+        "schemas/casegraphen/workflow.graph.schema.json",
+        "schemas/casegraphen/workflow.report.schema.json",
     ]
     .iter()
     .map(|path| repo_path(path))

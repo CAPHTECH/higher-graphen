@@ -3,8 +3,9 @@
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
     run_architecture_direct_db_access_smoke, run_architecture_input_lift, run_completion_review,
-    ArchitectureInputLiftDocument, CompletionReviewDecision, CompletionReviewRequest,
-    CompletionReviewSnapshot, CompletionReviewSourceReport, RuntimeError,
+    run_feed_reader, ArchitectureInputLiftDocument, CompletionReviewDecision,
+    CompletionReviewRequest, CompletionReviewSnapshot, CompletionReviewSourceReport,
+    FeedReaderInputDocument, RuntimeError,
 };
 use serde_json::Value;
 use std::{
@@ -18,6 +19,7 @@ use std::{
 const USAGE: &str = "usage:
   highergraphen architecture smoke direct-db-access --format json [--output <path>]
   highergraphen architecture input lift --input <path> --format json [--output <path>]
+  highergraphen feed reader run --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
 
@@ -54,6 +56,10 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    FeedReaderRun {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
     CompletionReview {
         decision: CompletionReviewDecision,
         input: PathBuf,
@@ -72,6 +78,7 @@ impl Command {
 
         match root.to_str() {
             Some("architecture") => Self::parse_architecture(args),
+            Some("feed") => Self::parse_feed(args),
             Some("completion") => Self::parse_completion(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
         }
@@ -101,6 +108,19 @@ impl Command {
             .input
             .ok_or_else(|| CliError::usage("--input <path> is required"))?;
         Ok(Self::ArchitectureInputLift {
+            input,
+            output: options.output,
+        })
+    }
+
+    fn parse_feed(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "reader")?;
+        require_token(&mut args, "run")?;
+        let options = ReportOptions::parse(args, true)?;
+        let input = options
+            .input
+            .ok_or_else(|| CliError::usage("--input <path> is required"))?;
+        Ok(Self::FeedReaderRun {
             input,
             output: options.output,
         })
@@ -138,6 +158,7 @@ impl Command {
         match self {
             Self::ArchitectureSmokeDirectDbAccess { output }
             | Self::ArchitectureInputLift { output, .. }
+            | Self::FeedReaderRun { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
     }
@@ -152,6 +173,12 @@ impl Command {
             Self::ArchitectureInputLift { input, .. } => {
                 let document = read_input_document(input)?;
                 let report = run_architecture_input_lift(document)?;
+                serde_json::to_string(&report)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::FeedReaderRun { input, .. } => {
+                let document = read_feed_reader_input_document(input)?;
+                let report = run_feed_reader(document)?;
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -389,6 +416,17 @@ fn require_string(
 }
 
 fn read_input_document(path: &Path) -> Result<ArchitectureInputLiftDocument, CliError> {
+    let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    serde_json::from_str(&text).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn read_feed_reader_input_document(path: &Path) -> Result<FeedReaderInputDocument, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
         source,

@@ -10,6 +10,7 @@ use std::{
 
 const REPORT_SCHEMA: &str = "highergraphen.architecture.direct_db_access_smoke.report.v1";
 const INPUT_LIFT_REPORT_SCHEMA: &str = "highergraphen.architecture.input_lift.report.v1";
+const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
@@ -129,6 +130,65 @@ fn input_lift_command_writes_output_file_without_stdout() {
         value["metadata"]["command"],
         json!("highergraphen architecture input lift")
     );
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn feed_reader_run_reads_fixture_and_writes_one_json_report_to_stdout() {
+    let fixture = feed_fixture();
+    let output = run_cli(&[
+        "feed",
+        "reader",
+        "run",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let stdout = stdout(&output);
+    assert_eq!(stdout.lines().count(), 1);
+
+    let value: Value = serde_json::from_str(stdout.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(FEED_READER_REPORT_SCHEMA));
+    assert_eq!(value["result"]["status"], json!("obstructions_detected"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("highergraphen feed reader run")
+    );
+}
+
+#[test]
+fn feed_reader_run_writes_output_file_without_stdout() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let output_path = directory.join("feed-reader.report.json");
+    let fixture = feed_fixture();
+
+    let output = run_cli(&[
+        "feed",
+        "reader",
+        "run",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+        "--output",
+        output_path.to_str().expect("temp path should be utf-8"),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+
+    let text = fs::read_to_string(&output_path).expect("read JSON report file");
+    let value: Value = serde_json::from_str(&text).expect("file should be JSON");
+    assert_eq!(value["schema"], json!(FEED_READER_REPORT_SCHEMA));
+    assert_eq!(value["projection"]["timeline"]["audience"], json!("human"));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
 }
@@ -292,6 +352,15 @@ fn input_lift_command_requires_input_path() {
 }
 
 #[test]
+fn feed_reader_run_requires_input_path() {
+    let output = run_cli(&["feed", "reader", "run", "--format", "json"]);
+
+    assert!(!output.status.success());
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).contains("--input <path> is required"));
+}
+
+#[test]
 fn unsupported_or_missing_format_exits_nonzero() {
     let missing = run_cli(&["architecture", "smoke", "direct-db-access"]);
     assert!(!missing.status.success());
@@ -349,6 +418,12 @@ fn input_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/architecture-lift.input.example.json")
+}
+
+fn feed_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/inputs/feed-lift.input.example.json")
 }
 
 fn write_smoke_report(directory: &std::path::Path) -> PathBuf {

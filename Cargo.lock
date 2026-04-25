@@ -44,6 +44,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "higher-graphen-feed-example"
+version = "0.1.0"
+dependencies = [
+ "higher-graphen-core",
+ "higher-graphen-runtime",
+ "serde_json",
+]
+
+[[package]]
 name = "higher-graphen-interpretation"
 version = "0.1.0"
 dependencies = [

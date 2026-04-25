@@ -1,0 +1,260 @@
+{
+  "schema": "highergraphen.feed.input.v1",
+  "source": {
+    "kind": "document",
+    "uri": "schemas/inputs/feed-lift.input.example.json",
+    "title": "Feed input lift smoke fixture",
+    "captured_at": "2026-04-25T00:00:00Z",
+    "confidence": 1.0
+  },
+  "space": {
+    "id": "space:feed-reader-input",
+    "name": "Feed Reader Input",
+    "description": "Bounded JSON fixture for lifting source-indexed feed observations.",
+    "time_axis": "published_at"
+  },
+  "source_feeds": [
+    {
+      "id": "source:official-status",
+      "context_id": "context:official-status",
+      "title": "Official Status Feed",
+      "kind": "official",
+      "url": "https://example.test/status/feed.xml",
+      "publisher": "Example Platform",
+      "trust_level": "official",
+      "expected_update_cadence": "incident-driven",
+      "tags": [
+        "status",
+        "official"
+      ],
+      "confidence": 1.0
+    },
+    {
+      "id": "source:engineering-blog",
+      "context_id": "context:engineering-blog",
+      "title": "Engineering Blog Feed",
+      "kind": "blog",
+      "url": "https://example.test/blog/feed.xml",
+      "publisher": "Example Platform",
+      "trust_level": "official",
+      "expected_update_cadence": "weekly",
+      "tags": [
+        "release",
+        "official"
+      ],
+      "confidence": 1.0
+    },
+    {
+      "id": "source:community-forum",
+      "context_id": "context:community-forum",
+      "title": "Community Forum Feed",
+      "kind": "community",
+      "url": "https://community.example.test/feed.xml",
+      "publisher": "Example Community",
+      "trust_level": "community",
+      "expected_update_cadence": "continuous",
+      "tags": [
+        "community",
+        "support"
+      ],
+      "confidence": 0.78
+    },
+    {
+      "id": "source:release-aggregator",
+      "context_id": "context:release-aggregator",
+      "title": "Release Aggregator Feed",
+      "kind": "aggregator",
+      "url": "https://aggregator.example.test/feed.xml",
+      "publisher": "Example Aggregator",
+      "trust_level": "trusted",
+      "expected_update_cadence": "daily",
+      "tags": [
+        "aggregator",
+        "release"
+      ],
+      "confidence": 0.86
+    }
+  ],
+  "entries": [
+    {
+      "id": "entry:official-status-api-latency-resolved",
+      "source_id": "source:official-status",
+      "title": "API latency incident resolved",
+      "url": "https://example.test/status/incidents/api-latency",
+      "published_at": "2026-04-25T09:05:00Z",
+      "updated_at": "2026-04-25T09:05:00Z",
+      "summary": "Official status says the API latency incident has been resolved.",
+      "content_text": "The API latency incident is resolved and error rates have returned to normal.",
+      "author": "Status Team",
+      "topic_ids": [
+        "topic:api-latency"
+      ],
+      "event_id": "event:api-latency-incident",
+      "source_local_id": "entries.official_status_api_latency_resolved",
+      "confidence": 1.0
+    },
+    {
+      "id": "entry:community-api-latency-continues",
+      "source_id": "source:community-forum",
+      "title": "Developers still seeing API latency",
+      "url": "https://community.example.test/posts/api-latency-continues",
+      "published_at": "2026-04-25T09:30:00Z",
+      "updated_at": "2026-04-25T09:32:00Z",
+      "summary": "Community reports continued latency and intermittent 502 responses after the official resolution notice.",
+      "content_text": "Several developers still observe slow API responses and intermittent 502 errors.",
+      "author": "community:ops-thread",
+      "topic_ids": [
+        "topic:api-latency"
+      ],
+      "event_id": "event:api-latency-incident",
+      "source_local_id": "entries.community_api_latency_continues",
+      "confidence": 0.74
+    },
+    {
+      "id": "entry:engineering-blog-webhook-signing",
+      "source_id": "source:engineering-blog",
+      "title": "Webhook signing change rolling out",
+      "url": "https://example.test/blog/webhook-signing-change",
+      "published_at": "2026-04-25T10:15:00Z",
+      "updated_at": "2026-04-25T10:15:00Z",
+      "summary": "Engineering announces a webhook signature header change for sandbox tenants.",
+      "content_text": "Sandbox tenants will receive the new webhook signature header before general availability.",
+      "author": "Developer Experience",
+      "topic_ids": [
+        "topic:webhook-signing-change"
+      ],
+      "event_id": "event:webhook-signing-rollout",
+      "source_local_id": "entries.engineering_blog_webhook_signing",
+      "confidence": 1.0
+    },
+    {
+      "id": "entry:aggregator-webhook-signing-summary",
+      "source_id": "source:release-aggregator",
+      "title": "Webhook signing update summary",
+      "url": "https://aggregator.example.test/items/webhook-signing-update",
+      "published_at": "2026-04-25T10:20:00Z",
+      "updated_at": "2026-04-25T10:20:00Z",
+      "summary": "Aggregator summarizes the same webhook signing change announced by the engineering blog.",
+      "content_text": "The platform is rolling out a new webhook signature header for sandbox tenants.",
+      "author": "release-aggregator",
+      "topic_ids": [
+        "topic:webhook-signing-change"
+      ],
+      "event_id": "event:webhook-signing-rollout",
+      "source_local_id": "entries.aggregator_webhook_signing_summary",
+      "confidence": 0.84
+    }
+  ],
+  "correspondence_hints": [
+    {
+      "id": "correspondence:api-latency-same-topic",
+      "hint_type": "same_topic",
+      "entry_ids": [
+        "entry:official-status-api-latency-resolved",
+        "entry:community-api-latency-continues"
+      ],
+      "topic_id": "topic:api-latency",
+      "event_id": "event:api-latency-incident",
+      "summary": "Official and community entries discuss the same API latency incident.",
+      "rationale": "Both entries reference API latency during the same incident window.",
+      "confidence": 0.92
+    },
+    {
+      "id": "correspondence:webhook-signing-duplicate",
+      "hint_type": "duplicate",
+      "entry_ids": [
+        "entry:engineering-blog-webhook-signing",
+        "entry:aggregator-webhook-signing-summary"
+      ],
+      "topic_id": "topic:webhook-signing-change",
+      "event_id": "event:webhook-signing-rollout",
+      "summary": "Aggregator entry duplicates the engineering blog announcement.",
+      "rationale": "The titles and summaries describe the same webhook signature header rollout.",
+      "confidence": 0.9
+    }
+  ],
+  "completion_hints": [
+    {
+      "id": "completion:api-latency-official-follow-up",
+      "missing_type": "official_source",
+      "subject_id": "entry:community-api-latency-continues",
+      "topic_id": "topic:api-latency",
+      "expected_source_kind": "official",
+      "summary": "Community reports continued errors after the official resolution notice; an official follow-up source is missing.",
+      "rationale": "The topic has a trusted community observation but lacks an official source that confirms, updates, or refutes the continued-error claim.",
+      "inferred_from": [
+        "entry:community-api-latency-continues",
+        "correspondence:api-latency-same-topic"
+      ],
+      "confidence": 0.81
+    },
+    {
+      "id": "completion:webhook-signing-counterpoint",
+      "missing_type": "counterpoint",
+      "subject_id": "entry:engineering-blog-webhook-signing",
+      "topic_id": "topic:webhook-signing-change",
+      "expected_source_kind": "community",
+      "summary": "The official webhook signing announcement has no community or consumer-impact counterpoint yet.",
+      "rationale": "A release announcement can be projected more safely when at least one independent or consumer-impact source is present.",
+      "inferred_from": [
+        "entry:engineering-blog-webhook-signing"
+      ],
+      "confidence": 0.68
+    }
+  ],
+  "obstruction_hints": [
+    {
+      "id": "obstruction:api-latency-resolution-conflict",
+      "obstruction_type": "feed_content_conflict",
+      "entry_ids": [
+        "entry:official-status-api-latency-resolved",
+        "entry:community-api-latency-continues"
+      ],
+      "summary": "Official status says the incident is resolved while community reports continued latency and errors.",
+      "rationale": "The two entries are same-topic observations with incompatible claims in close temporal proximity.",
+      "severity": "warning",
+      "confidence": 0.83
+    }
+  ],
+  "projection_requests": [
+    {
+      "id": "projection:timeline",
+      "audience": "human",
+      "purpose": "timeline",
+      "source_ids": [
+        "entry:official-status-api-latency-resolved",
+        "entry:community-api-latency-continues",
+        "entry:engineering-blog-webhook-signing",
+        "entry:aggregator-webhook-signing-summary"
+      ],
+      "information_loss_policy": "Summarize entry content and preserve source, time, topic, correspondence, completion, and obstruction identifiers."
+    },
+    {
+      "id": "projection:topic-digest",
+      "audience": "ai_agent",
+      "purpose": "topic_digest",
+      "source_ids": [
+        "topic:api-latency",
+        "topic:webhook-signing-change",
+        "correspondence:api-latency-same-topic",
+        "correspondence:webhook-signing-duplicate",
+        "completion:api-latency-official-follow-up",
+        "completion:webhook-signing-counterpoint",
+        "obstruction:api-latency-resolution-conflict"
+      ],
+      "information_loss_policy": "Group entries by topic and omit full content text from the AI-agent view."
+    },
+    {
+      "id": "projection:audit",
+      "audience": "audit",
+      "purpose": "audit_trace",
+      "source_ids": [
+        "source:official-status",
+        "source:engineering-blog",
+        "source:community-forum",
+        "source:release-aggregator"
+      ],
+      "information_loss_policy": "Record represented identifiers and projection coverage while omitting full feed payloads."
+    }
+  ]
+}

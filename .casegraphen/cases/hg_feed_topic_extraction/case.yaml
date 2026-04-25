@@ -1,0 +1,12 @@
+case_id: hg_feed_topic_extraction
+title: Feed automatic topic extraction
+description: ''
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T22:19:28.840Z
+updated_at: 2026-04-25T22:19:39.463Z
+case_revision:
+  current: 11
+  last_event_id: 01KQ3BM7J7X6GZHC55E23FMGMY

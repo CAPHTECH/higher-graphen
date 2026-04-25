@@ -1,0 +1,649 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.workflow.graph.v1",
+  "title": "HigherGraphen CaseGraphen Workflow Graph v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "workflow_graph_id",
+    "case_graph_id",
+    "space_id",
+    "work_items",
+    "workflow_relations",
+    "readiness_rules",
+    "evidence_records",
+    "transition_records",
+    "projection_profiles",
+    "correspondence_records",
+    "metadata"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.workflow.graph.v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "workflow_graph_id": {
+      "$ref": "#/$defs/id"
+    },
+    "case_graph_id": {
+      "$ref": "#/$defs/id"
+    },
+    "space_id": {
+      "$ref": "#/$defs/id"
+    },
+    "work_items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/work_item"
+      }
+    },
+    "workflow_relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/workflow_relation"
+      }
+    },
+    "readiness_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/readiness_rule"
+      }
+    },
+    "evidence_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_record"
+      }
+    },
+    "transition_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition_record"
+      }
+    },
+    "projection_profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projection_profile"
+      }
+    },
+    "correspondence_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/correspondence_record"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "enum": [
+        "info",
+        "warning",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "source_local_id": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source_ref"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "recorded_at": {
+          "type": "string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "extraction_method": {
+          "type": "string"
+        }
+      }
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "represented_ids",
+        "omitted_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "represented_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "work_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "item_type",
+        "title",
+        "state",
+        "case_ids",
+        "hard_dependency_ids",
+        "external_wait_ids",
+        "evidence_requirement_ids",
+        "proof_requirement_ids",
+        "source_ids",
+        "provenance",
+        "metadata"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "item_type": {
+          "enum": [
+            "task",
+            "goal",
+            "decision",
+            "event",
+            "evidence",
+            "proof",
+            "external_wait",
+            "review_action",
+            "case",
+            "milestone"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "enum": [
+            "proposed",
+            "todo",
+            "doing",
+            "waiting",
+            "blocked",
+            "done",
+            "cancelled",
+            "failed",
+            "accepted",
+            "rejected"
+          ]
+        },
+        "case_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "hard_dependency_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "external_wait_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "evidence_requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "proof_requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "workflow_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "relation_type",
+        "from_id",
+        "to_id",
+        "evidence_ids",
+        "source_ids",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "enum": [
+            "depends_on",
+            "waits_for",
+            "requires_evidence",
+            "requires_proof",
+            "verifies",
+            "blocks",
+            "contradicts",
+            "completes",
+            "derives_from",
+            "transitions_to",
+            "projects_to",
+            "corresponds_to",
+            "supersedes",
+            "relates_to"
+          ]
+        },
+        "from_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "readiness_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rule_type",
+        "target_item_ids",
+        "required_relation_types",
+        "required_evidence_types",
+        "blocked_state_values",
+        "obstruction_type",
+        "severity",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "rule_type": {
+          "enum": [
+            "dependency_closure",
+            "external_wait_resolved",
+            "evidence_available",
+            "proof_available",
+            "transition_valid",
+            "review_status",
+            "obstruction_absent",
+            "custom"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "target_item_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "required_relation_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_evidence_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "blocked_state_values": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "obstruction_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_constraint_id": {
+          "$ref": "#/$defs/id"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "evidence_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "evidence_type",
+        "evidence_boundary",
+        "summary",
+        "supports_ids",
+        "contradicts_ids",
+        "source_ids",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_type": {
+          "enum": [
+            "document",
+            "command_output",
+            "test_result",
+            "review_record",
+            "human_observation",
+            "ai_inference",
+            "proof",
+            "transition_witness"
+          ]
+        },
+        "evidence_boundary": {
+          "enum": [
+            "accepted_evidence",
+            "source_backed_evidence",
+            "ai_inference",
+            "review_promotion",
+            "rejected_evidence"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "contradicts_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "change_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "added_ids",
+        "removed_ids",
+        "updated_ids"
+      ],
+      "properties": {
+        "added_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "removed_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "updated_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "transition_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "transition_type",
+        "from_revision_id",
+        "to_revision_id",
+        "morphism_id",
+        "source_workflow_graph_id",
+        "target_workflow_graph_id",
+        "changed_ids",
+        "preserved_ids",
+        "violated_invariant_ids",
+        "source_ids",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "transition_type": {
+          "enum": [
+            "patch",
+            "state_transition",
+            "review_transition",
+            "projection",
+            "evolution_revision",
+            "migration",
+            "correspondence_transfer"
+          ]
+        },
+        "from_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_workflow_graph_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_workflow_graph_id": {
+          "$ref": "#/$defs/id"
+        },
+        "changed_ids": {
+          "$ref": "#/$defs/change_set"
+        },
+        "preserved_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "violated_invariant_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "projection_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "audience",
+        "purpose",
+        "included_ids",
+        "omitted_ids",
+        "information_loss",
+        "allowed_operations",
+        "source_ids",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "audience": {
+          "enum": [
+            "human_review",
+            "ai_agent",
+            "audit",
+            "system"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "included_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/information_loss"
+          }
+        },
+        "allowed_operations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "correspondence_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "correspondence_type",
+        "left_ids",
+        "right_ids",
+        "mismatch_evidence_ids",
+        "transferable_pattern_ids",
+        "confidence",
+        "review_status",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "correspondence_type": {
+          "enum": [
+            "equivalent",
+            "similar_with_loss",
+            "scenario_pattern_match",
+            "conflicting",
+            "not_comparable",
+            "transferable_mitigation",
+            "transferable_completion"
+          ]
+        },
+        "left_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "right_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "mismatch_evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "transferable_pattern_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    }
+  }
+}

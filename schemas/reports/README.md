@@ -33,6 +33,20 @@ highergraphen completion review accept \
   --format json
 ```
 
+`feed-reader.report.schema.json` defines the v1 contract for
+`highergraphen.feed.reader.report.v1`. The matching example fixture is
+generated from:
+
+```sh
+highergraphen feed reader run \
+  --input schemas/inputs/feed-lift.input.example.json \
+  --format json
+```
+
+The report envelope covers source feeds, observed entries, inferred topic/event
+cells, correspondences, completion candidates, obstructions, and
+timeline/topic/audit projections.
+
 Schemas are intended to lock the public report envelope, deterministic scenario
 IDs, machine-checkable result shape, obstruction and completion candidate fields,
 projection audience and purpose, review boundaries between accepted facts and

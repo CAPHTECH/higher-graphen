@@ -1,0 +1,23 @@
+[package]
+name = "higher-graphen-feed-example"
+description = "Feed Product reference example for HigherGraphen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[[test]]
+name = "reference_workflow"
+path = "tests/reference_workflow.rs"
+
+[dev-dependencies]
+higher-graphen-core.workspace = true
+higher-graphen-runtime.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

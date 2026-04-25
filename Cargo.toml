@@ -10,6 +10,7 @@ members = [
     "crates/higher-graphen-interpretation",
     "crates/higher-graphen-runtime",
     "examples/architecture",
+    "examples/feed",
     "tools/casegraphen",
     "tools/highergraphen-cli",
 ]
@@ -22,6 +23,7 @@ rust-version = "1.80"
 authors = ["HigherGraphen Contributors"]
 readme = "README.md"
 repository = "https://github.com/CAPHTECH/higher-graphen"
+license = "Apache-2.0"
 
 [workspace.dependencies]
 higher-graphen-core = { version = "0.1.0", path = "crates/higher-graphen-core" }

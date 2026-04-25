@@ -1,0 +1,12 @@
+case_id: hg_feed_refresh_scheduler
+title: Feed refresh scheduler
+description: ''
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T22:19:29.008Z
+updated_at: 2026-04-25T22:19:39.484Z
+case_revision:
+  current: 11
+  last_event_id: 01KQ3BM7JW9NRQA6CYZEVNM3EX

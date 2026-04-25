@@ -1,0 +1,12 @@
+case_id: hg_feed_llm_inference
+title: Feed LLM-assisted structural inference
+description: ''
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-25T22:19:28.925Z
+updated_at: 2026-04-25T22:19:39.474Z
+case_revision:
+  current: 11
+  last_event_id: 01KQ3BM7JJG5P8SPFHGJGAF09C
