@@ -60,6 +60,18 @@ The repository already contains the Rust workspace shape, core package
 boundaries, initial runtime and CLI contracts, and reference product packages
 for architecture analysis and feed/RSS analysis.
 
+## Public Development Case Graph
+
+This repository keeps a public CaseGraphen workspace under
+[`.casegraphen/`](.casegraphen/README.md). It records goals, tasks, decisions,
+evidence, blockers, completion candidates, and verification events for
+HigherGraphen itself.
+
+The workspace is intentional public material. It is meant to show how
+HigherGraphen is decomposed and verified while keeping local runtime artifacts,
+private cases, customer data, and commercial-only strategy out of the
+repository.
+
 ## Documentation
 
 - [`docs/index.md`](docs/index.md) - Documentation index and reading order
@@ -79,6 +91,7 @@ for architecture analysis and feed/RSS analysis.
 - [`docs/mvp-roadmap.md`](docs/mvp-roadmap.md) - MVP scope, roadmap, and success criteria
 - [`docs/source-trace.md`](docs/source-trace.md) - Trace from proposal sections to official documents
 - [`docs/adr/0001-rust-first-polyglot-friendly.md`](docs/adr/0001-rust-first-polyglot-friendly.md) - Architecture decision record
+- [`.casegraphen/README.md`](.casegraphen/README.md) - Public development case graph and publication rules
 
 ## Design Principle
 

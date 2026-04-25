@@ -1,3 +1,10 @@
 target/
+
+# CaseGraphen workspace runtime artifacts.
 .casegraphen/.lock
 .casegraphen/cache/
+.casegraphen/tmp/
+.casegraphen/local/
+.casegraphen/private/
+.casegraphen/**/*.sqlite
+.casegraphen/**/*.sqlite-*
