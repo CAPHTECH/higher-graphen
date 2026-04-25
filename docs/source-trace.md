@@ -29,6 +29,7 @@ Source proposal:
 | 16. Comparison with alternatives | [`adr/0001-rust-first-polyglot-friendly.md`](adr/0001-rust-first-polyglot-friendly.md) |
 | 17. Naming policy | [`specs/package-boundaries.md`](specs/package-boundaries.md) |
 | 18. Summary | [`overview.md`](overview.md) |
+| Later clarification: packages plus tools plus AI-agent distribution | [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md), [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) |
 
 ## Trace Policy
 
@@ -38,4 +39,3 @@ current working contract for implementation planning.
 When implementation changes invalidate a proposal-derived statement, update the
 official document first. The proposal should remain unchanged unless the team
 explicitly decides to revise the original concept document.
-

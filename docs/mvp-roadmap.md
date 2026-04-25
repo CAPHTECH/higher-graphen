@@ -128,6 +128,25 @@ Deliverables:
 - Web playground.
 - Documentation site.
 
+### Phase 5: Agent Integrations
+
+Target duration: 1 to 2 months after the first stable tool contracts.
+
+Implementation:
+
+- CLI schemas for agent use.
+- MCP server for structured agent calls.
+- First agent skills for HigherGraphen and Architecture Product workflows.
+- Plugin bundle containing tools, schemas, skills, and metadata.
+- Marketplace metadata after the provider-specific package shape is confirmed.
+
+Deliverables:
+
+- Agent can run the Architecture Product scenario through structured tools.
+- Agent can distinguish accepted facts, AI inferences, and completion
+  candidates.
+- Agent can produce projections with declared information loss.
+
 ## Success Criteria
 
 The MVP is successful when:
@@ -179,4 +198,3 @@ Studio:
 
 - Tauri with TypeScript, or
 - Web app with WebAssembly
-

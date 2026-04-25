@@ -13,10 +13,11 @@ The original proposal remains available as source material:
 4. [`concepts/theoretical-foundations.md`](concepts/theoretical-foundations.md)
 5. [`specs/package-boundaries.md`](specs/package-boundaries.md)
 6. [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md)
-7. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-8. [`specs/engine-traits.md`](specs/engine-traits.md)
-9. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-10. [`mvp-roadmap.md`](mvp-roadmap.md)
+7. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
+8. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+9. [`specs/engine-traits.md`](specs/engine-traits.md)
+10. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+11. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -28,6 +29,7 @@ The original proposal remains available as source material:
 | [`concepts/theoretical-foundations.md`](concepts/theoretical-foundations.md) | Records the mathematical and computer science concepts used as engineering primitives. |
 | [`specs/package-boundaries.md`](specs/package-boundaries.md) | Defines crate boundaries, repository layout, and dependency direction. |
 | [`specs/intermediate-tools-map.md`](specs/intermediate-tools-map.md) | Maps core packages to intermediate `*graphen` tools and their theoretical foundations. |
+| [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |

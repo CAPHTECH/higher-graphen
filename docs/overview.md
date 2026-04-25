@@ -68,6 +68,31 @@ Level 2: Domain Products
   concrete products.
 ```
 
+## Delivery Model
+
+HigherGraphen should produce reusable packages, executable tools, and
+agent-facing integrations.
+
+```text
+Core packages
+  Libraries that other projects can depend on.
+
+Intermediate tools
+  CLI, SDK, MCP, workflow, and projection surfaces built on the core packages.
+
+Agent integrations
+  Skills, plugin bundles, marketplace metadata, schemas, and prompt templates
+  that help AI agents use the tools correctly.
+
+Domain products
+  Product-specific interpretations assembled from packages, tools, and agent
+  workflows.
+```
+
+This means the project is not only a library workspace and not only a standalone
+application. It is a package and tool ecosystem with explicit AI-agent
+distribution.
+
 ## Initial Implementation Strategy
 
 The recommended implementation strategy is Rust-first and polyglot-friendly:
@@ -80,4 +105,3 @@ The recommended implementation strategy is Rust-first and polyglot-friendly:
 The first reference product should be the Architecture Product because its
 inputs and outputs are concrete enough to validate the full path from source
 material to cells, invariants, obstructions, completions, and projections.
-
