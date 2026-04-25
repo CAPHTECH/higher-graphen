@@ -33,6 +33,9 @@ Source proposal:
 | Later clarification: pre-implementation static analysis policy | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) |
 | Later clarification: `higher-graphen-core` implementation contract | [`specs/core-contracts.md`](specs/core-contracts.md), [`specs/rust-core-model.md`](specs/rust-core-model.md), [`specs/package-boundaries.md`](specs/package-boundaries.md) |
 | Later clarification: non-core package workplans | [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md), [`specs/package-boundaries.md`](specs/package-boundaries.md), [`specs/engine-traits.md`](specs/engine-traits.md) |
+| Later clarification: immediate runtime and CLI tooling scope | [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md), [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md), [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md), [`specs/package-boundaries.md`](specs/package-boundaries.md) |
+| Later clarification: provider-specific agent tooling handoff | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md), [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md), [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) |
+| Later clarification: first `highergraphen` CLI reference | [`cli/highergraphen.md`](cli/highergraphen.md), [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md), [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) |
 
 ## Trace Policy
 

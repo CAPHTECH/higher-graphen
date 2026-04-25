@@ -70,11 +70,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "higher-graphen-runtime"
+version = "0.1.0"
+dependencies = [
+ "higher-graphen-completion",
+ "higher-graphen-core",
+ "higher-graphen-invariant",
+ "higher-graphen-obstruction",
+ "higher-graphen-projection",
+ "higher-graphen-space",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "higher-graphen-space"
 version = "0.1.0"
 dependencies = [
  "higher-graphen-core",
  "serde",
+]
+
+[[package]]
+name = "highergraphen-cli"
+version = "0.1.0"
+dependencies = [
+ "higher-graphen-runtime",
+ "serde_json",
 ]
 
 [[package]]

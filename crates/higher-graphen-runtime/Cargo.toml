@@ -1,0 +1,25 @@
+[package]
+name = "higher-graphen-runtime"
+description = "Runtime workflow orchestration APIs for HigherGraphen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+higher-graphen-completion.workspace = true
+higher-graphen-core.workspace = true
+higher-graphen-invariant.workspace = true
+higher-graphen-obstruction.workspace = true
+higher-graphen-projection.workspace = true
+higher-graphen-space.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

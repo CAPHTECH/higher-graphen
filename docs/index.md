@@ -17,10 +17,14 @@ The original proposal remains available as source material:
 8. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
 9. [`specs/core-contracts.md`](specs/core-contracts.md)
 10. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
-11. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-12. [`specs/engine-traits.md`](specs/engine-traits.md)
-13. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-14. [`mvp-roadmap.md`](mvp-roadmap.md)
+11. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
+12. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
+13. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
+14. [`cli/highergraphen.md`](cli/highergraphen.md)
+15. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+16. [`specs/engine-traits.md`](specs/engine-traits.md)
+17. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+18. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -36,6 +40,10 @@ The original proposal remains available as source material:
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
 | [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md) | Defines package-level implementation plans for non-core MVP crates. |
+| [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md) | Locks the immediate `higher-graphen-runtime` and `highergraphen` CLI scope, first command, and JSON report contract. |
+| [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |
+| [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
+| [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for the first `highergraphen` command. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |

@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATES = ROOT / "crates"
+TOOLS = ROOT / "tools"
 
 MAX_RUST_FILE_LINES = 700
 MAX_RUST_FUNCTION_LINES = 80
@@ -28,7 +29,12 @@ PACKAGE_ORDER = [
     "higher-graphen-completion",
     "higher-graphen-projection",
     "higher-graphen-interpretation",
+    "higher-graphen-runtime",
 ]
+
+TOOL_PACKAGES = {
+    "highergraphen-cli",
+}
 
 ORDER_INDEX = {name: index for index, name in enumerate(PACKAGE_ORDER)}
 DEPENDENCY_SECTIONS = {
@@ -114,6 +120,8 @@ def dependency_section(header: str) -> str | None:
 
 def check_manifest(path: Path) -> list[str]:
     package = path.parent.name
+    if package in TOOL_PACKAGES:
+        return check_tool_manifest(path)
     if package not in ORDER_INDEX:
         return []
 
@@ -145,13 +153,38 @@ def check_manifest(path: Path) -> list[str]:
     return errors
 
 
+def check_tool_manifest(path: Path) -> list[str]:
+    errors: list[str] = []
+    current_section: str | None = None
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current_section = dependency_section(stripped)
+            continue
+        if current_section is None or "=" not in stripped:
+            continue
+
+        dependency_name = stripped.split("=", 1)[0].strip().strip('"')
+        if dependency_name in TOOL_PACKAGES:
+            errors.append(f"{path}: tools must not depend on other tool packages")
+
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
 
     for rust_file in sorted(CRATES.glob("higher-graphen-*/src/**/*.rs")):
         errors.extend(check_rust_file(rust_file))
+    for rust_file in sorted(TOOLS.glob("*/src/**/*.rs")):
+        errors.extend(check_rust_file(rust_file))
 
     for manifest in sorted(CRATES.glob("higher-graphen-*/Cargo.toml")):
+        errors.extend(check_manifest(manifest))
+    for manifest in sorted(TOOLS.glob("*/Cargo.toml")):
         errors.extend(check_manifest(manifest))
 
     if errors:

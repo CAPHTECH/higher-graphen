@@ -1,0 +1,207 @@
+{
+  "schema": "highergraphen.architecture.direct_db_access_smoke.report.v1",
+  "report_type": "architecture_direct_db_access_smoke",
+  "report_version": 1,
+  "metadata": {
+    "command": "highergraphen architecture smoke direct-db-access",
+    "runtime_package": "higher-graphen-runtime",
+    "runtime_crate": "higher_graphen_runtime",
+    "cli_package": "highergraphen-cli"
+  },
+  "scenario": {
+    "space_id": "space:architecture-product-smoke",
+    "workflow_context_id": "context:architecture-review",
+    "context_ids": [
+      "context:orders",
+      "context:billing"
+    ],
+    "cells": [
+      {
+        "id": "cell:order-service",
+        "space_id": "space:architecture-product-smoke",
+        "dimension": 0,
+        "cell_type": "service",
+        "label": "Order Service",
+        "context_ids": [
+          "context:orders"
+        ]
+      },
+      {
+        "id": "cell:billing-service",
+        "space_id": "space:architecture-product-smoke",
+        "dimension": 0,
+        "cell_type": "service",
+        "label": "Billing Service",
+        "context_ids": [
+          "context:billing"
+        ]
+      },
+      {
+        "id": "cell:billing-db",
+        "space_id": "space:architecture-product-smoke",
+        "dimension": 0,
+        "cell_type": "database",
+        "label": "Billing DB",
+        "context_ids": [
+          "context:billing"
+        ]
+      }
+    ],
+    "incidences": [
+      {
+        "id": "incidence:order-service-reads-billing-db",
+        "space_id": "space:architecture-product-smoke",
+        "from_cell_id": "cell:order-service",
+        "to_cell_id": "cell:billing-db",
+        "relation_type": "reads_database",
+        "orientation": "directed"
+      },
+      {
+        "id": "incidence:billing-service-owns-billing-db",
+        "space_id": "space:architecture-product-smoke",
+        "from_cell_id": "cell:billing-service",
+        "to_cell_id": "cell:billing-db",
+        "relation_type": "owns_database",
+        "orientation": "directed"
+      }
+    ],
+    "invariant_id": "invariant:no-cross-context-direct-database-access",
+    "invariant_name": "No cross-context direct database access"
+  },
+  "result": {
+    "status": "violation_detected",
+    "violated_invariant_id": "invariant:no-cross-context-direct-database-access",
+    "check_result": {
+      "target_kind": "invariant",
+      "target_id": "invariant:no-cross-context-direct-database-access",
+      "status": "violated",
+      "violation": {
+        "message": "Order Service directly accesses Billing DB, which is owned by Billing Service.",
+        "severity": "critical",
+        "location_cell_ids": [
+          "cell:order-service",
+          "cell:billing-db"
+        ],
+        "location_context_ids": [
+          "context:orders",
+          "context:billing"
+        ]
+      }
+    },
+    "obstructions": [
+      {
+        "id": "obstruction:order-service-direct-billing-db-access",
+        "space_id": "space:architecture-product-smoke",
+        "obstruction_type": "invariant_violation",
+        "location_cell_ids": [
+          "cell:order-service",
+          "cell:billing-db"
+        ],
+        "location_context_ids": [
+          "context:orders",
+          "context:billing"
+        ],
+        "related_morphisms": [],
+        "explanation": {
+          "summary": "Order Service directly accesses Billing DB",
+          "details": "Order Service directly accesses Billing DB, which is owned by Billing Service."
+        },
+        "counterexample": {
+          "description": "Direct cross-context database access is present",
+          "assignments": {
+            "accessor": "Order Service",
+            "database": "Billing DB",
+            "owner": "Billing Service"
+          },
+          "path_cell_ids": [
+            "cell:order-service",
+            "cell:billing-db"
+          ],
+          "context_ids": [
+            "context:orders",
+            "context:billing"
+          ]
+        },
+        "severity": "critical",
+        "required_resolution": {
+          "summary": "Expose billing status through Billing Service and remove the direct Billing DB read.",
+          "target_cell_ids": [
+            "cell:order-service",
+            "cell:billing-service",
+            "cell:billing-db"
+          ],
+          "target_context_ids": [],
+          "target_morphism_ids": []
+        },
+        "provenance": {
+          "source": {
+            "kind": "document"
+          },
+          "confidence": 1.0,
+          "review_status": "unreviewed"
+        }
+      }
+    ],
+    "completion_candidates": [
+      {
+        "id": "candidate:billing-status-api",
+        "space_id": "space:architecture-product-smoke",
+        "missing_type": "cell",
+        "suggested_structure": {
+          "structure_id": "cell:billing-status-api",
+          "structure_type": "api",
+          "summary": "Billing Service should expose a billing status query API.",
+          "related_ids": [
+            "cell:billing-service",
+            "cell:order-service",
+            "cell:billing-db"
+          ]
+        },
+        "inferred_from": [
+          "obstruction:order-service-direct-billing-db-access",
+          "incidence:order-service-reads-billing-db"
+        ],
+        "rationale": "The obstruction shows Order Service needs billing status without direct database access.",
+        "confidence": 0.9,
+        "review_status": "unreviewed"
+      }
+    ]
+  },
+  "projection": {
+    "audience": "human",
+    "purpose": "architecture_review",
+    "summary": "Order Service directly reads Billing DB across Orders and Billing context boundaries.",
+    "recommended_actions": [
+      "Route billing status access through Billing Service or a Billing Service API.",
+      "Remove the direct Order Service read from Billing DB."
+    ],
+    "information_loss": [
+      {
+        "description": "Projection summarizes the full space, invariant check, obstruction, and completion candidate.",
+        "source_ids": [
+          "space:architecture-product-smoke",
+          "cell:order-service",
+          "cell:billing-service",
+          "cell:billing-db",
+          "incidence:order-service-reads-billing-db",
+          "incidence:billing-service-owns-billing-db",
+          "invariant:no-cross-context-direct-database-access",
+          "obstruction:order-service-direct-billing-db-access",
+          "candidate:billing-status-api"
+        ]
+      }
+    ],
+    "source_ids": [
+      "space:architecture-product-smoke",
+      "cell:order-service",
+      "cell:billing-service",
+      "cell:billing-db",
+      "incidence:order-service-reads-billing-db",
+      "incidence:billing-service-owns-billing-db",
+      "invariant:no-cross-context-direct-database-access",
+      "obstruction:order-service-direct-billing-db-access",
+      "candidate:billing-status-api",
+      "invariant:no-cross-context-direct-database-access"
+    ]
+  }
+}

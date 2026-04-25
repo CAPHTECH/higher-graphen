@@ -1,0 +1,796 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.architecture.direct_db_access_smoke.report.v1",
+  "title": "HigherGraphen Architecture Direct DB Access Smoke Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.architecture.direct_db_access_smoke.report.v1"
+    },
+    "report_type": {
+      "const": "architecture_direct_db_access_smoke"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "runtime_package",
+        "runtime_crate",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "const": "highergraphen architecture smoke direct-db-access"
+        },
+        "runtime_package": {
+          "const": "higher-graphen-runtime"
+        },
+        "runtime_crate": {
+          "const": "higher_graphen_runtime"
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "space_id",
+        "workflow_context_id",
+        "context_ids",
+        "cells",
+        "incidences",
+        "invariant_id",
+        "invariant_name"
+      ],
+      "properties": {
+        "space_id": {
+          "const": "space:architecture-product-smoke"
+        },
+        "workflow_context_id": {
+          "const": "context:architecture-review"
+        },
+        "context_ids": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "context:orders"
+            },
+            {
+              "const": "context:billing"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "cells": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/order_service_cell"
+            },
+            {
+              "$ref": "#/$defs/billing_service_cell"
+            },
+            {
+              "$ref": "#/$defs/billing_db_cell"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "incidences": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/order_reads_billing_db_incidence"
+            },
+            {
+              "$ref": "#/$defs/billing_owns_billing_db_incidence"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "invariant_id": {
+          "const": "invariant:no-cross-context-direct-database-access"
+        },
+        "invariant_name": {
+          "const": "No cross-context direct database access"
+        }
+      }
+    },
+    "order_service_cell": {
+      "$ref": "#/$defs/cell",
+      "properties": {
+        "id": {
+          "const": "cell:order-service"
+        },
+        "cell_type": {
+          "const": "service"
+        },
+        "label": {
+          "const": "Order Service"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/orders_context_array"
+        }
+      }
+    },
+    "billing_service_cell": {
+      "$ref": "#/$defs/cell",
+      "properties": {
+        "id": {
+          "const": "cell:billing-service"
+        },
+        "cell_type": {
+          "const": "service"
+        },
+        "label": {
+          "const": "Billing Service"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/billing_context_array"
+        }
+      }
+    },
+    "billing_db_cell": {
+      "$ref": "#/$defs/cell",
+      "properties": {
+        "id": {
+          "const": "cell:billing-db"
+        },
+        "cell_type": {
+          "const": "database"
+        },
+        "label": {
+          "const": "Billing DB"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/billing_context_array"
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "dimension",
+        "cell_type",
+        "label",
+        "context_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "const": "space:architecture-product-smoke"
+        },
+        "dimension": {
+          "const": 0
+        },
+        "cell_type": {
+          "enum": [
+            "service",
+            "database"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "orders_context_array": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "context:orders"
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "billing_context_array": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "context:billing"
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "order_reads_billing_db_incidence": {
+      "$ref": "#/$defs/incidence",
+      "properties": {
+        "id": {
+          "const": "incidence:order-service-reads-billing-db"
+        },
+        "from_cell_id": {
+          "const": "cell:order-service"
+        },
+        "to_cell_id": {
+          "const": "cell:billing-db"
+        },
+        "relation_type": {
+          "const": "reads_database"
+        }
+      }
+    },
+    "billing_owns_billing_db_incidence": {
+      "$ref": "#/$defs/incidence",
+      "properties": {
+        "id": {
+          "const": "incidence:billing-service-owns-billing-db"
+        },
+        "from_cell_id": {
+          "const": "cell:billing-service"
+        },
+        "to_cell_id": {
+          "const": "cell:billing-db"
+        },
+        "relation_type": {
+          "const": "owns_database"
+        }
+      }
+    },
+    "incidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "from_cell_id",
+        "to_cell_id",
+        "relation_type",
+        "orientation"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "const": "space:architecture-product-smoke"
+        },
+        "from_cell_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_cell_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "enum": [
+            "reads_database",
+            "owns_database"
+          ]
+        },
+        "orientation": {
+          "const": "directed"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "violated_invariant_id",
+        "check_result",
+        "obstructions",
+        "completion_candidates"
+      ],
+      "properties": {
+        "status": {
+          "const": "violation_detected"
+        },
+        "violated_invariant_id": {
+          "const": "invariant:no-cross-context-direct-database-access"
+        },
+        "check_result": {
+          "$ref": "#/$defs/check_result"
+        },
+        "obstructions": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/direct_db_access_obstruction"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "completion_candidates": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/billing_status_api_candidate"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "check_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_kind",
+        "target_id",
+        "status",
+        "violation"
+      ],
+      "properties": {
+        "target_kind": {
+          "const": "invariant"
+        },
+        "target_id": {
+          "const": "invariant:no-cross-context-direct-database-access"
+        },
+        "status": {
+          "const": "violated"
+        },
+        "violation": {
+          "$ref": "#/$defs/violation"
+        }
+      }
+    },
+    "violation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "severity",
+        "location_cell_ids",
+        "location_context_ids"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "const": "critical"
+        },
+        "location_cell_ids": {
+          "$ref": "#/$defs/order_and_billing_db_cells"
+        },
+        "location_context_ids": {
+          "$ref": "#/$defs/orders_and_billing_contexts"
+        }
+      }
+    },
+    "direct_db_access_obstruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "obstruction_type",
+        "location_cell_ids",
+        "location_context_ids",
+        "related_morphisms",
+        "explanation",
+        "counterexample",
+        "severity",
+        "required_resolution",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "const": "obstruction:order-service-direct-billing-db-access"
+        },
+        "space_id": {
+          "const": "space:architecture-product-smoke"
+        },
+        "obstruction_type": {
+          "const": "invariant_violation"
+        },
+        "location_cell_ids": {
+          "$ref": "#/$defs/order_and_billing_db_cells"
+        },
+        "location_context_ids": {
+          "$ref": "#/$defs/orders_and_billing_contexts"
+        },
+        "related_morphisms": {
+          "type": "array",
+          "items": false,
+          "maxItems": 0
+        },
+        "explanation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "summary",
+            "details"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "details": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "counterexample": {
+          "$ref": "#/$defs/counterexample"
+        },
+        "severity": {
+          "const": "critical"
+        },
+        "required_resolution": {
+          "$ref": "#/$defs/required_resolution"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "counterexample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "assignments",
+        "path_cell_ids",
+        "context_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assignments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accessor",
+            "database",
+            "owner"
+          ],
+          "properties": {
+            "accessor": {
+              "const": "Order Service"
+            },
+            "database": {
+              "const": "Billing DB"
+            },
+            "owner": {
+              "const": "Billing Service"
+            }
+          }
+        },
+        "path_cell_ids": {
+          "$ref": "#/$defs/order_and_billing_db_cells"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/orders_and_billing_contexts"
+        }
+      }
+    },
+    "required_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "target_cell_ids",
+        "target_context_ids",
+        "target_morphism_ids"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_cell_ids": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "cell:order-service"
+            },
+            {
+              "const": "cell:billing-service"
+            },
+            {
+              "const": "cell:billing-db"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "target_context_ids": {
+          "type": "array",
+          "items": false,
+          "maxItems": 0
+        },
+        "target_morphism_ids": {
+          "type": "array",
+          "items": false,
+          "maxItems": 0
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "document"
+            }
+          }
+        },
+        "confidence": {
+          "const": 1.0
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "billing_status_api_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space_id",
+        "missing_type",
+        "suggested_structure",
+        "inferred_from",
+        "rationale",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "const": "candidate:billing-status-api"
+        },
+        "space_id": {
+          "const": "space:architecture-product-smoke"
+        },
+        "missing_type": {
+          "const": "cell"
+        },
+        "suggested_structure": {
+          "$ref": "#/$defs/suggested_structure"
+        },
+        "inferred_from": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "obstruction:order-service-direct-billing-db-access"
+            },
+            {
+              "const": "incidence:order-service-reads-billing-db"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "const": 0.9
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "suggested_structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "structure_id",
+        "structure_type",
+        "summary",
+        "related_ids"
+      ],
+      "properties": {
+        "structure_id": {
+          "const": "cell:billing-status-api"
+        },
+        "structure_type": {
+          "const": "api"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "related_ids": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "cell:billing-service"
+            },
+            {
+              "const": "cell:order-service"
+            },
+            {
+              "const": "cell:billing-db"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "information_loss",
+        "source_ids"
+      ],
+      "properties": {
+        "audience": {
+          "const": "human"
+        },
+        "purpose": {
+          "const": "architecture_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "information_loss": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/information_loss"
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "contains": {
+            "const": "obstruction:order-service-direct-billing-db-access"
+          },
+          "minItems": 9,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "source_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "contains": {
+            "const": "candidate:billing-status-api"
+          },
+          "minItems": 9,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "order_and_billing_db_cells": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "cell:order-service"
+        },
+        {
+          "const": "cell:billing-db"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "orders_and_billing_contexts": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "context:orders"
+        },
+        {
+          "const": "context:billing"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

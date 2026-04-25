@@ -8,7 +8,9 @@ members = [
     "crates/higher-graphen-completion",
     "crates/higher-graphen-projection",
     "crates/higher-graphen-interpretation",
+    "crates/higher-graphen-runtime",
     "examples/architecture",
+    "tools/highergraphen-cli",
 ]
 resolver = "2"
 
@@ -29,6 +31,7 @@ higher-graphen-obstruction = { version = "0.1.0", path = "crates/higher-graphen-
 higher-graphen-completion = { version = "0.1.0", path = "crates/higher-graphen-completion" }
 higher-graphen-projection = { version = "0.1.0", path = "crates/higher-graphen-projection" }
 higher-graphen-interpretation = { version = "0.1.0", path = "crates/higher-graphen-interpretation" }
+higher-graphen-runtime = { version = "0.1.0", path = "crates/higher-graphen-runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

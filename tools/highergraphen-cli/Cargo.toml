@@ -1,0 +1,21 @@
+[package]
+name = "highergraphen-cli"
+description = "Command-line workflows for HigherGraphen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "highergraphen"
+path = "src/main.rs"
+
+[dependencies]
+higher-graphen-runtime.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
