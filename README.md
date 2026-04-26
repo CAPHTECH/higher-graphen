@@ -187,8 +187,13 @@ graph.
 
 CaseGraphen is the first concrete system built inside this repository from the
 HigherGraphen thesis. It is not only an example file format or a side utility;
-it is a real intermediate tool for representing AI-operated software work as
-case graphs and workflow graphs.
+it is a real intermediate tool for representing complex, evidence-heavy,
+decision-rich work as case graphs and workflow graphs.
+
+AI-operated software development is the first reference domain, but the
+abstraction is not limited to software development. CaseGraphen fits work where
+goals, tasks, decisions, evidence, unresolved questions, blockers, completions,
+reviews, and future projections need to remain inspectable over time.
 
 CaseGraphen makes the product thesis inspectable:
 
@@ -205,10 +210,10 @@ CaseGraphen makes the product thesis inspectable:
   development as a real case graph.
 
 This matters because it demonstrates the intended direction of HigherGraphen:
-software work is not reduced to a human-facing issue list, document, or command
-history. Goals, decisions, evidence, obstructions, completions, reviews, and
-future projections become first-class structures that an AI agent can inspect
-and operate directly.
+complex work is not reduced to a human-facing issue list, document, dashboard,
+or command history. Goals, decisions, evidence, obstructions, completions,
+reviews, and future projections become first-class structures that an AI agent
+can inspect and operate directly.
 
 The current CaseGraphen surface is specified in
 [`docs/specs/intermediate-tools/casegraphen.md`](docs/specs/intermediate-tools/casegraphen.md),
