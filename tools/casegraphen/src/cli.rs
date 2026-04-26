@@ -7,8 +7,8 @@ use crate::{
     workflow_eval::cli_reports::{
         workflow_completions_json, workflow_correspond_json, workflow_evidence_json,
         workflow_evolution_json, workflow_obstructions_json, workflow_project_json,
-        workflow_readiness_json, workflow_reason_json, workflow_validate_json,
-        WorkflowCommandError,
+        workflow_readiness_json, workflow_reason_json, workflow_topology_json,
+        workflow_validate_json, WorkflowCommandError,
     },
     workflow_workspace::cli_bridge::{CgWorkflowBridgeCommand, WorkflowBridgeError},
 };
@@ -26,6 +26,7 @@ const USAGE: &str = "usage:
   casegraphen inspect --input <path> --format json [--output <path>]
   casegraphen list --store <dir> --format json [--output <path>]
   casegraphen validate --input <path> --format json [--output <path>]
+  casegraphen history topology --input <path> --format json [--output <path>]
   casegraphen coverage --input <path> --coverage <path> --format json [--output <path>]
   casegraphen missing --input <path> --coverage <path> --format json [--output <path>]
   casegraphen conflicts --input <path> --format json [--output <path>]
@@ -37,6 +38,7 @@ const USAGE: &str = "usage:
   casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
   casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
   casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow history topology --input <workflow.graph.json> --format json [--output <path>]
   casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
   casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
   casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
@@ -48,7 +50,7 @@ const USAGE: &str = "usage:
   casegraphen cg workflow completion patch --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--transition-id <id>] [--reviewed-at <text>] [--output <path>]
   casegraphen cg workflow patch check --store <dir> --workflow-graph-id <id> --transition-id <id> --format json [--output <path>]
   casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
-  casegraphen case new|import|list|inspect|history|replay|validate|reason|frontier|obstructions|completions|evidence|project|close-check ... --format json [--output <path>]
+  casegraphen case new|import|list|inspect|history|history topology|replay|validate|reason|frontier|obstructions|completions|evidence|project|close-check ... --format json [--output <path>]
   casegraphen morphism propose|check|apply|reject ... --format json [--output <path>]";
 
 pub fn main_entry() -> ExitCode {
@@ -91,6 +93,10 @@ enum Command {
         output: Option<PathBuf>,
     },
     Validate {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    HistoryTopology {
         input: PathBuf,
         output: Option<PathBuf>,
     },
@@ -143,6 +149,10 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    WorkflowHistoryTopology {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
     WorkflowProject {
         input: PathBuf,
         projection: PathBuf,
@@ -173,6 +183,7 @@ impl Command {
             Some("validate") => {
                 Self::parse_one_input(args, |input, output| Self::Validate { input, output })
             }
+            Some("history") => Self::parse_history(args),
             Some("coverage") => {
                 Self::parse_policy_command(args, |input, coverage, output| Self::Coverage {
                     input,
@@ -203,6 +214,16 @@ impl Command {
                 .map(Self::CgWorkflowBridge)
                 .map_err(CliError::usage),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
+        }
+    }
+
+    fn parse_history(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut args = args;
+        match required_segment(&mut args, "history operation")?.to_str() {
+            Some("topology") => Self::parse_one_input(args, |input, output| {
+                Self::HistoryTopology { input, output }
+            }),
+            Some(_) | None => Err(CliError::usage("unsupported history command segment")),
         }
     }
 
@@ -306,12 +327,25 @@ impl Command {
             Some("evidence") => Self::parse_one_input(args, |input, output| {
                 Self::WorkflowEvidence { input, output }
             }),
+            Some("history") => Self::parse_workflow_history(args),
             Some("project") => Self::parse_workflow_project(args),
             Some("correspond") => Self::parse_workflow_correspond(args),
             Some("evolution") => Self::parse_one_input(args, |input, output| {
                 Self::WorkflowEvolution { input, output }
             }),
             Some(_) | None => Err(CliError::usage("unsupported workflow command segment")),
+        }
+    }
+
+    fn parse_workflow_history(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut args = args;
+        match required_segment(&mut args, "workflow history operation")?.to_str() {
+            Some("topology") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowHistoryTopology { input, output }
+            }),
+            Some(_) | None => Err(CliError::usage(
+                "unsupported workflow history command segment",
+            )),
         }
     }
 
@@ -358,6 +392,7 @@ impl Command {
             | Self::Inspect { output, .. }
             | Self::List { output, .. }
             | Self::Validate { output, .. }
+            | Self::HistoryTopology { output, .. }
             | Self::Coverage { output, .. }
             | Self::Missing { output, .. }
             | Self::Conflicts { output, .. }
@@ -369,6 +404,7 @@ impl Command {
             | Self::WorkflowObstructions { output, .. }
             | Self::WorkflowCompletions { output, .. }
             | Self::WorkflowEvidence { output, .. }
+            | Self::WorkflowHistoryTopology { output, .. }
             | Self::WorkflowProject { output, .. }
             | Self::WorkflowCorrespond { output, .. }
             | Self::WorkflowEvolution { output, .. } => output.as_ref(),
@@ -388,6 +424,7 @@ impl Command {
             Self::Inspect { input, .. } => run_inspect(input),
             Self::List { store, .. } => run_list(store),
             Self::Validate { input, .. } => run_validate(input),
+            Self::HistoryTopology { input, .. } => run_topology(input),
             Self::Coverage {
                 input, coverage, ..
             } => run_coverage(input, coverage),
@@ -416,6 +453,9 @@ impl Command {
             }
             Self::WorkflowEvidence { input, .. } => {
                 workflow_evidence_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowHistoryTopology { input, .. } => {
+                workflow_topology_json(input).map_err(CliError::from)
             }
             Self::WorkflowProject {
                 input, projection, ..
@@ -514,6 +554,15 @@ fn run_validate(input: &Path) -> Result<String, CliError> {
         input,
         &graph,
         result,
+    ))
+}
+
+fn run_topology(input: &Path) -> Result<String, CliError> {
+    let graph = read_case_graph(input)?;
+    serialize(&report::topology_report(
+        "casegraphen history topology",
+        input,
+        &graph,
     ))
 }
 

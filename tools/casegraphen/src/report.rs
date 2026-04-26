@@ -106,6 +106,20 @@ pub fn validate_report(
     }
 }
 
+pub fn topology_report(command: &str, input: &Path, graph: &CaseGraph) -> OperationReport<Value> {
+    let topology = crate::topology::case_graph_topology(graph);
+    let result = topology_result_value(topology);
+    OperationReport {
+        schema: schema("topology"),
+        report_type: "case_topology".to_owned(),
+        report_version: 1,
+        metadata: metadata(command),
+        input: path_input(input),
+        projection: topology_projection(graph, result.clone()),
+        result,
+    }
+}
+
 pub fn coverage_report(
     command: &str,
     input: &Path,
@@ -260,6 +274,7 @@ fn projection_with_findings(
     conflicts: &[ConflictingCase],
     boundary: BoundaryCoverage,
 ) -> Value {
+    let topology = topology_result_value(crate::topology::case_graph_topology(graph));
     json!({
         "human_review": {
             "case_summaries": human_case_summaries(graph),
@@ -272,15 +287,49 @@ fn projection_with_findings(
             "scenarios": graph.scenarios,
             "coverage_goals": graph.coverage_goals,
             "missing_cases": missing,
-            "conflicts": conflicts
+            "conflicts": conflicts,
+            "topology_diagnostics": topology
         },
         "audit_trace": {
             "source_ids": source_ids(graph),
             "per_source_case_ids": per_source_case_ids(graph),
             "boundary_coverage": boundary,
+            "topology_diagnostics": topology,
             "information_loss": ["projection is a deterministic summary of the source graph"]
         }
     })
+}
+
+fn topology_projection(graph: &CaseGraph, topology: Value) -> Value {
+    json!({
+        "human_review": {
+            "case_summaries": human_case_summaries(graph),
+            "recommended_review_actions": ["review topology findings before using graph shape as accepted coverage evidence"]
+        },
+        "ai_view": {
+            "case_graph_id": graph.case_graph_id,
+            "topology_diagnostics": topology
+        },
+        "audit_trace": {
+            "source_ids": source_ids(graph),
+            "topology_diagnostics": topology,
+            "information_loss": ["topology diagnostics lift case graph records into a finite cell complex; original domain metadata is preserved only through source mappings"]
+        }
+    })
+}
+
+fn topology_result_value(
+    result: Result<crate::topology::CaseTopologyReport, crate::topology::TopologyReportError>,
+) -> Value {
+    match result {
+        Ok(report) => serde_json::to_value(report).expect("topology report serializes"),
+        Err(error) => json!({
+            "error": {
+                "code": error.code(),
+                "message": error.to_string()
+            }
+        }),
+    }
 }
 
 fn human_case_summaries(graph: &CaseGraph) -> Vec<Value> {

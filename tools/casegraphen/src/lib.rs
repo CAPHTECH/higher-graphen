@@ -12,6 +12,7 @@ pub mod native_review;
 pub mod native_store;
 pub mod report;
 pub mod store;
+pub mod topology;
 pub mod workflow_eval;
 pub mod workflow_model;
 pub mod workflow_report;

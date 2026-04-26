@@ -81,6 +81,20 @@ pub fn workflow_evidence_json(input: &Path) -> WorkflowCommandResult<String> {
     )
 }
 
+pub fn workflow_topology_json(input: &Path) -> WorkflowCommandResult<String> {
+    workflow_section_json(
+        input,
+        None,
+        "casegraphen workflow history topology",
+        "topology",
+        |graph| {
+            Ok(serde_json::to_value(crate::topology::workflow_topology(
+                graph,
+            )?)?)
+        },
+    )
+}
+
 pub fn workflow_project_json(input: &Path, projection: &Path) -> WorkflowCommandResult<String> {
     workflow_section_json(
         input,
@@ -169,6 +183,7 @@ pub type WorkflowCommandResult<T> = Result<T, WorkflowCommandError>;
 pub enum WorkflowCommandError {
     Store(StoreError),
     Validation(WorkflowValidationError),
+    Core(higher_graphen_core::CoreError),
     Json(serde_json::Error),
 }
 
@@ -184,6 +199,12 @@ impl From<WorkflowValidationError> for WorkflowCommandError {
     }
 }
 
+impl From<higher_graphen_core::CoreError> for WorkflowCommandError {
+    fn from(error: higher_graphen_core::CoreError) -> Self {
+        Self::Core(error)
+    }
+}
+
 impl From<serde_json::Error> for WorkflowCommandError {
     fn from(error: serde_json::Error) -> Self {
         Self::Json(error)
@@ -195,6 +216,7 @@ impl fmt::Display for WorkflowCommandError {
         match self {
             Self::Store(error) => write!(formatter, "{error}"),
             Self::Validation(error) => write!(formatter, "{error}"),
+            Self::Core(error) => write!(formatter, "{error}"),
             Self::Json(error) => write!(formatter, "{error}"),
         }
     }

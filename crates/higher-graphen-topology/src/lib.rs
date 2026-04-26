@@ -1,9 +1,9 @@
-//! Finite topology and persistence summaries for HigherGraphen complexes.
+//! Finite topology, homology, and persistence summaries for HigherGraphen complexes.
 //!
-//! This crate intentionally implements a deterministic finite kernel rather
-//! than a full homology engine. It summarizes the 1-skeleton of a complex,
-//! records explicit findings for structure outside that support, and derives
-//! simple persistence intervals from cumulative filtration stages.
+//! This crate implements a deterministic finite homology kernel over Z2. It
+//! computes boundary ranks, cycle ranks, Betti numbers, and persistence
+//! intervals from HigherGraphen cell boundaries. The legacy graph-oriented
+//! fields remain available for connected-component and simple-cycle diagnostics.
 
 use higher_graphen_core::{CoreError, Id, Result};
 use higher_graphen_space::{Cell, Complex, Dimension, InMemorySpaceStore};
@@ -24,7 +24,11 @@ pub enum TopologyFindingKind {
     ExternalBoundaryCell,
     /// A dimension-1 cell cannot be treated as a simple graph edge.
     NonGraphEdgeBoundary,
-    /// A cell dimension is outside the MVP 1-skeleton kernel.
+    /// A boundary reference skips at least one chain dimension.
+    NonCodimensionOneBoundary,
+    /// The finite boundary operators violate d(d(cell)) = 0 over Z2.
+    BoundaryOperatorCompositionNonZero,
+    /// A cell dimension is outside a bounded topology kernel.
     UnsupportedDimension,
 }
 
@@ -72,6 +76,61 @@ pub struct SimpleCycleIndicator {
     pub edge_cell_ids: Vec<Id>,
 }
 
+/// Coefficient field used by the finite homology engine.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HomologyCoefficientField {
+    /// Field with two elements. Boundary orientations are ignored.
+    Z2,
+}
+
+impl Default for HomologyCoefficientField {
+    fn default() -> Self {
+        Self::Z2
+    }
+}
+
+/// Per-dimension homology summary over the selected finite cell set.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HomologyDimensionSummary {
+    /// Chain dimension.
+    pub dimension: Dimension,
+    /// Rank of the chain group C_n.
+    pub chain_rank: usize,
+    /// Rank of the boundary operator d_n: C_n -> C_{n-1}.
+    pub boundary_rank: usize,
+    /// Rank of the cycle group ker d_n.
+    pub cycle_rank: usize,
+    /// Rank of the boundary subgroup im d_{n+1}.
+    pub bounding_chain_rank: usize,
+    /// Rank of H_n = ker d_n / im d_{n+1}.
+    pub homology_rank: usize,
+}
+
+/// Deterministic finite homology summary over Z2.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HomologySummary {
+    /// Coefficient field used by this summary.
+    pub coefficient_field: HomologyCoefficientField,
+    /// Per-dimension ranks ordered by dimension.
+    pub dimensions: Vec<HomologyDimensionSummary>,
+    /// Alternating sum of chain ranks.
+    pub euler_characteristic: i64,
+}
+
+impl HomologySummary {
+    /// Returns the Betti number for one dimension, or zero when absent.
+    #[must_use]
+    pub fn betti_number(&self, dimension: Dimension) -> usize {
+        self.dimensions
+            .iter()
+            .find(|summary| summary.dimension == dimension)
+            .map_or(0, |summary| summary.homology_rank)
+    }
+}
+
 /// Deterministic topology summary for a finite complex or active stage.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -86,16 +145,19 @@ pub struct TopologySummary {
     pub component_count: usize,
     /// Connected components ordered by representative cell id.
     pub connected_components: Vec<ConnectedComponentSummary>,
-    /// First Betti number for the valid 1-skeleton: edges - vertices + components.
+    /// Finite homology summary over Z2 for every represented dimension.
+    #[serde(default)]
+    pub homology: HomologySummary,
+    /// First Betti number from the Z2 homology summary.
     pub first_betti_number: usize,
-    /// Alias for the MVP simple-hole count.
+    /// Alias for the Z2 H1 rank.
     pub simple_hole_count: usize,
     /// True when the 1-skeleton contains at least one simple cycle witness.
     pub has_simple_cycle: bool,
     /// Deterministic simple cycle witnesses.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub simple_cycles: Vec<SimpleCycleIndicator>,
-    /// Findings for uncovered boundaries and unsupported cells.
+    /// Findings for uncovered boundaries, invalid chain structure, and graph diagnostics.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<TopologyFinding>,
 }
@@ -170,8 +232,8 @@ pub struct FiltrationStageSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PersistenceInterval {
-    /// Homology dimension. The MVP emits 0 for components and 1 for cycles.
-    pub dimension: u8,
+    /// Homology dimension.
+    pub dimension: Dimension,
     /// Stage where the feature appears.
     pub birth_stage_id: Id,
     /// Zero-based birth stage index.

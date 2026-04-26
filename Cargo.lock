@@ -9,6 +9,7 @@ dependencies = [
  "higher-graphen-core",
  "higher-graphen-projection",
  "higher-graphen-space",
+ "higher-graphen-topology",
  "serde",
  "serde_json",
 ]

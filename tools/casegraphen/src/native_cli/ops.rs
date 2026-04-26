@@ -114,6 +114,16 @@ pub(super) fn case_close_check(
     ))
 }
 
+pub(super) fn case_topology(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let replay =
+        NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
+    let topology = crate::topology::native_case_topology(&replay.case_space)?;
+    Ok(report(
+        "casegraphen case history topology",
+        json!({ "topology": topology }),
+    ))
+}
+
 pub(super) fn morphism_propose(
     store: &Path,
     case_space_id: &Id,

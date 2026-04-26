@@ -52,6 +52,11 @@ fn coverage_and_missing_are_successful_domain_reports() {
     let coverage = stdout_json(&output);
     assert_eq!(coverage["result"]["coverage_status"], json!("partial"));
     assert_eq!(
+        coverage["projection"]["audit_trace"]["topology_diagnostics"]["topology"]["homology"]
+            ["coefficient_field"],
+        json!("z2")
+    );
+    assert_eq!(
         coverage["result"]["goals"][0]["uncovered_ids"],
         json!(["context:billing"])
     );
@@ -73,8 +78,50 @@ fn coverage_and_missing_are_successful_domain_reports() {
         json!("unreviewed")
     );
     assert_eq!(
+        value["projection"]["ai_view"]["topology_diagnostics"]["topology"]["homology"]
+            ["coefficient_field"],
+        json!("z2")
+    );
+    assert_eq!(
         value["result"]["missing_cases"][0]["target_ids"],
         json!(["context:billing"])
+    );
+}
+
+#[test]
+fn topology_command_emits_report_for_graph_fixture() {
+    let output = run_cli(&[
+        "history",
+        "topology",
+        "--input",
+        graph_fixture().to_str().expect("fixture path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.topology.report.v1")
+    );
+    assert_eq!(value["report_type"], json!("case_topology"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen history topology")
+    );
+    assert_eq!(
+        value["result"]["topology"]["homology"]["coefficient_field"],
+        json!("z2")
+    );
+    assert!(
+        value["result"]["source_mapping"]["nodes"]
+            .as_array()
+            .expect("topology nodes")
+            .len()
+            > 0
     );
 }
 
@@ -152,6 +199,74 @@ fn workflow_reason_emits_reasoning_report_for_workflow_fixture() {
         value["projection"]["ai_view"]["audience"],
         json!("ai_agent")
     );
+}
+
+#[test]
+fn workflow_topology_emits_diagnostics_report() {
+    let output = run_cli(&[
+        "workflow",
+        "history",
+        "topology",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.workflow.topology.report.v1")
+    );
+    assert_eq!(value["report_type"], json!("case_workflow_topology"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen workflow history topology")
+    );
+    assert_eq!(
+        value["result"]["topology"]["homology"]["coefficient_field"],
+        json!("z2")
+    );
+    assert!(
+        value["result"]["source_mapping"]["nodes"]
+            .as_array()
+            .expect("topology nodes")
+            .len()
+            > 0
+    );
+
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let output_path = directory.join("workflow.topology.report.json");
+
+    let file_output = run_cli(&[
+        "workflow",
+        "history",
+        "topology",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+        "--output",
+        output_path.to_str().expect("output path"),
+    ]);
+
+    assert!(
+        file_output.status.success(),
+        "stderr: {}",
+        stderr(&file_output)
+    );
+    assert!(stdout(&file_output).is_empty());
+    assert!(stderr(&file_output).is_empty());
+    assert_eq!(
+        json_file(output_path)["schema"],
+        json!("highergraphen.case.workflow.topology.report.v1")
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
 }
 
 #[test]
@@ -1210,6 +1325,44 @@ fn native_reasoning_commands_emit_domain_reports_and_output_file() {
             json!(format!("casegraphen case {command}"))
         );
     }
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn native_case_topology_emits_domain_report() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    import_native_case_space(&directory, "revision:native-cli-imported");
+
+    let output = run_cli(&[
+        "case",
+        "history",
+        "topology",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+    ]);
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen case history topology")
+    );
+    assert_eq!(
+        value["result"]["topology"]["topology"]["homology"]["coefficient_field"],
+        json!("z2")
+    );
+    assert!(
+        value["result"]["topology"]["source_mapping"]["nodes"]
+            .as_array()
+            .expect("topology nodes")
+            .len()
+            > 0
+    );
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }

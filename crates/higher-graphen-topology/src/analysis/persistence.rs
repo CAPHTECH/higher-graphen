@@ -6,70 +6,102 @@ pub(super) fn build_persistence_intervals(
     stages: &[FiltrationStage],
     birth_stage_by_cell_id: &BTreeMap<Id, usize>,
 ) -> Result<Vec<PersistenceInterval>> {
-    let mut entries = birth_stage_by_cell_id
+    let cells = filtration_cells(store, complex, birth_stage_by_cell_id)?;
+    let index_by_cell_id = cells
         .iter()
-        .map(|(cell_id, stage_index)| {
-            let cell = require_cell_in_complex(store, complex, cell_id)?;
-            Ok((
-                *stage_index,
-                dimension_rank(cell.dimension),
-                cell.id.clone(),
-            ))
-        })
-        .collect::<Result<Vec<_>>>()?;
-    entries.sort();
+        .enumerate()
+        .map(|(index, cell)| (cell.id.clone(), index))
+        .collect::<BTreeMap<_, _>>();
 
+    let mut reduced_columns = Vec::with_capacity(cells.len());
+    let mut pivot_column_by_low = BTreeMap::<usize, usize>::new();
+    let mut paired_birth_indices = BTreeSet::new();
     let mut intervals = Vec::new();
-    let mut components = PersistentUnionFind::new();
 
-    for (stage_index, _, cell_id) in entries {
-        let cell = require_cell_in_complex(store, complex, &cell_id)?;
-        match cell.dimension {
-            0 => {
-                let interval_index = intervals.len();
+    for (column_index, cell) in cells.iter().enumerate() {
+        let mut column = persistence_boundary_indices(store, complex, cell, &index_by_cell_id)?;
+        column.retain(|row_index| *row_index < column_index);
+
+        while let Some(low) = column.iter().next_back().copied() {
+            if let Some(pivot_column_index) = pivot_column_by_low.get(&low).copied() {
+                xor_indices(&mut column, &reduced_columns[pivot_column_index]);
+            } else {
+                pivot_column_by_low.insert(low, column_index);
+                paired_birth_indices.insert(low);
+                let birth = &cells[low];
                 intervals.push(PersistenceInterval {
-                    dimension: 0,
-                    birth_stage_id: stages[stage_index].id.clone(),
-                    birth_stage_index: stage_index,
-                    death_stage_id: None,
-                    death_stage_index: None,
-                    generator_cell_ids: vec![cell.id.clone()],
+                    dimension: birth.dimension,
+                    birth_stage_id: stages[birth.birth_stage_index].id.clone(),
+                    birth_stage_index: birth.birth_stage_index,
+                    death_stage_id: Some(stages[cell.birth_stage_index].id.clone()),
+                    death_stage_index: Some(cell.birth_stage_index),
+                    generator_cell_ids: vec![birth.id.clone()],
                 });
-                components.add(cell.id.clone(), interval_index);
+                break;
             }
-            1 => {
-                if let Some((source, target)) =
-                    graph_edge_endpoints_for_persistence(store, complex, cell)?
-                {
-                    if !components.contains(&source) || !components.contains(&target) {
-                        continue;
-                    }
-                    if components.find(&source) == components.find(&target) {
-                        intervals.push(PersistenceInterval {
-                            dimension: 1,
-                            birth_stage_id: stages[stage_index].id.clone(),
-                            birth_stage_index: stage_index,
-                            death_stage_id: None,
-                            death_stage_index: None,
-                            generator_cell_ids: vec![cell.id.clone()],
-                        });
-                    } else {
-                        components.union_by_birth(
-                            &source,
-                            &target,
-                            stage_index,
-                            &stages[stage_index].id,
-                            &mut intervals,
-                        );
-                    }
-                }
-            }
-            _ => {}
+        }
+
+        reduced_columns.push(column);
+    }
+
+    for (index, column) in reduced_columns.iter().enumerate() {
+        if column.is_empty() && !paired_birth_indices.contains(&index) {
+            let birth = &cells[index];
+            intervals.push(PersistenceInterval {
+                dimension: birth.dimension,
+                birth_stage_id: stages[birth.birth_stage_index].id.clone(),
+                birth_stage_index: birth.birth_stage_index,
+                death_stage_id: None,
+                death_stage_index: None,
+                generator_cell_ids: vec![birth.id.clone()],
+            });
         }
     }
 
     intervals.sort_by(compare_intervals);
     Ok(intervals)
+}
+
+fn filtration_cells(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    birth_stage_by_cell_id: &BTreeMap<Id, usize>,
+) -> Result<Vec<FiltrationCell>> {
+    let mut cells = birth_stage_by_cell_id
+        .iter()
+        .map(|(cell_id, birth_stage_index)| {
+            let cell = require_cell_in_complex(store, complex, cell_id)?;
+            Ok(FiltrationCell {
+                id: cell.id.clone(),
+                dimension: cell.dimension,
+                birth_stage_index: *birth_stage_index,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    cells.sort();
+    Ok(cells)
+}
+
+fn persistence_boundary_indices(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    cell: &FiltrationCell,
+    index_by_cell_id: &BTreeMap<Id, usize>,
+) -> Result<BTreeSet<usize>> {
+    let stored_cell = require_cell_in_complex(store, complex, &cell.id)?;
+    let mut boundary_indices = BTreeSet::new();
+
+    for boundary_id in &stored_cell.boundary {
+        let boundary = require_cell_in_space(store, complex, boundary_id)?;
+        if boundary.dimension.checked_add(1) != Some(stored_cell.dimension) {
+            continue;
+        }
+        if let Some(index) = index_by_cell_id.get(boundary_id) {
+            boundary_indices.insert(*index);
+        }
+    }
+
+    Ok(boundary_indices)
 }
 
 fn compare_intervals(
@@ -83,116 +115,9 @@ fn compare_intervals(
         .then_with(|| left.generator_cell_ids.cmp(&right.generator_cell_ids))
 }
 
-fn graph_edge_endpoints_for_persistence(
-    store: &InMemorySpaceStore,
-    complex: &Complex,
-    cell: &Cell,
-) -> Result<Option<(Id, Id)>> {
-    let complex_cell_ids = id_set(&complex.cell_ids);
-    let mut endpoint_ids = BTreeSet::new();
-    for boundary_id in &cell.boundary {
-        if !complex_cell_ids.contains(boundary_id) {
-            return Ok(None);
-        }
-        let boundary = require_cell_in_complex(store, complex, boundary_id)?;
-        if boundary.dimension != 0 {
-            return Ok(None);
-        }
-        endpoint_ids.insert(boundary_id.clone());
-    }
-
-    let endpoints = ids_from_set(endpoint_ids);
-    if endpoints.len() == 2 {
-        Ok(Some((endpoints[0].clone(), endpoints[1].clone())))
-    } else {
-        Ok(None)
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct PersistentUnionFind {
-    parent: BTreeMap<Id, Id>,
-    root_interval_index: BTreeMap<Id, usize>,
-}
-
-impl PersistentUnionFind {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn add(&mut self, id: Id, interval_index: usize) {
-        self.parent.entry(id.clone()).or_insert_with(|| id.clone());
-        self.root_interval_index.insert(id, interval_index);
-    }
-
-    fn contains(&self, id: &Id) -> bool {
-        self.parent.contains_key(id)
-    }
-
-    fn find(&mut self, id: &Id) -> Id {
-        let parent = self
-            .parent
-            .get(id)
-            .cloned()
-            .expect("persistent union-find contains vertex");
-        if &parent == id {
-            return parent;
-        }
-        let root = self.find(&parent);
-        self.parent.insert(id.clone(), root.clone());
-        root
-    }
-
-    fn union_by_birth(
-        &mut self,
-        left: &Id,
-        right: &Id,
-        death_stage_index: usize,
-        death_stage_id: &Id,
-        intervals: &mut [PersistenceInterval],
-    ) {
-        let left_root = self.find(left);
-        let right_root = self.find(right);
-        if left_root == right_root {
-            return;
-        }
-
-        let left_interval_index = *self
-            .root_interval_index
-            .get(&left_root)
-            .expect("root interval exists");
-        let right_interval_index = *self
-            .root_interval_index
-            .get(&right_root)
-            .expect("root interval exists");
-        let left_birth = intervals[left_interval_index].birth_stage_index;
-        let right_birth = intervals[right_interval_index].birth_stage_index;
-
-        let left_survives =
-            left_birth < right_birth || (left_birth == right_birth && left_root <= right_root);
-        let (survivor_root, loser_root, survivor_interval_index, loser_interval_index) =
-            if left_survives {
-                (
-                    left_root,
-                    right_root,
-                    left_interval_index,
-                    right_interval_index,
-                )
-            } else {
-                (
-                    right_root,
-                    left_root,
-                    right_interval_index,
-                    left_interval_index,
-                )
-            };
-
-        intervals[loser_interval_index].death_stage_id = Some(death_stage_id.clone());
-        intervals[loser_interval_index].death_stage_index = Some(death_stage_index);
-        self.parent
-            .insert(loser_root.clone(), survivor_root.clone());
-        self.root_interval_index.remove(&loser_root);
-        self.root_interval_index
-            .insert(survivor_root, survivor_interval_index);
-    }
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct FiltrationCell {
+    birth_stage_index: usize,
+    dimension: Dimension,
+    id: Id,
 }

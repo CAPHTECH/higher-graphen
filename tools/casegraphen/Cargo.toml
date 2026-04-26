@@ -17,6 +17,7 @@ path = "src/main.rs"
 [dependencies]
 higher-graphen-core.workspace = true
 higher-graphen-space.workspace = true
+higher-graphen-topology.workspace = true
 higher-graphen-projection.workspace = true
 serde.workspace = true
 serde_json.workspace = true

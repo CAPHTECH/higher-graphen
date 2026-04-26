@@ -119,14 +119,11 @@ fn summarize_active_complex(
     cell_ids: impl IntoIterator<Item = Id>,
 ) -> Result<TopologySummary> {
     let active_cell_ids = validate_active_cell_ids(store, complex, cell_ids)?;
-    let graph = build_graph(store, complex, &active_cell_ids)?;
+    let mut graph = build_graph(store, complex, &active_cell_ids)?;
+    let homology = summarize_homology(store, complex, &active_cell_ids, &mut graph.findings)?;
     let components = connected_components(&graph.vertices, &graph.edges);
     let simple_cycles = simple_cycle_witnesses(&graph.vertices, &graph.edges);
-    let first_betti_number = graph
-        .edges
-        .len()
-        .saturating_add(components.len())
-        .saturating_sub(graph.vertices.len());
+    let first_betti_number = homology.betti_number(1);
 
     Ok(TopologySummary {
         complex_id: complex.id.clone(),
@@ -134,6 +131,7 @@ fn summarize_active_complex(
         graph_edge_count: graph.edges.len(),
         component_count: components.len(),
         connected_components: components,
+        homology,
         first_betti_number,
         simple_hole_count: first_betti_number,
         has_simple_cycle: !simple_cycles.is_empty(),
@@ -266,16 +264,7 @@ fn build_graph(
                     edges.push(edge);
                 }
             }
-            unsupported_dimension => findings.push(TopologyFinding {
-                finding_type: TopologyFindingKind::UnsupportedDimension,
-                obstruction_type: Some(UNSUPPORTED_DIMENSION_OBSTRUCTION_TYPE.to_owned()),
-                cell_id: Some(cell.id.clone()),
-                related_cell_ids: cell.boundary.clone(),
-                description: format!(
-                    "cell {} has dimension {unsupported_dimension}; only dimensions 0 and 1 are summarized",
-                    cell.id
-                ),
-            }),
+            _ => {}
         }
     }
 
@@ -311,16 +300,19 @@ fn graph_edge_from_cell(
     }
 
     if !external_boundary_cell_ids.is_empty() {
-        findings.push(TopologyFinding {
-            finding_type: TopologyFindingKind::ExternalBoundaryCell,
-            obstruction_type: Some(UNCOVERED_REGION_OBSTRUCTION_TYPE.to_owned()),
-            cell_id: Some(cell.id.clone()),
-            related_cell_ids: ids_from_set(external_boundary_cell_ids),
-            description: format!(
-                "edge cell {} references boundary cells outside the summarized region",
-                cell.id
-            ),
-        });
+        push_finding(
+            findings,
+            TopologyFinding {
+                finding_type: TopologyFindingKind::ExternalBoundaryCell,
+                obstruction_type: Some(UNCOVERED_REGION_OBSTRUCTION_TYPE.to_owned()),
+                cell_id: Some(cell.id.clone()),
+                related_cell_ids: ids_from_set(external_boundary_cell_ids),
+                description: format!(
+                    "edge cell {} references boundary cells outside the summarized region",
+                    cell.id
+                ),
+            },
+        );
         return Ok(None);
     }
 
@@ -328,7 +320,7 @@ fn graph_edge_from_cell(
     if endpoints.len() != 2 || !non_vertex_boundary_cell_ids.is_empty() {
         let mut related_cell_ids = endpoints.clone();
         related_cell_ids.extend(ids_from_set(non_vertex_boundary_cell_ids));
-        findings.push(TopologyFinding {
+        push_finding(findings, TopologyFinding {
             finding_type: TopologyFindingKind::NonGraphEdgeBoundary,
             obstruction_type: None,
             cell_id: Some(cell.id.clone()),
@@ -347,6 +339,281 @@ fn graph_edge_from_cell(
         source: endpoints[0].clone(),
         target: endpoints[1].clone(),
     }))
+}
+
+fn summarize_homology(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    active_cell_ids: &BTreeSet<Id>,
+    findings: &mut Vec<TopologyFinding>,
+) -> Result<HomologySummary> {
+    let cells_by_dimension = cells_by_dimension(store, complex, active_cell_ids)?;
+    let boundary_data = build_boundary_data(
+        store,
+        complex,
+        active_cell_ids,
+        &cells_by_dimension,
+        findings,
+    )?;
+    validate_boundary_composition(&boundary_data, findings);
+
+    let mut dimensions = BTreeSet::from([0]);
+    for dimension in cells_by_dimension.keys() {
+        dimensions.insert(*dimension);
+        if *dimension > 0 {
+            dimensions.insert(dimension - 1);
+        }
+    }
+
+    let mut euler_characteristic = 0;
+    for (dimension, cell_ids) in &cells_by_dimension {
+        if dimension % 2 == 0 {
+            euler_characteristic += cell_ids.len() as i64;
+        } else {
+            euler_characteristic -= cell_ids.len() as i64;
+        }
+    }
+
+    let mut dimension_summaries = Vec::new();
+    for dimension in dimensions {
+        let chain_rank = cells_by_dimension.get(&dimension).map_or(0, Vec::len);
+        let boundary_rank = boundary_data
+            .rank_by_dimension
+            .get(&dimension)
+            .copied()
+            .unwrap_or(0);
+        let cycle_rank = chain_rank.saturating_sub(boundary_rank);
+        let bounding_chain_rank = boundary_data
+            .rank_by_dimension
+            .get(&dimension.saturating_add(1))
+            .copied()
+            .unwrap_or(0);
+        let homology_rank = cycle_rank.saturating_sub(bounding_chain_rank);
+        dimension_summaries.push(HomologyDimensionSummary {
+            dimension,
+            chain_rank,
+            boundary_rank,
+            cycle_rank,
+            bounding_chain_rank,
+            homology_rank,
+        });
+    }
+
+    Ok(HomologySummary {
+        coefficient_field: HomologyCoefficientField::Z2,
+        dimensions: dimension_summaries,
+        euler_characteristic,
+    })
+}
+
+fn cells_by_dimension(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    active_cell_ids: &BTreeSet<Id>,
+) -> Result<BTreeMap<Dimension, Vec<Id>>> {
+    let mut cells_by_dimension = BTreeMap::<Dimension, Vec<Id>>::new();
+    for cell_id in active_cell_ids {
+        let cell = require_cell_in_complex(store, complex, cell_id)?;
+        cells_by_dimension
+            .entry(cell.dimension)
+            .or_default()
+            .push(cell.id.clone());
+    }
+    Ok(cells_by_dimension)
+}
+
+fn build_boundary_data(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    active_cell_ids: &BTreeSet<Id>,
+    cells_by_dimension: &BTreeMap<Dimension, Vec<Id>>,
+    findings: &mut Vec<TopologyFinding>,
+) -> Result<BoundaryData> {
+    let mut rank_by_dimension = BTreeMap::new();
+    let mut boundary_cell_ids_by_cell_id = BTreeMap::new();
+
+    for (dimension, cell_ids) in cells_by_dimension {
+        if *dimension == 0 {
+            continue;
+        }
+
+        let row_cell_ids = cells_by_dimension
+            .get(&(dimension - 1))
+            .cloned()
+            .unwrap_or_default();
+        let row_index_by_cell_id = row_cell_ids
+            .iter()
+            .enumerate()
+            .map(|(index, cell_id)| (cell_id.clone(), index))
+            .collect::<BTreeMap<_, _>>();
+        let mut boundary_columns = Vec::new();
+
+        for cell_id in cell_ids {
+            let cell = require_cell_in_complex(store, complex, cell_id)?;
+            let boundary_cell_ids = homology_boundary_cell_ids(
+                store,
+                complex,
+                active_cell_ids,
+                cell,
+                &row_index_by_cell_id,
+                findings,
+            )?;
+            let row_indices = boundary_cell_ids
+                .iter()
+                .filter_map(|boundary_id| row_index_by_cell_id.get(boundary_id).copied())
+                .collect::<BTreeSet<_>>();
+            boundary_columns.push(row_indices);
+            boundary_cell_ids_by_cell_id.insert(cell.id.clone(), boundary_cell_ids);
+        }
+
+        rank_by_dimension.insert(*dimension, rank_mod2(&boundary_columns));
+    }
+
+    Ok(BoundaryData {
+        rank_by_dimension,
+        boundary_cell_ids_by_cell_id,
+    })
+}
+
+fn homology_boundary_cell_ids(
+    store: &InMemorySpaceStore,
+    complex: &Complex,
+    active_cell_ids: &BTreeSet<Id>,
+    cell: &Cell,
+    row_index_by_cell_id: &BTreeMap<Id, usize>,
+    findings: &mut Vec<TopologyFinding>,
+) -> Result<BTreeSet<Id>> {
+    let mut boundary_cell_ids = BTreeSet::new();
+    let mut external_boundary_cell_ids = BTreeSet::new();
+    let mut non_codimension_one_boundary_cell_ids = BTreeSet::new();
+
+    for boundary_id in &cell.boundary {
+        let boundary = require_cell_in_space(store, complex, boundary_id)?;
+        if !active_cell_ids.contains(boundary_id) {
+            external_boundary_cell_ids.insert(boundary_id.clone());
+            continue;
+        }
+
+        if boundary.dimension.checked_add(1) == Some(cell.dimension)
+            && row_index_by_cell_id.contains_key(boundary_id)
+        {
+            boundary_cell_ids.insert(boundary_id.clone());
+        } else {
+            non_codimension_one_boundary_cell_ids.insert(boundary_id.clone());
+        }
+    }
+
+    if !external_boundary_cell_ids.is_empty() {
+        push_finding(
+            findings,
+            TopologyFinding {
+                finding_type: TopologyFindingKind::ExternalBoundaryCell,
+                obstruction_type: Some(UNCOVERED_REGION_OBSTRUCTION_TYPE.to_owned()),
+                cell_id: Some(cell.id.clone()),
+                related_cell_ids: ids_from_set(external_boundary_cell_ids),
+                description: format!(
+                    "cell {} references boundary cells outside the summarized chain complex",
+                    cell.id
+                ),
+            },
+        );
+    }
+
+    if !non_codimension_one_boundary_cell_ids.is_empty() {
+        push_finding(
+            findings,
+            TopologyFinding {
+                finding_type: TopologyFindingKind::NonCodimensionOneBoundary,
+                obstruction_type: Some(UNSUPPORTED_DIMENSION_OBSTRUCTION_TYPE.to_owned()),
+                cell_id: Some(cell.id.clone()),
+                related_cell_ids: ids_from_set(non_codimension_one_boundary_cell_ids),
+                description: format!(
+                    "cell {} has boundary cells outside the codimension-one chain group",
+                    cell.id
+                ),
+            },
+        );
+    }
+
+    Ok(boundary_cell_ids)
+}
+
+fn validate_boundary_composition(
+    boundary_data: &BoundaryData,
+    findings: &mut Vec<TopologyFinding>,
+) {
+    for (cell_id, boundary_cell_ids) in &boundary_data.boundary_cell_ids_by_cell_id {
+        let mut composed_boundary_cell_ids = BTreeSet::new();
+        for boundary_id in boundary_cell_ids {
+            if let Some(lower_boundary_ids) =
+                boundary_data.boundary_cell_ids_by_cell_id.get(boundary_id)
+            {
+                xor_ids(&mut composed_boundary_cell_ids, lower_boundary_ids);
+            }
+        }
+
+        if composed_boundary_cell_ids.is_empty() {
+            continue;
+        }
+
+        push_finding(
+            findings,
+            TopologyFinding {
+                finding_type: TopologyFindingKind::BoundaryOperatorCompositionNonZero,
+                obstruction_type: Some(UNSUPPORTED_DIMENSION_OBSTRUCTION_TYPE.to_owned()),
+                cell_id: Some(cell_id.clone()),
+                related_cell_ids: ids_from_set(composed_boundary_cell_ids),
+                description: format!("cell {cell_id} has nonzero composed boundary over Z2"),
+            },
+        );
+    }
+}
+
+fn rank_mod2(columns: &[BTreeSet<usize>]) -> usize {
+    let mut pivot_columns: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+
+    for column in columns {
+        let mut reduced = column.clone();
+        while let Some(pivot) = reduced.iter().next_back().copied() {
+            if let Some(existing_column) = pivot_columns.get(&pivot) {
+                xor_indices(&mut reduced, existing_column);
+            } else {
+                pivot_columns.insert(pivot, reduced);
+                break;
+            }
+        }
+    }
+
+    pivot_columns.len()
+}
+
+fn xor_indices(left: &mut BTreeSet<usize>, right: &BTreeSet<usize>) {
+    let values = right.iter().copied().collect::<Vec<_>>();
+    for value in values {
+        if !left.insert(value) {
+            left.remove(&value);
+        }
+    }
+}
+
+fn xor_ids(left: &mut BTreeSet<Id>, right: &BTreeSet<Id>) {
+    let values = right.iter().cloned().collect::<Vec<_>>();
+    for value in values {
+        if !left.insert(value.clone()) {
+            left.remove(&value);
+        }
+    }
+}
+
+fn push_finding(findings: &mut Vec<TopologyFinding>, finding: TopologyFinding) {
+    if !findings.iter().any(|existing| {
+        existing.finding_type == finding.finding_type
+            && existing.obstruction_type == finding.obstruction_type
+            && existing.cell_id == finding.cell_id
+            && existing.related_cell_ids == finding.related_cell_ids
+    }) {
+        findings.push(finding);
+    }
 }
 
 fn connected_components(
@@ -533,14 +800,6 @@ fn require_cell_in_space<'a>(
     }
 }
 
-fn dimension_rank(dimension: Dimension) -> u8 {
-    match dimension {
-        0 => 0,
-        1 => 1,
-        _ => 2,
-    }
-}
-
 fn id_set(ids: &[Id]) -> BTreeSet<Id> {
     ids.iter().cloned().collect()
 }
@@ -572,6 +831,12 @@ struct GraphEdge {
     id: Id,
     source: Id,
     target: Id,
+}
+
+#[derive(Clone, Debug, Default)]
+struct BoundaryData {
+    rank_by_dimension: BTreeMap<Dimension, usize>,
+    boundary_cell_ids_by_cell_id: BTreeMap<Id, BTreeSet<Id>>,
 }
 
 #[derive(Clone, Debug, Default)]

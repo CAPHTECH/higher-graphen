@@ -9,8 +9,8 @@ use std::{
 
 mod ops;
 use ops::{
-    case_close_check, case_import, case_new, case_reason, morphism_apply, morphism_check,
-    morphism_propose, morphism_reject, report,
+    case_close_check, case_import, case_new, case_reason, case_topology, morphism_apply,
+    morphism_check, morphism_propose, morphism_reject, report,
 };
 
 #[derive(Debug, Eq, PartialEq)]
@@ -64,6 +64,11 @@ pub enum NativeCliCommand {
         case_space_id: Id,
         base_revision_id: Id,
         validation_evidence_ids: Vec<Id>,
+        output: Option<PathBuf>,
+    },
+    CaseTopology {
+        store: PathBuf,
+        case_space_id: Id,
         output: Option<PathBuf>,
     },
     MorphismPropose {
@@ -134,6 +139,7 @@ impl NativeCliCommand {
             | Self::CaseValidate { output, .. }
             | Self::CaseReason { output, .. }
             | Self::CaseCloseCheck { output, .. }
+            | Self::CaseTopology { output, .. }
             | Self::MorphismPropose { output, .. }
             | Self::MorphismCheck { output, .. }
             | Self::MorphismApply { output, .. }
@@ -155,7 +161,8 @@ impl NativeCliCommand {
             | Self::CaseReplay { .. }
             | Self::CaseValidate { .. }
             | Self::CaseReason { .. }
-            | Self::CaseCloseCheck { .. } => self.run_case_value(),
+            | Self::CaseCloseCheck { .. }
+            | Self::CaseTopology { .. } => self.run_case_value(),
             Self::MorphismPropose { .. }
             | Self::MorphismCheck { .. }
             | Self::MorphismApply { .. }
@@ -239,6 +246,11 @@ impl NativeCliCommand {
                 base_revision_id,
                 validation_evidence_ids,
             )?,
+            Self::CaseTopology {
+                store,
+                case_space_id,
+                ..
+            } => case_topology(store, case_space_id)?,
             _ => unreachable!("run_case_value called for morphism command"),
         })
     }
@@ -300,6 +312,15 @@ impl NativeCliCommand {
         let operation = operation
             .to_str()
             .ok_or_else(|| NativeCliError::usage("case operation must be UTF-8"))?;
+        let mut args = args.into_iter().collect::<Vec<_>>();
+        let history_topology = operation == "history"
+            && args
+                .first()
+                .and_then(|argument| argument.to_str())
+                .is_some_and(|argument| argument == "topology");
+        if history_topology {
+            args.remove(0);
+        }
         let options = NativeOptions::parse(args)?;
         match operation {
             "new" | "create" => Ok(Self::CaseNew {
@@ -321,6 +342,11 @@ impl NativeCliCommand {
                 output: options.output,
             }),
             "inspect" => Ok(Self::CaseInspect {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            "history" if history_topology => Ok(Self::CaseTopology {
                 store: options.require_store()?,
                 case_space_id: options.require_id("--case-space-id")?,
                 output: options.output,
