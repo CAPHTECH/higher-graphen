@@ -93,6 +93,7 @@ casegraphen workflow readiness --input <workflow.graph.json> --format json [--pr
 casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow history topology --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
 casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
 casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
@@ -108,10 +109,13 @@ casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format 
 casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json [--output <path>]
 casegraphen cg workflow validate --store <dir> --workflow-graph-id <id> --format json [--output <path>]
 casegraphen cg workflow readiness (--input <workflow.graph.json> | --store <dir> --workflow-graph-id <id>) --format json [--projection <projection.json>] [--output <path>]
-casegraphen cg workflow completion accept|reject|reopen --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
+casegraphen cg workflow completion accept --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
+casegraphen cg workflow completion reject --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
+casegraphen cg workflow completion reopen --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
 casegraphen cg workflow completion patch --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--transition-id <id>] [--reviewed-at <text>] [--output <path>]
 casegraphen cg workflow patch check --store <dir> --workflow-graph-id <id> --transition-id <id> --format json [--output <path>]
-casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
+casegraphen cg workflow patch apply --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
+casegraphen cg workflow patch reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
 ```
 
 This bridge is implemented in the repository-owned `casegraphen` package

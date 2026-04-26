@@ -186,48 +186,27 @@ impl NativeCliCommand {
                 revision_id,
                 ..
             } => case_import(store, input, revision_id)?,
-            Self::CaseList { store, .. } => {
-                let records = NativeCaseStore::new(store.clone()).list_case_spaces()?;
-                report("casegraphen case list", json!({ "case_spaces": records }))
-            }
+            Self::CaseList { store, .. } => case_list(store)?,
             Self::CaseInspect {
                 store,
                 case_space_id,
                 ..
-            } => {
-                let record =
-                    NativeCaseStore::new(store.clone()).inspect_case_space(case_space_id)?;
-                report("casegraphen case inspect", json!({ "record": record }))
-            }
+            } => case_inspect(store, case_space_id)?,
             Self::CaseHistory {
                 store,
                 case_space_id,
                 ..
-            } => {
-                let entries = NativeCaseStore::new(store.clone()).history_entries(case_space_id)?;
-                report("casegraphen case history", json!({ "entries": entries }))
-            }
+            } => case_history(store, case_space_id)?,
             Self::CaseReplay {
                 store,
                 case_space_id,
                 ..
-            } => {
-                let replay =
-                    NativeCaseStore::new(store.clone()).replay_current_case_space(case_space_id)?;
-                report("casegraphen case replay", json!({ "replay": replay }))
-            }
+            } => case_replay(store, case_space_id)?,
             Self::CaseValidate {
                 store,
                 case_space_id,
                 ..
-            } => {
-                let validation =
-                    NativeCaseStore::new(store.clone()).validate_case_space(case_space_id)?;
-                report(
-                    "casegraphen case validate",
-                    json!({ "validation": validation }),
-                )
-            }
+            } => case_validate(store, case_space_id)?,
             Self::CaseReason {
                 store,
                 case_space_id,
@@ -313,11 +292,7 @@ impl NativeCliCommand {
             .to_str()
             .ok_or_else(|| NativeCliError::usage("case operation must be UTF-8"))?;
         let mut args = args.into_iter().collect::<Vec<_>>();
-        let history_topology = operation == "history"
-            && args
-                .first()
-                .and_then(|argument| argument.to_str())
-                .is_some_and(|argument| argument == "topology");
+        let history_topology = is_history_topology(operation, &args);
         if history_topology {
             args.remove(0);
         }
@@ -445,6 +420,56 @@ impl NativeCliCommand {
             _ => Err(NativeCliError::usage("unsupported native morphism command")),
         }
     }
+}
+
+fn case_list(store: &Path) -> Result<Value, NativeCliError> {
+    let records = NativeCaseStore::new(store.to_path_buf()).list_case_spaces()?;
+    Ok(report(
+        "casegraphen case list",
+        json!({ "case_spaces": records }),
+    ))
+}
+
+fn case_inspect(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let record = NativeCaseStore::new(store.to_path_buf()).inspect_case_space(case_space_id)?;
+    Ok(report(
+        "casegraphen case inspect",
+        json!({ "record": record }),
+    ))
+}
+
+fn case_history(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let entries = NativeCaseStore::new(store.to_path_buf()).history_entries(case_space_id)?;
+    Ok(report(
+        "casegraphen case history",
+        json!({ "entries": entries }),
+    ))
+}
+
+fn case_replay(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let replay =
+        NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
+    Ok(report(
+        "casegraphen case replay",
+        json!({ "replay": replay }),
+    ))
+}
+
+fn case_validate(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let validation =
+        NativeCaseStore::new(store.to_path_buf()).validate_case_space(case_space_id)?;
+    Ok(report(
+        "casegraphen case validate",
+        json!({ "validation": validation }),
+    ))
+}
+
+fn is_history_topology(operation: &str, args: &[OsString]) -> bool {
+    operation == "history"
+        && args
+            .first()
+            .and_then(|argument| argument.to_str())
+            .is_some_and(|argument| argument == "topology")
 }
 
 #[derive(Default)]

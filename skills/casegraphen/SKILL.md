@@ -89,6 +89,7 @@ casegraphen case import --store <dir> --input native.case.space.json --revision-
 casegraphen case list --store <dir> --format json
 casegraphen case inspect --store <dir> --case-space-id <id> --format json
 casegraphen case history --store <dir> --case-space-id <id> --format json
+casegraphen case history topology --store <dir> --case-space-id <id> --format json
 casegraphen case replay --store <dir> --case-space-id <id> --format json
 casegraphen case validate --store <dir> --case-space-id <id> --format json
 ```
@@ -180,6 +181,7 @@ casegraphen workflow readiness --input workflow.graph.json --format json [--proj
 casegraphen workflow obstructions --input workflow.graph.json --format json
 casegraphen workflow completions --input workflow.graph.json --format json
 casegraphen workflow evidence --input workflow.graph.json --format json
+casegraphen workflow history topology --input workflow.graph.json --format json
 casegraphen workflow project --input workflow.graph.json --projection projection.json --format json
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json
 casegraphen workflow evolution --input workflow.graph.json --format json
@@ -221,10 +223,11 @@ Completion candidates are proposed structure. They remain `unreviewed` until an
 explicit bridge review records reviewer metadata, reason, revision, and optional
 evidence or decision links.
 
-Review a candidate:
+Review a candidate by choosing one action command, such as `accept`, `reject`,
+or `reopen`:
 
 ```sh
-casegraphen cg workflow completion accept|reject|reopen \
+casegraphen cg workflow completion accept \
   --store <dir> \
   --workflow-graph-id <id> \
   --candidate-id <candidate_id> \
@@ -234,6 +237,24 @@ casegraphen cg workflow completion accept|reject|reopen \
   --format json \
   [--evidence-id <evidence_id> ...] \
   [--decision-id <decision_id> ...]
+
+casegraphen cg workflow completion reject \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --candidate-id <candidate_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
+  --format json
+
+casegraphen cg workflow completion reopen \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --candidate-id <candidate_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
+  --format json
 ```
 
 Convert an accepted completion candidate into a reviewable patch transition:
@@ -250,7 +271,8 @@ casegraphen cg workflow completion patch \
   [--transition-id <transition_id>]
 ```
 
-Check, apply, or reject the patch transition:
+Check the patch transition, then choose either the `apply` or `reject` review
+command:
 
 ```sh
 casegraphen cg workflow patch check \
@@ -259,7 +281,16 @@ casegraphen cg workflow patch check \
   --transition-id <transition_id> \
   --format json
 
-casegraphen cg workflow patch apply|reject \
+casegraphen cg workflow patch apply \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --transition-id <transition_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
+  --format json
+
+casegraphen cg workflow patch reject \
   --store <dir> \
   --workflow-graph-id <id> \
   --transition-id <transition_id> \

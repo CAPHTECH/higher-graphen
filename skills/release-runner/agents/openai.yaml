@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Runner"
+  short_description: "Prepare and ship higher-graphen releases"
+  default_prompt: "Use $release-runner to prepare, verify, and ship a higher-graphen release."

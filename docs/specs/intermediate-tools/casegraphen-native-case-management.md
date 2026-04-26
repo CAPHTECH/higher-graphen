@@ -465,6 +465,7 @@ casegraphen case list --store <dir> --format json
 casegraphen case inspect --store <dir> --case-space-id <id> --format json
 casegraphen case validate --store <dir> --case-space-id <id> --format json
 casegraphen case history --store <dir> --case-space-id <id> --format json
+casegraphen case history topology --store <dir> --case-space-id <id> --format json
 casegraphen case replay --store <dir> --case-space-id <id> --format json
 casegraphen case reason --store <dir> --case-space-id <id> --format json
 casegraphen case frontier --store <dir> --case-space-id <id> --format json

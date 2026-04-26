@@ -332,6 +332,7 @@ boundary.
 - [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
 - [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Repository-owned CaseGraphen CLI skill
 - [`skills/casegraphen-ddd-diagnostics/SKILL.md`](skills/casegraphen-ddd-diagnostics/SKILL.md) - Repository-owned DDD diagnostic skill
+- [`skills/release-runner/SKILL.md`](skills/release-runner/SKILL.md) - Repository-owned release preparation and publication skill
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification
 - [`docs/product-packages/architecture-product.md`](docs/product-packages/architecture-product.md) - Reference Architecture Product

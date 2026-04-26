@@ -1,0 +1,15 @@
+{
+  "schema": "highergraphen.schema_aliases.v1",
+  "aliases": [
+    {
+      "schema_pattern": "^highergraphen\\.case\\.(create|inspect|list|validate|topology|coverage|missing|conflicts|project|compare)\\.report\\.v1$",
+      "target_schema_id": "highergraphen.case.report.v1",
+      "reason": "Classic casegraphen commands share the case report envelope while preserving operation-specific schema IDs in generated reports."
+    },
+    {
+      "schema_pattern": "^highergraphen\\.case\\.workflow\\.(?!report\\.v1$)[a-z_]+\\.report\\.v1$",
+      "target_schema_id": "highergraphen.case.workflow.operation.report.v1",
+      "reason": "Focused workflow and workflow-store commands share the workflow operation envelope while preserving operation-specific schema IDs in generated reports."
+    }
+  ]
+}

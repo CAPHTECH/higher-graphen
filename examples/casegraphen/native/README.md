@@ -16,9 +16,9 @@ Use a temporary store when exercising the fixture:
 
 With a local binary, the command spellings are `casegraphen case import`,
 `casegraphen case reason`, `casegraphen case frontier`,
-`casegraphen case close-check`, `casegraphen morphism propose`, and
-`casegraphen morphism apply`. The examples below use Cargo so they work from a
-fresh repository checkout.
+`casegraphen case history topology`, `casegraphen case close-check`,
+`casegraphen morphism propose`, and `casegraphen morphism apply`. The examples
+below use Cargo so they work from a fresh repository checkout.
 
 ```sh
 cargo run -q -p casegraphen -- \
@@ -50,6 +50,7 @@ Derive read-only native reasoning views from replayed state:
 ```sh
 cargo run -q -p casegraphen -- case reason --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
 cargo run -q -p casegraphen -- case frontier --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- case history topology --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
 cargo run -q -p casegraphen -- case obstructions --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
 cargo run -q -p casegraphen -- case completions --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
 cargo run -q -p casegraphen -- case evidence --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json

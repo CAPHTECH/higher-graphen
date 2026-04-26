@@ -8,7 +8,9 @@ static analysis policy and catches obvious dependency-direction violations.
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,16 +25,24 @@ MAX_DECISION_POINTS = 12
 PACKAGE_ORDER = [
     "higher-graphen-core",
     "higher-graphen-space",
+    "higher-graphen-context",
     "higher-graphen-morphism",
-    "higher-graphen-invariant",
     "higher-graphen-obstruction",
-    "higher-graphen-completion",
     "higher-graphen-projection",
+    "higher-graphen-completion",
+    "higher-graphen-model-checking",
+    "higher-graphen-abstract-interpretation",
+    "higher-graphen-causal",
+    "higher-graphen-confidence-model",
+    "higher-graphen-topology",
+    "higher-graphen-prover",
     "higher-graphen-interpretation",
+    "higher-graphen-invariant",
     "higher-graphen-runtime",
 ]
 
 TOOL_PACKAGES = {
+    "casegraphen",
     "highergraphen-cli",
 }
 
@@ -120,8 +130,15 @@ def dependency_section(header: str) -> str | None:
 
 def check_manifest(path: Path) -> list[str]:
     package = path.parent.name
-    if package in TOOL_PACKAGES:
+
+    if path.parent.parent == TOOLS:
+        if package not in TOOL_PACKAGES:
+            return [f"{path}: tool package {package} is missing from TOOL_PACKAGES"]
         return check_tool_manifest(path)
+
+    if path.parent.parent == CRATES and package not in ORDER_INDEX:
+        return [f"{path}: reusable crate {package} is missing from PACKAGE_ORDER"]
+
     if package not in ORDER_INDEX:
         return []
 
@@ -174,6 +191,51 @@ def check_tool_manifest(path: Path) -> list[str]:
     return errors
 
 
+def check_workspace_dependency_boundaries() -> list[str]:
+    completed = subprocess.run(
+        ["cargo", "metadata", "--locked", "--format-version", "1", "--no-deps"],
+        cwd=ROOT,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return [f"cargo metadata failed: {completed.stderr.strip()}"]
+
+    metadata = json.loads(completed.stdout)
+    package_paths = {
+        package["name"]: Path(package["manifest_path"]).parent.relative_to(ROOT)
+        for package in metadata["packages"]
+    }
+
+    errors: list[str] = []
+    for package in metadata["packages"]:
+        package_name = package["name"]
+        package_path = package_paths[package_name]
+        package_root = package_path.parts[0] if package_path.parts else ""
+
+        for dependency in package["dependencies"]:
+            dependency_name = dependency["name"]
+            dependency_path = package_paths.get(dependency_name)
+            if dependency_path is None:
+                continue
+
+            dependency_root = dependency_path.parts[0] if dependency_path.parts else ""
+            if package_root == "crates" and dependency_root in {"tools", "examples"}:
+                errors.append(
+                    f"{package_path / 'Cargo.toml'}: reusable crate {package_name} "
+                    f"must not depend on workspace {dependency_root} package {dependency_name}"
+                )
+            if package_root == "tools" and dependency_root == "tools":
+                errors.append(
+                    f"{package_path / 'Cargo.toml'}: tools must not depend on "
+                    f"other tool packages ({dependency_name})"
+                )
+
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -186,6 +248,7 @@ def main() -> int:
         errors.extend(check_manifest(manifest))
     for manifest in sorted(TOOLS.glob("*/Cargo.toml")):
         errors.extend(check_manifest(manifest))
+    errors.extend(check_workspace_dependency_boundaries())
 
     if errors:
         print("static analysis policy violations:", file=sys.stderr)

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.native_cli.report.v1",
+  "title": "Native CaseGraphen CLI Operation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "input",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.native_cli.report.v1"
+    },
+    "report_type": {
+      "const": "native_cli_operation"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "tool_package",
+        "core_packages"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_package": {
+          "const": "tools/casegraphen"
+        },
+        "core_packages": {
+          "type": "array",
+          "contains": {
+            "const": "higher-graphen-core"
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "result": {
+      "type": "object"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection_bundle"
+    }
+  },
+  "$defs": {
+    "projection_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_review",
+        "ai_view",
+        "audit_trace"
+      ],
+      "properties": {
+        "human_review": {
+          "type": "object"
+        },
+        "ai_view": {
+          "type": "object"
+        },
+        "audit_trace": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

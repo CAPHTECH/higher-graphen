@@ -908,6 +908,7 @@ casegraphen workflow readiness --input <workflow.graph.json> --format json [--pr
 casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow history topology --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
 casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
 casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]

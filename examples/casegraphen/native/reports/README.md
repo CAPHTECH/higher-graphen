@@ -2,7 +2,10 @@
 
 Native CLI reports use the repository-owned `casegraphen` binary and the
 `highergraphen.case.native_cli.report.v1` envelope emitted by
-`tools/casegraphen/src/native_cli/ops.rs`.
+`tools/casegraphen/src/native_cli/ops.rs`. The generated CLI envelope is
+validated by `schemas/casegraphen/native-cli.report.schema.json`; the separate
+`schemas/casegraphen/native.case.report.schema.json` fixture remains the
+package-level native CaseSpace report contract.
 
 Expected command metadata values:
 

@@ -17,6 +17,7 @@ cargo run -q -p casegraphen -- workflow readiness --input examples/casegraphen/r
 cargo run -q -p casegraphen -- workflow obstructions --input examples/casegraphen/reference/workflow.graph.json --format json
 cargo run -q -p casegraphen -- workflow completions --input examples/casegraphen/reference/workflow.graph.json --format json
 cargo run -q -p casegraphen -- workflow evidence --input examples/casegraphen/reference/workflow.graph.json --format json
+cargo run -q -p casegraphen -- workflow history topology --input examples/casegraphen/reference/workflow.graph.json --format json
 cargo run -q -p casegraphen -- workflow project --input examples/casegraphen/reference/workflow.graph.json --projection schemas/casegraphen/projection.example.json --format json
 cargo run -q -p casegraphen -- workflow correspond --left examples/casegraphen/reference/workflow.graph.json --right examples/casegraphen/reference/workflow.graph.json --format json
 cargo run -q -p casegraphen -- workflow evolution --input examples/casegraphen/reference/workflow.graph.json --format json
@@ -25,8 +26,9 @@ cargo run -q -p casegraphen -- workflow evolution --input examples/casegraphen/r
 With a local binary, the focused command spellings are
 `casegraphen workflow validate`, `casegraphen workflow readiness`,
 `casegraphen workflow obstructions`, `casegraphen workflow completions`,
-`casegraphen workflow evidence`, `casegraphen workflow project`,
-`casegraphen workflow correspond`, and `casegraphen workflow evolution`.
+`casegraphen workflow evidence`, `casegraphen workflow history topology`,
+`casegraphen workflow project`, `casegraphen workflow correspond`, and
+`casegraphen workflow evolution`.
 
 The repo-owned bridge can import the fixture into a temporary workflow store
 and exercise stored validation, completion review, and patch review:
@@ -34,16 +36,22 @@ and exercise stored validation, completion review, and patch review:
 ```sh
 cargo run -q -p casegraphen -- cg workflow import --store /tmp/casegraphen-workflow-store --input examples/casegraphen/reference/workflow.graph.json --revision-id revision:initial --format json
 cargo run -q -p casegraphen -- cg workflow validate --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --format json
-cargo run -q -p casegraphen -- cg workflow completion accept|reject|reopen --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --candidate-id <candidate-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
+cargo run -q -p casegraphen -- cg workflow completion accept --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --candidate-id <candidate-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
+cargo run -q -p casegraphen -- cg workflow completion reject --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --candidate-id <candidate-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
+cargo run -q -p casegraphen -- cg workflow completion reopen --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --candidate-id <candidate-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
 cargo run -q -p casegraphen -- cg workflow patch check --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --transition-id <transition-id> --format json
-cargo run -q -p casegraphen -- cg workflow patch apply|reject --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --transition-id <transition-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
+cargo run -q -p casegraphen -- cg workflow patch apply --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --transition-id <transition-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
+cargo run -q -p casegraphen -- cg workflow patch reject --store /tmp/casegraphen-workflow-store --workflow-graph-id workflow_graph:casegraphen-rewrite-contract --transition-id <transition-id> --reviewer-id reviewer:workflow-lead --reason "<reason>" --revision-id <revision-id> --format json
 ```
 
 If a local binary is installed, the same bridge commands are spelled
 `casegraphen cg workflow import`,
-`casegraphen cg workflow completion accept|reject|reopen`,
+`casegraphen cg workflow completion accept`,
+`casegraphen cg workflow completion reject`,
+`casegraphen cg workflow completion reopen`,
 `casegraphen cg workflow patch check`, and
-`casegraphen cg workflow patch apply|reject`.
+`casegraphen cg workflow patch apply`, or
+`casegraphen cg workflow patch reject`.
 
 Native `.casegraphen` cases still close through installed `cg`; run
 `cg validate --case <case-id>` before marking native case work done.

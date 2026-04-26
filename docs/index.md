@@ -31,11 +31,12 @@ The original proposal remains available as source material:
 22. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
 23. [`cli/highergraphen.md`](cli/highergraphen.md)
 24. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-25. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-26. [`specs/engine-traits.md`](specs/engine-traits.md)
-27. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-28. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-29. [`mvp-roadmap.md`](mvp-roadmap.md)
+25. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
+26. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+27. [`specs/engine-traits.md`](specs/engine-traits.md)
+28. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+29. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+30. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -67,6 +68,7 @@ The original proposal remains available as source material:
 | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
 | [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for the first `highergraphen` command. |
 | [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using the first HigherGraphen report contract. |
+| [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md) | Provides the repository-owned release preparation, verification, packaging, and publication workflow. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |

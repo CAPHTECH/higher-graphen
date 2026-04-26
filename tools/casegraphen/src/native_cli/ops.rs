@@ -18,6 +18,8 @@ use std::{
 };
 
 const REPORT_SCHEMA: &str = "highergraphen.case.native_cli.report.v1";
+const REPORT_TYPE: &str = "native_cli_operation";
+const REPORT_VERSION: u32 = 1;
 const PROPOSAL_SCHEMA: &str = "highergraphen.case.native_cli.morphism_proposal.v1";
 const PROPOSAL_DIR: &str = "native_morphism_proposals";
 
@@ -131,17 +133,18 @@ pub(super) fn morphism_propose(
 ) -> Result<Value, NativeCliError> {
     let replay =
         NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
-    let mut morphism = read_morphism(input)?;
+    let morphism = read_morphism(input)?;
     validate_candidate_morphism(&replay.case_space, &morphism)?;
-    if morphism.review_status == ReviewStatus::Unreviewed {
-        morphism.review_status = ReviewStatus::Reviewed;
-    }
     let proposal = proposal_value(case_space_id, &morphism);
     let path = proposal_path(store, case_space_id, &morphism.morphism_id)?;
     write_json(&path, &proposal)?;
     Ok(report(
         "casegraphen morphism propose",
-        json!({ "proposal_path": relative_store_path(store, &path), "morphism": morphism }),
+        json!({
+            "proposal_status": "checked",
+            "proposal_path": relative_store_path(store, &path),
+            "morphism": morphism
+        }),
     ))
 }
 
@@ -604,11 +607,34 @@ fn write_json(path: &Path, value: &Value) -> Result<(), NativeCliError> {
 pub(super) fn report(command: &str, result: Value) -> Value {
     json!({
         "schema": REPORT_SCHEMA,
+        "report_type": REPORT_TYPE,
+        "report_version": REPORT_VERSION,
         "metadata": {
             "command": command,
-            "tool_package": "tools/casegraphen"
+            "tool_package": "tools/casegraphen",
+            "core_packages": [
+                "higher-graphen-core"
+            ]
         },
-        "result": result
+        "input": {
+            "command": command
+        },
+        "result": result,
+        "projection": {
+            "human_review": {
+                "summary": "Native CaseGraphen CLI operation completed."
+            },
+            "ai_view": {
+                "operation": command,
+                "native_boundary": "CaseSpace plus MorphismLog state is replayed before derived reports are emitted."
+            },
+            "audit_trace": {
+                "source_ids": [],
+                "information_loss": [
+                    "Native CLI operation reports include the operation result but not a full command-line argv transcript."
+                ]
+            }
+        }
     })
 }
 

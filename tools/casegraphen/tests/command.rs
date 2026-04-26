@@ -116,13 +116,10 @@ fn topology_command_emits_report_for_graph_fixture() {
         value["result"]["topology"]["homology"]["coefficient_field"],
         json!("z2")
     );
-    assert!(
-        value["result"]["source_mapping"]["nodes"]
-            .as_array()
-            .expect("topology nodes")
-            .len()
-            > 0
-    );
+    assert!(!value["result"]["source_mapping"]["nodes"]
+        .as_array()
+        .expect("topology nodes")
+        .is_empty());
 }
 
 #[test]
@@ -230,13 +227,10 @@ fn workflow_topology_emits_diagnostics_report() {
         value["result"]["topology"]["homology"]["coefficient_field"],
         json!("z2")
     );
-    assert!(
-        value["result"]["source_mapping"]["nodes"]
-            .as_array()
-            .expect("topology nodes")
-            .len()
-            > 0
-    );
+    assert!(!value["result"]["source_mapping"]["nodes"]
+        .as_array()
+        .expect("topology nodes")
+        .is_empty());
 
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
@@ -1243,6 +1237,48 @@ fn native_case_commands_create_import_list_inspect_history_and_replay() {
 }
 
 #[test]
+fn generated_native_cli_report_validates_against_schema() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let imported = import_native_case_space(&directory, "revision:native-cli-imported");
+    assert!(imported.status.success(), "stderr: {}", stderr(&imported));
+
+    let report_path = directory.join("native-cli-import.report.json");
+    fs::write(&report_path, stdout(&imported)).expect("write native CLI report");
+    assert_jsonschema_valid(
+        &repo_path("schemas/casegraphen/native-cli.report.schema.json"),
+        &report_path,
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn generated_workflow_operation_report_validates_against_schema() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let report_path = directory.join("workflow.validate.report.json");
+
+    let output = run_cli(&[
+        "workflow",
+        "validate",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+        "--output",
+        report_path.to_str().expect("report path"),
+    ]);
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert_jsonschema_valid(
+        &repo_path("schemas/casegraphen/workflow.operation.report.schema.json"),
+        &report_path,
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
 fn native_reasoning_commands_emit_domain_reports_and_output_file() {
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
@@ -1356,13 +1392,10 @@ fn native_case_topology_emits_domain_report() {
         value["result"]["topology"]["topology"]["homology"]["coefficient_field"],
         json!("z2")
     );
-    assert!(
-        value["result"]["topology"]["source_mapping"]["nodes"]
-            .as_array()
-            .expect("topology nodes")
-            .len()
-            > 0
-    );
+    assert!(!value["result"]["topology"]["source_mapping"]["nodes"]
+        .as_array()
+        .expect("topology nodes")
+        .is_empty());
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
@@ -1396,7 +1429,11 @@ fn native_morphism_propose_check_apply_and_reject_flow() {
     assert!(propose.status.success(), "stderr: {}", stderr(&propose));
     assert_eq!(
         stdout_json(&propose)["result"]["morphism"]["review_status"],
-        json!("reviewed")
+        json!("unreviewed")
+    );
+    assert_eq!(
+        stdout_json(&propose)["result"]["proposal_status"],
+        json!("checked")
     );
 
     let check = run_cli(&[
@@ -1413,6 +1450,10 @@ fn native_morphism_propose_check_apply_and_reject_flow() {
     ]);
     assert!(check.status.success(), "stderr: {}", stderr(&check));
     assert_eq!(stdout_json(&check)["result"]["applicable"], json!(true));
+    assert_eq!(
+        stdout_json(&check)["result"]["morphism"]["review_status"],
+        json!("unreviewed")
+    );
 
     let apply = run_cli(&[
         "morphism",
@@ -1946,26 +1987,30 @@ fn schema_and_fixture_files_are_valid_json() {
 #[test]
 fn native_schema_examples_validate_against_json_schemas() {
     for (schema, example) in native_schema_example_pairs() {
-        let output = Command::new("python3")
-            .args([
-                "-m",
-                "jsonschema",
-                schema.to_str().expect("schema path"),
-                "--instance",
-                example.to_str().expect("example path"),
-            ])
-            .output()
-            .expect("run python jsonschema validator");
-
-        assert!(
-            output.status.success(),
-            "{} should validate against {}\nstdout: {}\nstderr: {}",
-            example.display(),
-            schema.display(),
-            stdout(&output),
-            stderr(&output)
-        );
+        assert_jsonschema_valid(&schema, &example);
     }
+}
+
+fn assert_jsonschema_valid(schema: &Path, instance: &Path) {
+    let output = Command::new("python3")
+        .args([
+            "-m",
+            "jsonschema",
+            schema.to_str().expect("schema path"),
+            "--instance",
+            instance.to_str().expect("instance path"),
+        ])
+        .output()
+        .expect("run python jsonschema validator");
+
+    assert!(
+        output.status.success(),
+        "{} should validate against {}\nstdout: {}\nstderr: {}",
+        instance.display(),
+        schema.display(),
+        stdout(&output),
+        stderr(&output)
+    );
 }
 
 fn run_cli(args: &[&str]) -> Output {
@@ -2171,14 +2216,17 @@ fn schema_fixture_paths() -> Vec<PathBuf> {
         "schemas/casegraphen/workflow.report.example.json",
         "schemas/casegraphen/native.case.space.example.json",
         "schemas/casegraphen/native.case.report.example.json",
+        "schemas/casegraphen/report-schema-aliases.json",
         "schemas/casegraphen/case.graph.schema.json",
         "schemas/casegraphen/coverage.policy.schema.json",
         "schemas/casegraphen/projection.schema.json",
         "schemas/casegraphen/case.report.schema.json",
         "schemas/casegraphen/workflow.graph.schema.json",
         "schemas/casegraphen/workflow.report.schema.json",
+        "schemas/casegraphen/workflow.operation.report.schema.json",
         "schemas/casegraphen/native.case.space.schema.json",
         "schemas/casegraphen/native.case.report.schema.json",
+        "schemas/casegraphen/native-cli.report.schema.json",
         "examples/casegraphen/reference/workflow.graph.json",
         "examples/casegraphen/reference/reports/workflow.reason.report.json",
     ]

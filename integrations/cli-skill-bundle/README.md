@@ -72,6 +72,7 @@ casegraphen workflow readiness --input workflow.graph.json --format json
 casegraphen workflow obstructions --input workflow.graph.json --format json
 casegraphen workflow completions --input workflow.graph.json --format json
 casegraphen workflow evidence --input workflow.graph.json --format json
+casegraphen workflow history topology --input workflow.graph.json --format json
 casegraphen workflow project --input workflow.graph.json --projection projection.json --format json
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json
 casegraphen workflow evolution --input workflow.graph.json --format json
@@ -83,9 +84,12 @@ patch review is:
 ```sh
 casegraphen cg workflow import --store casegraphen-workflow-store --input workflow.graph.json --revision-id revision:initial --format json
 casegraphen cg workflow validate --store casegraphen-workflow-store --workflow-graph-id <id> --format json
-casegraphen cg workflow completion accept|reject|reopen --store casegraphen-workflow-store --workflow-graph-id <id> --candidate-id <candidate-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
+casegraphen cg workflow completion accept --store casegraphen-workflow-store --workflow-graph-id <id> --candidate-id <candidate-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
+casegraphen cg workflow completion reject --store casegraphen-workflow-store --workflow-graph-id <id> --candidate-id <candidate-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
+casegraphen cg workflow completion reopen --store casegraphen-workflow-store --workflow-graph-id <id> --candidate-id <candidate-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
 casegraphen cg workflow patch check --store casegraphen-workflow-store --workflow-graph-id <id> --transition-id <transition-id> --format json
-casegraphen cg workflow patch apply|reject --store casegraphen-workflow-store --workflow-graph-id <id> --transition-id <transition-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
+casegraphen cg workflow patch apply --store casegraphen-workflow-store --workflow-graph-id <id> --transition-id <transition-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
+casegraphen cg workflow patch reject --store casegraphen-workflow-store --workflow-graph-id <id> --transition-id <transition-id> --reviewer-id <reviewer-id> --reason "<reason>" --revision-id <revision-id> --format json
 ```
 
 Installed `cg` remains the native `.casegraphen` workspace surface for case
@@ -98,6 +102,7 @@ commands are:
 casegraphen case import --store casegraphen-native-store --input native.case.space.json --revision-id revision:initial --format json
 casegraphen case reason --store casegraphen-native-store --case-space-id <id> --format json
 casegraphen case frontier --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen case history topology --store casegraphen-native-store --case-space-id <id> --format json
 casegraphen case close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
 casegraphen morphism propose --store casegraphen-native-store --case-space-id <id> --input case_morphism.json --format json
 casegraphen morphism apply --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --base-revision-id <revision-id> --reviewer-id <reviewer-id> --reason "<reason>" --format json

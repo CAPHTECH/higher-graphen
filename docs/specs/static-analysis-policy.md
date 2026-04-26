@@ -27,8 +27,10 @@ sh scripts/static-analysis.sh
 ```
 
 The gate runs `cargo fmt --all --check`, `cargo check --workspace`,
-`cargo clippy --workspace --all-targets -- -D warnings`, and the local
-`scripts/check-static-limits.py` checker.
+locked workspace compile/test/clippy/doc checks, the local
+`scripts/check-static-limits.py` checker, generated CLI report contract
+validation, JSON schema fixture conformance and report coverage validation, and
+the CLI skill bundle smoke check.
 
 ## Size Limits
 

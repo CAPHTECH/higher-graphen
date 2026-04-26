@@ -77,17 +77,14 @@ pub struct SimpleCycleIndicator {
 }
 
 /// Coefficient field used by the finite homology engine.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum HomologyCoefficientField {
     /// Field with two elements. Boundary orientations are ignored.
+    #[default]
     Z2,
-}
-
-impl Default for HomologyCoefficientField {
-    fn default() -> Self {
-        Self::Z2
-    }
 }
 
 /// Per-dimension homology summary over the selected finite cell set.
