@@ -14,6 +14,27 @@ contexts, morphisms, invariants, obstructions, completions, projections, and
 interpretation packages. These higher-order concepts become first-class
 operational objects for AI agents.
 
+## What This Is
+
+HigherGraphen is a structural substrate for AI-operated software development.
+It is not a UI framework, ticket tracker, knowledge base, or architecture
+diagramming tool by itself. It is the layer underneath those products that
+turns domain material into AI-operable structure:
+
+- Cases and work graphs.
+- Evidence, provenance, confidence, and review status.
+- Invariants that must be preserved.
+- Obstructions that explain why a change, interpretation, or workflow cannot
+  safely proceed.
+- Completion candidates that represent plausible missing structure without
+  silently promoting them to accepted fact.
+- Projections for humans, AI agents, audits, and other consumers.
+- Interpretation packages that map a domain onto the shared higher-structure
+  core.
+
+The practical goal is to let AI agents operate on the structure directly while
+humans receive reports, dashboards, and review surfaces as projections.
+
 ## Why HigherGraphen Exists
 
 AI agents can read documents, logs, code, tickets, API responses, and tabular
@@ -33,6 +54,41 @@ HigherGraphen exists because AI-operated products can expose these structures
 directly. A human-facing report becomes a projection from the structure, not the
 whole system model.
 
+## What You Can Build With HigherGraphen
+
+HigherGraphen is not limited to one product category. It is a substrate for
+turning domain material into AI-operable structures: cases, evidence,
+invariants, obstructions, completions, projections, and interpretation
+packages.
+
+Examples of products that can be built on top of it:
+
+- **Architecture review products** that lift design documents and code
+  structure into components, boundaries, invariants, violations, obstructions,
+  completion candidates, and review projections.
+- **AI coding governance tools** that track AI-performed changes as cases with
+  evidence, decisions, blockers, review state, and invariant checks instead of
+  treating code diffs as the only durable record.
+- **Incident analysis products** that connect logs, metrics, deploys,
+  investigation notes, candidate causes, missing evidence, and prevention
+  actions.
+- **Research and knowledge synthesis tools** that separate observations,
+  claims, AI inferences, contradictions, correspondence, and accepted
+  conclusions.
+- **Contract and policy review products** that represent obligations,
+  exceptions, undefined terms, conflicts, risks, and reviewable completion
+  candidates.
+- **Project and roadmap reasoning tools** that expose goals, tasks, decisions,
+  dependencies, blockers, and verification evidence as an agent-operable case
+  graph.
+- **Feed and signal intelligence products** that treat feeds, news, issues,
+  notifications, and other source material as source-contexted observations
+  with correspondences, gaps, obstructions, and projections.
+
+In each case, the human-facing product may still look like a report, review
+screen, dashboard, or CLI output. The difference is that those surfaces are
+projections from a richer structure that an AI agent can inspect and operate.
+
 ## Operator Paradigm
 
 The central product shift is:
@@ -50,15 +106,39 @@ This is why HigherGraphen treats concepts such as `Invariant`, `Obstruction`,
 `CompletionCandidate`, `Morphism`, `Context`, and `Projection` as product-level
 objects rather than hidden implementation details.
 
+## What You Can Run Today
+
+The repository already includes a Rust workspace, core crates, schemas,
+reference examples, and two CLI surfaces:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  architecture smoke direct-db-access --format json
+```
+
+This emits a deterministic Architecture Product report showing an invariant
+violation, obstruction, completion candidate, provenance, and projections.
+
+```sh
+cargo run -q -p casegraphen -- \
+  workflow reason \
+  --input schemas/casegraphen/workflow.graph.example.json \
+  --format json
+```
+
+This emits a CaseGraphen workflow reasoning report over a structured workflow
+graph.
+
 ## Status
 
-This repository is in the concept and specification phase. The current official
-documentation is derived from the original proposal in
-[`docs/highergraphen_proposal.md`](docs/highergraphen_proposal.md).
+This repository is an early public implementation. It contains the core Rust
+workspace, package boundaries, report schemas, CLI contracts, reference product
+packages, public examples, and the public CaseGraphen development trace.
 
-The repository already contains the Rust workspace shape, core package
-boundaries, initial runtime and CLI contracts, and reference product packages
-for architecture analysis and feed/RSS analysis.
+The implementation is still evolving. The most stable entry point is the
+reference Architecture Product smoke report. The broader goal is to make the
+case, evidence, obstruction, completion, projection, and interpretation-package
+surfaces robust enough for AI agents to use directly.
 
 ## Public Development Case Graph
 
@@ -71,6 +151,25 @@ The workspace is intentional public material. It is meant to show how
 HigherGraphen is decomposed and verified while keeping local runtime artifacts,
 private cases, customer data, and commercial-only strategy out of the
 repository.
+
+This is part of the product thesis: the repository is not only documented for
+humans; it also exposes a structured trace that AI agents can inspect when
+understanding what exists, what was decided, what is blocked, and what remains
+to be built.
+
+## How To Read This Repository
+
+If you are new to HigherGraphen, start here:
+
+1. Read this README for the product model and current runnable surfaces.
+2. Read
+   [`docs/concepts/ai-operator-paradigm.md`](docs/concepts/ai-operator-paradigm.md)
+   for the reason HigherGraphen is shaped around AI operators.
+3. Run the Architecture Product smoke command above and inspect the JSON report.
+4. Inspect [`.casegraphen/README.md`](.casegraphen/README.md) and one public
+   case to see how goals, tasks, evidence, decisions, and blockers are recorded.
+5. Use [`docs/index.md`](docs/index.md) when you want the full specification
+   reading order.
 
 ## License And Commercial Boundary
 
