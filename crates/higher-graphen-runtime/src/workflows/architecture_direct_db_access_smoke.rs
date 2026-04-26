@@ -189,8 +189,7 @@ fn direct_database_access_violation(invariant: &Invariant) -> RuntimeResult<Chec
 
 fn obstruction_for_violation(check_result: &CheckResult) -> RuntimeResult<Obstruction> {
     let violation = check_result
-        .violation
-        .as_ref()
+        .violation()
         .ok_or_else(|| missing_violation("obstruction"))?;
     let explanation = ObstructionExplanation::new("Order Service directly accesses Billing DB")?
         .with_details(&violation.message)?;
@@ -251,7 +250,7 @@ fn propose_billing_status_api(
     let input = CompletionDetectionInput::new(id(ARCHITECTURE_SPACE)?, vec![rule])
         .with_context_ids(vec![id(ARCHITECTURE_CONTEXT)?]);
 
-    Ok(detect_completion_candidates(input)?.candidates)
+    Ok(detect_completion_candidates(input)?.into_candidates())
 }
 
 fn ensure_unreviewed_candidate(candidates: &[CompletionCandidate]) -> RuntimeResult<()> {
@@ -401,10 +400,9 @@ fn ai_projection_records(
     let mut records = Vec::new();
     let check_source_ids = result
         .check_result
-        .violation
-        .as_ref()
+        .violation()
         .map(|violation| {
-            let mut ids = vec![result.check_result.target_id.clone()];
+            let mut ids = vec![result.check_result.target_id().clone()];
             for cell_id in &violation.location_cell_ids {
                 push_unique(&mut ids, cell_id.clone());
             }
@@ -413,14 +411,13 @@ fn ai_projection_records(
             }
             ids
         })
-        .unwrap_or_else(|| vec![result.check_result.target_id.clone()]);
+        .unwrap_or_else(|| vec![result.check_result.target_id().clone()]);
     records.push(AiProjectionRecord {
-        id: result.check_result.target_id.clone(),
+        id: result.check_result.target_id().clone(),
         record_type: AiProjectionRecordType::CheckResult,
         summary: result
             .check_result
-            .violation
-            .as_ref()
+            .violation()
             .map(|violation| violation.message.clone())
             .unwrap_or_else(|| "Invariant check completed without violation.".to_owned()),
         source_ids: check_source_ids,
@@ -428,8 +425,7 @@ fn ai_projection_records(
         review_status: None,
         severity: result
             .check_result
-            .violation
-            .as_ref()
+            .violation()
             .map(|violation| violation.severity),
         provenance: None,
     });

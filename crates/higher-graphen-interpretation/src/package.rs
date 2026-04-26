@@ -12,35 +12,35 @@ use std::collections::BTreeMap;
 #[serde(deny_unknown_fields)]
 pub struct InterpretationPackage {
     /// Package identifier.
-    pub id: Id,
+    id: Id,
     /// Human-readable package name.
-    pub name: String,
+    name: String,
     /// Package version label.
-    pub version: String,
+    version: String,
     /// Optional human-readable package description.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    description: Option<String>,
     /// Domain type mappings in this package.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub type_mappings: Vec<TypeMapping>,
+    type_mappings: Vec<TypeMapping>,
     /// Domain morphism type mappings in this package.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub morphism_type_mappings: Vec<MorphismTypeMapping>,
+    morphism_type_mappings: Vec<MorphismTypeMapping>,
     /// Invariant templates in this package.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub invariant_templates: Vec<InvariantTemplate>,
+    invariant_templates: Vec<InvariantTemplate>,
     /// Projection templates in this package.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub projection_templates: Vec<ProjectionTemplate>,
+    projection_templates: Vec<ProjectionTemplate>,
     /// Lift adapters in this package.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lift_adapters: Vec<LiftAdapterDefinition>,
+    lift_adapters: Vec<LiftAdapterDefinition>,
     /// Generic string metadata for product or tool hints.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub metadata: Metadata,
+    metadata: Metadata,
     /// Optional source and review metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub provenance: Option<Provenance>,
+    provenance: Option<Provenance>,
 }
 
 impl InterpretationPackage {
@@ -211,6 +211,72 @@ impl InterpretationPackage {
     #[must_use]
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
         metadata_value(&self.metadata, key)
+    }
+
+    /// Returns the package identifier.
+    #[must_use]
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Returns the package name.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the package version label.
+    #[must_use]
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    /// Returns the optional package description.
+    #[must_use]
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+
+    /// Returns the registered domain type mappings.
+    #[must_use]
+    pub fn type_mappings(&self) -> &[TypeMapping] {
+        &self.type_mappings
+    }
+
+    /// Returns the registered morphism type mappings.
+    #[must_use]
+    pub fn morphism_type_mappings(&self) -> &[MorphismTypeMapping] {
+        &self.morphism_type_mappings
+    }
+
+    /// Returns the registered invariant templates.
+    #[must_use]
+    pub fn invariant_templates(&self) -> &[InvariantTemplate] {
+        &self.invariant_templates
+    }
+
+    /// Returns the registered projection templates.
+    #[must_use]
+    pub fn projection_templates(&self) -> &[ProjectionTemplate] {
+        &self.projection_templates
+    }
+
+    /// Returns the registered lift adapters.
+    #[must_use]
+    pub fn lift_adapters(&self) -> &[LiftAdapterDefinition] {
+        &self.lift_adapters
+    }
+
+    /// Returns package metadata.
+    #[must_use]
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+
+    /// Returns optional source and review metadata.
+    #[must_use]
+    pub fn provenance(&self) -> Option<&Provenance> {
+        self.provenance.as_ref()
     }
 
     fn ensure_definition_absent(&self, id: &Id) -> Result<()> {

@@ -323,11 +323,11 @@ fn architecture_package_defines_product_vocabulary_mappings() {
         package.metadata_value("product_family"),
         Some("architecture")
     );
-    assert_eq!(package.type_mappings.len(), 8);
-    assert_eq!(package.morphism_type_mappings.len(), 6);
-    assert_eq!(package.invariant_templates.len(), 4);
-    assert_eq!(package.projection_templates.len(), 3);
-    assert_eq!(package.lift_adapters.len(), 1);
+    assert_eq!(package.type_mappings().len(), 8);
+    assert_eq!(package.morphism_type_mappings().len(), 6);
+    assert_eq!(package.invariant_templates().len(), 4);
+    assert_eq!(package.projection_templates().len(), 3);
+    assert_eq!(package.lift_adapters().len(), 1);
 
     let service = architecture::architecture_component_type_mapping(&package, " service ")
         .expect("service should resolve as an architecture component");

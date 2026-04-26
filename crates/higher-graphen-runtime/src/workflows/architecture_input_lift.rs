@@ -214,7 +214,7 @@ fn completion_candidates(
                 .map(|context| context.id.clone())
                 .collect(),
         );
-    Ok(detect_completion_candidates(detection_input)?.candidates)
+    Ok(detect_completion_candidates(detection_input)?.into_candidates())
 }
 
 fn completion_rule(

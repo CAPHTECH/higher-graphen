@@ -292,17 +292,17 @@ impl Violation {
 #[serde(deny_unknown_fields)]
 pub struct CheckResult {
     /// Kind of checked definition.
-    pub target_kind: CheckTargetKind,
+    target_kind: CheckTargetKind,
     /// Identifier of the checked invariant or constraint.
-    pub target_id: Id,
+    target_id: Id,
     /// Outcome state of the check.
-    pub status: CheckStatus,
+    status: CheckStatus,
     /// Violation details when the status is violated.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub violation: Option<Violation>,
+    violation: Option<Violation>,
     /// Explanation when the status is unsupported.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub unsupported_reason: Option<String>,
+    unsupported_reason: Option<String>,
 }
 
 impl CheckResult {
@@ -356,6 +356,36 @@ impl CheckResult {
     /// Returns true when this result is unsupported.
     pub fn is_unsupported(&self) -> bool {
         matches!(self.status, CheckStatus::Unsupported)
+    }
+
+    /// Returns the kind of checked definition.
+    #[must_use]
+    pub fn target_kind(&self) -> CheckTargetKind {
+        self.target_kind
+    }
+
+    /// Returns the checked invariant or constraint identifier.
+    #[must_use]
+    pub fn target_id(&self) -> &Id {
+        &self.target_id
+    }
+
+    /// Returns the outcome state of the check.
+    #[must_use]
+    pub fn status(&self) -> CheckStatus {
+        self.status
+    }
+
+    /// Returns violation details when this result is violated.
+    #[must_use]
+    pub fn violation(&self) -> Option<&Violation> {
+        self.violation.as_ref()
+    }
+
+    /// Returns the unsupported diagnostic reason when present.
+    #[must_use]
+    pub fn unsupported_reason(&self) -> Option<&str> {
+        self.unsupported_reason.as_deref()
     }
 
     /// Validates that the status-specific payload fields agree with `status`.
@@ -532,13 +562,13 @@ mod tests {
         assert!(satisfied.is_satisfied());
         assert!(violated.is_violated());
         assert_eq!(
-            violated.violation.as_ref().map(|item| &item.message),
+            violated.violation().map(|item| &item.message),
             Some(&"context boundary crossed".to_owned())
         );
         assert!(unsupported.is_unsupported());
         assert_eq!(
-            unsupported.unsupported_reason,
-            Some("morphism summary missing".to_owned())
+            unsupported.unsupported_reason(),
+            Some("morphism summary missing")
         );
         assert!(satisfied.validate().is_ok());
         assert!(violated.validate().is_ok());

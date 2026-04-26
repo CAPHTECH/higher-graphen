@@ -145,13 +145,15 @@ The MVP implementation uses this pattern:
   the same registration methods used by normal Rust callers;
 - validation-time normalization, such as trimming required text and de-duplicating
   set-like identifier lists, happens before the aggregate is stored;
+- validated result and package types expose read-only accessors instead of
+  public mutable fields when direct mutation could break their invariants;
 - format-specific dependencies such as `serde_json` stay in tests, examples,
   tools, runtime, or adapters.
 
-Public fields remain acceptable while the workspace is pre-stable and optimized
-for fast internal iteration. Before these crates become externally stable, any
-type whose invariants can be broken by post-construction field mutation should
-move to private fields with accessor and mutation methods.
+Public fields remain acceptable for simple data records that do not own a
+cross-field invariant. Before these crates become externally stable, any
+additional type whose invariants can be broken by post-construction field
+mutation should move to private fields with accessor and mutation methods.
 
 ## MVP Package Set
 

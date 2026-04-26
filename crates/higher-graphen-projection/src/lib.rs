@@ -466,21 +466,21 @@ impl ProjectionEntry {
 #[serde(deny_unknown_fields)]
 pub struct ProjectionResult {
     /// Projection identifier used to produce this result.
-    pub projection_id: Id,
+    projection_id: Id,
     /// Target audience copied from the projection definition.
-    pub audience: ProjectionAudience,
+    audience: ProjectionAudience,
     /// Purpose copied from the projection definition.
-    pub purpose: ProjectionPurpose,
+    purpose: ProjectionPurpose,
     /// Output schema used for this result.
-    pub output_schema: OutputSchema,
+    output_schema: OutputSchema,
     /// Renderer used to produce the output.
-    pub renderer: RendererKind,
+    renderer: RendererKind,
     /// Transport-neutral rendered output.
-    pub output: ProjectionOutput,
+    output: ProjectionOutput,
     /// Source identifiers actually represented in the output.
-    pub source_ids: Vec<Id>,
+    source_ids: Vec<Id>,
     /// Information-loss declarations that apply to the output.
-    pub information_loss: Vec<InformationLoss>,
+    information_loss: Vec<InformationLoss>,
 }
 
 impl ProjectionResult {
@@ -546,6 +546,42 @@ impl ProjectionResult {
     /// Returns the information-loss declarations that apply to the output.
     pub fn information_loss(&self) -> &[InformationLoss] {
         &self.information_loss
+    }
+
+    /// Returns the projection identifier used to produce this result.
+    #[must_use]
+    pub fn projection_id(&self) -> &Id {
+        &self.projection_id
+    }
+
+    /// Returns the target audience copied from the projection definition.
+    #[must_use]
+    pub fn audience(&self) -> ProjectionAudience {
+        self.audience
+    }
+
+    /// Returns the purpose copied from the projection definition.
+    #[must_use]
+    pub fn purpose(&self) -> ProjectionPurpose {
+        self.purpose
+    }
+
+    /// Returns the output schema used for this result.
+    #[must_use]
+    pub fn output_schema(&self) -> &OutputSchema {
+        &self.output_schema
+    }
+
+    /// Returns the renderer used to produce the output.
+    #[must_use]
+    pub fn renderer(&self) -> &RendererKind {
+        &self.renderer
+    }
+
+    /// Returns the rendered output.
+    #[must_use]
+    pub fn output(&self) -> &ProjectionOutput {
+        &self.output
     }
 }
 

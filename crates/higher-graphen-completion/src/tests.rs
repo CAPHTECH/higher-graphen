@@ -63,8 +63,8 @@ fn detection_materializes_matching_rules_as_unreviewed_candidates() {
 
     let result = detect_completion_candidates(input).expect("completion detection should succeed");
 
-    assert_eq!(result.candidates.len(), 1);
-    let candidate = &result.candidates[0];
+    assert_eq!(result.candidates().len(), 1);
+    let candidate = &result.candidates()[0];
     assert_eq!(candidate.id, id("candidate.contract"));
     assert_eq!(candidate.space_id, id("space.architecture"));
     assert_eq!(candidate.inferred_from, vec![id("cell.api")]);
@@ -78,7 +78,7 @@ fn detection_skips_rules_for_missing_contexts() {
 
     let result = detect_completion_candidates(input).expect("completion detection should succeed");
 
-    assert!(result.candidates.is_empty());
+    assert!(result.candidates().is_empty());
 }
 
 #[test]
@@ -138,10 +138,17 @@ fn simple_engine_wraps_detection_and_review_helpers() {
         .detect_candidates(input)
         .expect("completion detection should succeed");
     let accepted = engine
-        .accept_candidate(&result.candidates[0], id("reviewer.architect"), "Reviewed")
+        .accept_candidate(
+            &result.candidates()[0],
+            id("reviewer.architect"),
+            "Reviewed",
+        )
         .expect("accepted completion");
 
-    assert_eq!(result.candidates[0].review_status, ReviewStatus::Unreviewed);
+    assert_eq!(
+        result.candidates()[0].review_status,
+        ReviewStatus::Unreviewed
+    );
     assert_eq!(accepted.review_status, ReviewStatus::Accepted);
 }
 

@@ -45,8 +45,7 @@ fn order_service_to_billing_db_produces_obstruction_and_unreviewed_candidate() -
 
     let violation = scenario
         .check_result
-        .violation
-        .as_ref()
+        .violation()
         .expect("violated result should carry violation details");
     assert_eq!(
         violation.location_cell_ids,
@@ -67,7 +66,7 @@ fn order_service_to_billing_db_produces_obstruction_and_unreviewed_candidate() -
     assert!(scenario.obstruction.has_counterexample());
     assert!(scenario.obstruction.requires_resolution());
 
-    let candidates = scenario.completion_result.candidates;
+    let candidates = scenario.completion_result.into_candidates();
     assert_eq!(candidates.len(), 1);
     let candidate = &candidates[0];
     assert_eq!(candidate.id, id(BILLING_STATUS_API_CANDIDATE));
@@ -204,8 +203,7 @@ fn direct_database_access_violation(invariant: &Invariant) -> CheckResult {
 
 fn obstruction_for_violation(check_result: &CheckResult) -> Result<Obstruction> {
     let violation = check_result
-        .violation
-        .as_ref()
+        .violation()
         .expect("obstruction is only built from violated check results");
     let explanation = ObstructionExplanation::new("Order Service directly accesses Billing DB")?
         .with_details(&violation.message)?;

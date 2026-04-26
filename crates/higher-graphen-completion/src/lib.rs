@@ -190,13 +190,13 @@ impl CompletionDetectionInput {
 #[serde(deny_unknown_fields)]
 pub struct CompletionDetectionResult {
     /// Space in which missing structure was detected.
-    pub space_id: Id,
+    space_id: Id,
     /// Context identifiers used during rule matching.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub context_ids: Vec<Id>,
+    context_ids: Vec<Id>,
     /// Reviewable candidates produced by matching rules.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub candidates: Vec<CompletionCandidate>,
+    candidates: Vec<CompletionCandidate>,
 }
 
 impl CompletionDetectionResult {
@@ -213,6 +213,30 @@ impl CompletionDetectionResult {
             context_ids,
             candidates,
         })
+    }
+
+    /// Returns the space in which missing structure was detected.
+    #[must_use]
+    pub fn space_id(&self) -> &Id {
+        &self.space_id
+    }
+
+    /// Returns the context identifiers used during rule matching.
+    #[must_use]
+    pub fn context_ids(&self) -> &[Id] {
+        &self.context_ids
+    }
+
+    /// Returns the reviewable candidates produced by matching rules.
+    #[must_use]
+    pub fn candidates(&self) -> &[CompletionCandidate] {
+        &self.candidates
+    }
+
+    /// Consumes the result and returns its reviewable candidates.
+    #[must_use]
+    pub fn into_candidates(self) -> Vec<CompletionCandidate> {
+        self.candidates
     }
 }
 

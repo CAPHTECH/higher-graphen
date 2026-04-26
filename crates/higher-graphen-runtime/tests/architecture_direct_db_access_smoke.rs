@@ -89,8 +89,8 @@ fn result_contains_check_obstruction_and_unreviewed_candidate_contract() {
 
     assert_eq!(result.violated_invariant_id, id(NO_CROSS_CONTEXT_DB_ACCESS));
     assert_eq!(
-        result.check_result.target_id,
-        id(NO_CROSS_CONTEXT_DB_ACCESS)
+        result.check_result.target_id(),
+        &id(NO_CROSS_CONTEXT_DB_ACCESS)
     );
     assert!(result.check_result.is_violated());
 
