@@ -206,8 +206,6 @@ CaseGraphen makes the product thesis inspectable:
   an operating protocol for reading and authoring CaseGraphen workspaces.
 - [`examples/casegraphen/reference/`](examples/casegraphen/reference/) shows a
   runnable reference workflow graph and report.
-- [`.casegraphen/`](.casegraphen/README.md) records the repository's own public
-  development as a real case graph.
 
 This matters because it demonstrates the intended direction of HigherGraphen:
 complex work is not reduced to a human-facing issue list, document, dashboard,
@@ -225,29 +223,12 @@ and
 
 This repository is an early public implementation. It contains the core Rust
 workspace, package boundaries, report schemas, CLI contracts, reference product
-packages, public examples, and the public CaseGraphen development trace.
+packages, public examples, and CaseGraphen CLI and skill surfaces.
 
 The implementation is still evolving. The most stable entry point is the
 reference Architecture Product smoke report. The broader goal is to make the
 case, evidence, obstruction, completion, projection, and interpretation-package
 surfaces robust enough for AI agents to use directly.
-
-## Public Development Case Graph
-
-This repository keeps a public CaseGraphen workspace under
-[`.casegraphen/`](.casegraphen/README.md). It records goals, tasks, decisions,
-evidence, blockers, completion candidates, and verification events for
-HigherGraphen itself.
-
-The workspace is intentional public material. It is meant to show how
-HigherGraphen is decomposed and verified while keeping local runtime artifacts,
-private cases, customer data, and commercial-only strategy out of the
-repository.
-
-This is part of the product thesis: the repository is not only documented for
-humans; it also exposes a structured trace that AI agents can inspect when
-understanding what exists, what was decided, what is blocked, and what remains
-to be built.
 
 ## How To Read This Repository
 
@@ -258,8 +239,8 @@ If you are new to HigherGraphen, start here:
    [`docs/concepts/ai-operator-paradigm.md`](docs/concepts/ai-operator-paradigm.md)
    for the reason HigherGraphen is shaped around AI operators.
 3. Run the Architecture Product smoke command above and inspect the JSON report.
-4. Inspect [`.casegraphen/README.md`](.casegraphen/README.md) and one public
-   case to see how goals, tasks, evidence, decisions, and blockers are recorded.
+4. Run the CaseGraphen workflow reasoning command above and inspect
+   [`examples/casegraphen/reference/`](examples/casegraphen/reference/).
 5. Use [`docs/index.md`](docs/index.md) when you want the full specification
    reading order.
 
@@ -270,10 +251,10 @@ HigherGraphen's public core is licensed under the
 
 The public repository is intended to contain the shared higher-structure core,
 baseline intermediate tools, schemas, documentation, public examples, skills,
-and public CaseGraphen development traces. Production interpretation packages,
-hosted execution, customer-specific assets, private evaluation datasets,
-commercial strategy, and private operations material belong outside this public
-repository unless they are explicitly open-sourced later.
+and reference workflows. Production interpretation packages, hosted execution,
+customer-specific assets, private evaluation datasets, commercial strategy, and
+private operations material belong outside this public repository unless they
+are explicitly open-sourced later.
 
 See [`COMMERCIAL_BOUNDARY.md`](COMMERCIAL_BOUNDARY.md) for the publication
 boundary.
@@ -288,6 +269,9 @@ boundary.
 - [`docs/concepts/theoretical-foundations.md`](docs/concepts/theoretical-foundations.md) - Theoretical foundations used as engineering primitives
 - [`docs/specs/package-boundaries.md`](docs/specs/package-boundaries.md) - Package and repository boundaries
 - [`docs/specs/intermediate-tools-map.md`](docs/specs/intermediate-tools-map.md) - Core packages and intermediate `*graphen` tools
+- [`docs/specs/intermediate-tools/casegraphen.md`](docs/specs/intermediate-tools/casegraphen.md) - CaseGraphen intermediate tool specification
+- [`docs/specs/intermediate-tools/casegraphen-workflow-contracts.md`](docs/specs/intermediate-tools/casegraphen-workflow-contracts.md) - CaseGraphen workflow contracts
+- [`examples/casegraphen/reference/README.md`](examples/casegraphen/reference/README.md) - CaseGraphen reference workflow example
 - [`docs/specs/ai-agent-integration.md`](docs/specs/ai-agent-integration.md) - Skills, plugins, MCP, and marketplace integration strategy
 - [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
@@ -297,7 +281,6 @@ boundary.
 - [`docs/mvp-roadmap.md`](docs/mvp-roadmap.md) - MVP scope, roadmap, and success criteria
 - [`docs/source-trace.md`](docs/source-trace.md) - Trace from proposal sections to official documents
 - [`docs/adr/0001-rust-first-polyglot-friendly.md`](docs/adr/0001-rust-first-polyglot-friendly.md) - Architecture decision record
-- [`.casegraphen/README.md`](.casegraphen/README.md) - Public development case graph and publication rules
 - [`COMMERCIAL_BOUNDARY.md`](COMMERCIAL_BOUNDARY.md) - Public/commercial repository boundary
 
 ## Design Principle
