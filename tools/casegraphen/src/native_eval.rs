@@ -5,6 +5,7 @@ use crate::native_model::{
 use higher_graphen_core::{Id, ReviewStatus, Severity};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod graph;
 mod sections;
 #[cfg(test)]
 mod tests;
@@ -14,6 +15,7 @@ mod validation;
 pub use types::*;
 pub use validation::validate_native_case_space;
 
+use graph::NativeCaseTraversal;
 use sections::{
     acceptable_evidence, close_check_skeleton, completion_candidates, correspondence_summaries,
     evidence_findings, evolution_summary, projection_loss, review_gaps,
@@ -39,7 +41,7 @@ pub fn evaluate_native_case(case_space: &CaseSpace) -> NativeEvalResult<NativeCa
         &completion_candidates,
         &review_gaps,
     );
-    let frontier_cell_ids = frontier_cell_ids(case_space, &readiness);
+    let frontier_cell_ids = frontier_cell_ids(case_space, &readiness, &context.traversal);
     let status = reasoning_status(case_space, &readiness, &obstructions, &review_gaps);
 
     Ok(NativeCaseEvaluation {
@@ -59,6 +61,7 @@ pub fn evaluate_native_case(case_space: &CaseSpace) -> NativeEvalResult<NativeCa
 
 struct NativeEvaluationContext<'a> {
     case_space: &'a CaseSpace,
+    traversal: NativeCaseTraversal,
     cells: BTreeMap<&'a str, &'a CaseCell>,
     hard_relations: Vec<&'a CaseRelation>,
 }
@@ -86,8 +89,10 @@ impl<'a> NativeEvaluationContext<'a> {
             .iter()
             .filter(|relation| relation.relation_strength == RelationStrength::Hard)
             .collect();
+        let traversal = NativeCaseTraversal::from_case_space(case_space);
         Self {
             case_space,
+            traversal,
             cells,
             hard_relations,
         }
@@ -301,15 +306,7 @@ impl<'a> NativeEvaluationContext<'a> {
     }
 
     fn requirement_ids(&self, cell: &CaseCell, relation_type: CaseRelationType) -> Vec<Id> {
-        dedupe_ids(
-            self.hard_relations
-                .iter()
-                .filter(|relation| {
-                    relation.from_id == cell.id && relation.relation_type == relation_type
-                })
-                .map(|relation| relation.to_id.clone())
-                .collect(),
-        )
+        self.traversal.direct_targets(&cell.id, relation_type)
     }
 
     fn lifecycle_obstruction(&self, cell: &CaseCell) -> Option<NativeObstruction> {
@@ -572,19 +569,12 @@ fn readiness_result(case_space: &CaseSpace, results: &[CellEvaluation]) -> Nativ
     }
 }
 
-fn frontier_cell_ids(case_space: &CaseSpace, readiness: &NativeReadiness) -> Vec<Id> {
-    let completed_targets = case_space
-        .case_relations
-        .iter()
-        .filter(|relation| {
-            relation.relation_strength == RelationStrength::Hard
-                && matches!(
-                    relation.relation_type,
-                    CaseRelationType::Completes | CaseRelationType::Supersedes
-                )
-        })
-        .map(|relation| relation.to_id.clone())
-        .collect::<BTreeSet<_>>();
+fn frontier_cell_ids(
+    case_space: &CaseSpace,
+    readiness: &NativeReadiness,
+    traversal: &NativeCaseTraversal,
+) -> Vec<Id> {
+    let completed_targets = traversal.completed_targets();
     readiness
         .ready_cell_ids
         .iter()

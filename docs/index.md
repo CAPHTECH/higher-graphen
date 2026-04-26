@@ -17,24 +17,25 @@ The original proposal remains available as source material:
 8. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
 9. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
 10. [`specs/core-contracts.md`](specs/core-contracts.md)
-11. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
-12. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
-13. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
-14. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
-15. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
-16. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
-17. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
-18. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
-19. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
-20. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
-21. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
-22. [`cli/highergraphen.md`](cli/highergraphen.md)
-23. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-24. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-25. [`specs/engine-traits.md`](specs/engine-traits.md)
-26. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-27. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-28. [`mvp-roadmap.md`](mvp-roadmap.md)
+11. [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md)
+12. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
+13. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
+14. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
+15. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
+16. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
+17. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
+18. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
+19. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
+20. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
+21. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
+22. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
+23. [`cli/highergraphen.md`](cli/highergraphen.md)
+24. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+25. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+26. [`specs/engine-traits.md`](specs/engine-traits.md)
+27. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+28. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+29. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -59,6 +60,7 @@ The original proposal remains available as source material:
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
+| [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md) | Defines reusable reachability, path walking, and layer-pattern matching over `higher-graphen-space`. |
 | [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md) | Defines package-level implementation plans for non-core MVP crates. |
 | [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md) | Locks the immediate `higher-graphen-runtime` and `highergraphen` CLI scope, first command, and JSON report contract. |
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |

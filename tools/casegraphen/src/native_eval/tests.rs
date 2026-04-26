@@ -66,6 +66,73 @@ fn hard_dependencies_control_ready_and_frontier() {
 }
 
 #[test]
+fn soft_dependencies_do_not_block_native_readiness() {
+    let mut space = fixture_space();
+    space.case_cells.push(cell(
+        "work:soft-dependent",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+    ));
+    space.case_cells.push(cell(
+        "work:soft-dependency",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+    ));
+    let mut soft = relation(
+        "relation:soft-dependent-depends-on-soft-dependency",
+        CaseRelationType::DependsOn,
+        "work:soft-dependent",
+        "work:soft-dependency",
+    );
+    soft.relation_strength = RelationStrength::Soft;
+    space.case_relations.push(soft);
+    refresh_morphism(&mut space);
+
+    let evaluation = evaluate_native_case(&space).expect("evaluation");
+
+    assert!(evaluation
+        .readiness
+        .ready_cell_ids
+        .contains(&id("work:soft-dependent")));
+    assert!(!evaluation
+        .readiness
+        .blocked_cell_ids
+        .contains(&id("work:soft-dependent")));
+}
+
+#[test]
+fn completed_or_superseded_targets_are_removed_from_frontier() {
+    let mut space = fixture_space();
+    space.case_cells.push(cell(
+        "work:completed-target",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+    ));
+    space.case_cells.push(cell(
+        "event:completion",
+        CaseCellType::Event,
+        CaseCellLifecycle::Accepted,
+    ));
+    space.case_relations.push(relation(
+        "relation:event-completes-work",
+        CaseRelationType::Completes,
+        "event:completion",
+        "work:completed-target",
+    ));
+    refresh_morphism(&mut space);
+
+    let evaluation = evaluate_native_case(&space).expect("evaluation");
+
+    assert!(evaluation
+        .readiness
+        .ready_cell_ids
+        .contains(&id("work:completed-target")));
+    assert!(!evaluation
+        .frontier_cell_ids
+        .contains(&id("work:completed-target")));
+}
+
+#[test]
 fn missing_evidence_and_proof_block_readiness() {
     let mut space = fixture_space();
     space.case_cells.push(cell(

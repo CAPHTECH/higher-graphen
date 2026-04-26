@@ -1,8 +1,12 @@
 //! Space, cell, incidence, complex, boundary, and storage abstractions for HigherGraphen.
 
+pub mod traversal;
+
 use higher_graphen_core::{CoreError, Id, Provenance, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+pub use traversal::*;
 
 /// Non-negative cell dimension.
 pub type Dimension = u32;

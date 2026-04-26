@@ -259,6 +259,154 @@ fn custom_complex_type_is_normalized_and_rejects_empty_extension() {
 }
 
 #[test]
+fn reachability_finds_shortest_directed_path_with_witness() {
+    let mut store = layered_store();
+    insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "depends_on");
+    insert_edge(&mut store, "incidence-bc", "cell-b", "cell-c", "depends_on");
+
+    let result = store
+        .reachable(&ReachabilityQuery::new(
+            id("space-a"),
+            id("cell-a"),
+            id("cell-c"),
+        ))
+        .expect("reachability should run");
+
+    let path = result.shortest_path.expect("reachable path");
+    assert!(result.reachable);
+    assert_eq!(
+        path.cell_ids(),
+        vec![id("cell-a"), id("cell-b"), id("cell-c")]
+    );
+    assert_eq!(path.steps[0].relation_type, "depends_on");
+}
+
+#[test]
+fn reachability_reports_frontier_when_depth_blocks_target() {
+    let mut store = layered_store();
+    insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "depends_on");
+    insert_edge(&mut store, "incidence-bc", "cell-b", "cell-c", "depends_on");
+    let query = ReachabilityQuery::new(id("space-a"), id("cell-a"), id("cell-c")).with_options(
+        TraversalOptions::new()
+            .with_relation_type("depends_on")
+            .with_max_depth(1),
+    );
+
+    let result = store.reachable(&query).expect("reachability should run");
+
+    assert!(!result.reachable);
+    assert_eq!(result.visited_cell_ids, vec![id("cell-a"), id("cell-b")]);
+    assert_eq!(result.frontier_cell_ids, vec![id("cell-b")]);
+}
+
+#[test]
+fn traversal_direction_controls_directed_incidences() {
+    let mut store = layered_store();
+    insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "depends_on");
+    let outgoing = ReachabilityQuery::new(id("space-a"), id("cell-b"), id("cell-a"));
+    let incoming = outgoing
+        .clone()
+        .with_options(TraversalOptions::new().in_direction(TraversalDirection::Incoming));
+
+    assert!(!store.reachable(&outgoing).expect("outgoing run").reachable);
+    assert!(store.reachable(&incoming).expect("incoming run").reachable);
+}
+
+#[test]
+fn walk_paths_returns_bounded_simple_paths() {
+    let mut store = layered_store();
+    insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "relates");
+    insert_edge(&mut store, "incidence-bc", "cell-b", "cell-c", "relates");
+    insert_edge(&mut store, "incidence-ad", "cell-a", "cell-d", "relates");
+    insert_edge(&mut store, "incidence-dc", "cell-d", "cell-c", "relates");
+    insert_edge(&mut store, "incidence-ba", "cell-b", "cell-a", "relates");
+    let query = ReachabilityQuery::new(id("space-a"), id("cell-a"), id("cell-c"))
+        .with_options(TraversalOptions::new().with_max_depth(2).with_max_paths(4));
+
+    let paths = store.walk_paths(&query).expect("path walking should run");
+    let cell_paths: Vec<Vec<Id>> = paths.iter().map(GraphPath::cell_ids).collect();
+
+    assert_eq!(cell_paths.len(), 2);
+    assert!(cell_paths.contains(&vec![id("cell-a"), id("cell-b"), id("cell-c")]));
+    assert!(cell_paths.contains(&vec![id("cell-a"), id("cell-d"), id("cell-c")]));
+}
+
+#[test]
+fn path_pattern_matches_layer_chain() {
+    let mut store = layered_store();
+    insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "maps_to");
+    insert_edge(&mut store, "incidence-bc", "cell-b", "cell-c", "implements");
+    let pattern = PathPattern::new(
+        id("space-a"),
+        CellPattern::any().of_type("layer.requirement"),
+    )
+    .then(
+        PathPatternSegment::new(CellPattern::any().of_type("layer.design"))
+            .with_relation_type("maps_to"),
+    )
+    .then(
+        PathPatternSegment::new(CellPattern::any().of_type("layer.implementation"))
+            .with_relation_type("implements"),
+    );
+
+    let matches = store
+        .matches_path_pattern(&pattern)
+        .expect("pattern matching should run");
+
+    assert_eq!(matches.len(), 1);
+    assert_eq!(
+        matches[0].matched_cell_ids,
+        vec![id("cell-a"), id("cell-b"), id("cell-c")]
+    );
+}
+
+#[test]
+fn path_pattern_rejects_empty_segments() {
+    let store = layered_store();
+    let pattern = PathPattern::new(id("space-a"), CellPattern::any());
+
+    let error = store
+        .matches_path_pattern(&pattern)
+        .expect_err("empty pattern should fail");
+
+    assert_eq!(error.code(), "malformed_field");
+}
+
+fn layered_store() -> InMemorySpaceStore {
+    let mut store = seeded_store();
+    insert_cell(&mut store, "cell-a", "layer.requirement");
+    insert_cell(&mut store, "cell-b", "layer.design");
+    insert_cell(&mut store, "cell-c", "layer.implementation");
+    insert_cell(&mut store, "cell-d", "layer.test");
+    store
+}
+
+fn insert_cell(store: &mut InMemorySpaceStore, cell_id: &str, cell_type: &str) {
+    store
+        .insert_cell(Cell::new(id(cell_id), id("space-a"), 0, cell_type))
+        .expect("insert test cell");
+}
+
+fn insert_edge(
+    store: &mut InMemorySpaceStore,
+    incidence_id: &str,
+    from_cell_id: &str,
+    to_cell_id: &str,
+    relation_type: &str,
+) {
+    store
+        .insert_incidence(Incidence::new(
+            id(incidence_id),
+            id("space-a"),
+            id(from_cell_id),
+            id(to_cell_id),
+            relation_type,
+            IncidenceOrientation::Directed,
+        ))
+        .expect("insert test incidence");
+}
+
+#[test]
 fn invalid_references_return_core_malformed_field_errors() {
     let mut store = seeded_store();
     let error = store
