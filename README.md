@@ -183,6 +183,39 @@ cargo run -q -p casegraphen -- \
 This emits a CaseGraphen workflow reasoning report over a structured workflow
 graph.
 
+## CaseGraphen As The First Real Case
+
+CaseGraphen is the first concrete system built inside this repository from the
+HigherGraphen thesis. It is not only an example file format or a side utility;
+it is a real intermediate tool for representing AI-operated software work as
+case graphs and workflow graphs.
+
+CaseGraphen makes the product thesis inspectable:
+
+- [`tools/casegraphen/`](tools/casegraphen/) provides a CLI that reasons over
+  cases, evidence, tasks, blockers, completions, projections, and workflow
+  state.
+- [`schemas/casegraphen/`](schemas/casegraphen/) defines the structured
+  contracts that make those concepts machine-checkable.
+- [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) gives AI agents
+  an operating protocol for reading and authoring CaseGraphen workspaces.
+- [`examples/casegraphen/reference/`](examples/casegraphen/reference/) shows a
+  runnable reference workflow graph and report.
+- [`.casegraphen/`](.casegraphen/README.md) records the repository's own public
+  development as a real case graph.
+
+This matters because it demonstrates the intended direction of HigherGraphen:
+software work is not reduced to a human-facing issue list, document, or command
+history. Goals, decisions, evidence, obstructions, completions, reviews, and
+future projections become first-class structures that an AI agent can inspect
+and operate directly.
+
+The current CaseGraphen surface is specified in
+[`docs/specs/intermediate-tools/casegraphen.md`](docs/specs/intermediate-tools/casegraphen.md),
+[`docs/specs/intermediate-tools/casegraphen-workflow-contracts.md`](docs/specs/intermediate-tools/casegraphen-workflow-contracts.md),
+and
+[`docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md`](docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md).
+
 ## Status
 
 This repository is an early public implementation. It contains the core Rust
