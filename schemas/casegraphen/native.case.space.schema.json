@@ -1,0 +1,526 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.space.v1",
+  "title": "Native CaseGraphen CaseSpace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "case_space_id",
+    "space_id",
+    "case_cells",
+    "case_relations",
+    "morphism_log",
+    "projections",
+    "revision",
+    "metadata"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.space.v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "case_space_id": {
+      "$ref": "#/$defs/id"
+    },
+    "space_id": {
+      "$ref": "#/$defs/id"
+    },
+    "case_cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/case_cell"
+      }
+    },
+    "case_relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/case_relation"
+      }
+    },
+    "morphism_log": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/morphism_log_entry"
+      }
+    },
+    "projections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projection"
+      }
+    },
+    "revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "close_policy_id": {
+      "$ref": "#/$defs/id"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^(document|log|api|human|ai|code|external|custom:.+)$"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "source_local_id": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source_ref"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "extraction_method": {
+          "type": "string"
+        },
+        "extractor_id": {
+          "type": "string"
+        },
+        "reviewer_id": {
+          "type": "string"
+        },
+        "reviewed_at": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "review_status": {
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    },
+    "case_cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "cell_type",
+        "space_id",
+        "title",
+        "lifecycle",
+        "source_ids",
+        "structure_ids",
+        "provenance",
+        "metadata"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "cell_type": {
+          "type": "string",
+          "pattern": "^(case|scenario|goal|work|decision|event|evidence|proof|review|obstruction|completion|projection|revision|morphism|external_ref|custom:.+)$"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "lifecycle": {
+          "enum": [
+            "proposed",
+            "active",
+            "waiting",
+            "resolved",
+            "retired",
+            "accepted",
+            "rejected",
+            "superseded"
+          ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "structure_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        }
+      }
+    },
+    "case_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "relation_type",
+        "relation_strength",
+        "from_id",
+        "to_id",
+        "evidence_ids",
+        "source_ids",
+        "provenance",
+        "metadata"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "type": "string",
+          "pattern": "^(depends_on|waits_for|requires_evidence|requires_proof|satisfies_evidence_requirement|verifies|covers|exercises|blocks|unblocks|contradicts|invalidates|completes|derives_from|refines|projects_to|transitions_to|corresponds_to|accepts|rejects|supersedes|custom:.+)$"
+        },
+        "relation_strength": {
+          "enum": [
+            "hard",
+            "soft",
+            "diagnostic"
+          ]
+        },
+        "from_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        }
+      }
+    },
+    "case_morphism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "morphism_id",
+        "morphism_type",
+        "target_revision_id",
+        "added_ids",
+        "updated_ids",
+        "retired_ids",
+        "preserved_ids",
+        "violated_invariant_ids",
+        "review_status",
+        "evidence_ids",
+        "source_ids",
+        "metadata"
+      ],
+      "properties": {
+        "morphism_id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_type": {
+          "type": "string",
+          "pattern": "^(create|update|retire|relate|unrelate|review|evidence_attach|completion_accept|completion_reject|projection|migration|close|custom:.+)$"
+        },
+        "source_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "added_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "updated_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "retired_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "preserved_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "violated_invariant_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        }
+      }
+    },
+    "morphism_log_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schema_version",
+        "case_space_id",
+        "sequence",
+        "entry_id",
+        "morphism_id",
+        "target_revision_id",
+        "morphism",
+        "actor_id",
+        "recorded_at",
+        "provenance",
+        "source_ids",
+        "replay_checksum"
+      ],
+      "properties": {
+        "schema": {
+          "const": "highergraphen.case.morphism_log_entry.v1"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "case_space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "entry_id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism": {
+          "$ref": "#/$defs/case_morphism"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "recorded_at": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "previous_entry_hash": {
+          "type": "string"
+        },
+        "replay_checksum": {
+          "type": "string"
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_id",
+        "audience",
+        "revision_id",
+        "represented_cell_ids",
+        "represented_relation_ids",
+        "omitted_cell_ids",
+        "omitted_relation_ids",
+        "information_loss",
+        "allowed_operations",
+        "source_ids",
+        "warnings",
+        "metadata"
+      ],
+      "properties": {
+        "projection_id": {
+          "$ref": "#/$defs/id"
+        },
+        "audience": {
+          "$ref": "#/$defs/projection_audience"
+        },
+        "revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "represented_cell_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "represented_relation_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_cell_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_relation_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projection_loss"
+          }
+        },
+        "allowed_operations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "hidden_blocker",
+              "hidden_unreviewed_inference",
+              "hidden_close_invariant_failure",
+              "information_loss"
+            ]
+          }
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        }
+      }
+    },
+    "projection_audience": {
+      "enum": [
+        "human_review",
+        "ai_agent",
+        "audit",
+        "system",
+        "migration"
+      ]
+    },
+    "projection_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "represented_ids",
+        "omitted_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "represented_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "omitted_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision_id",
+        "case_space_id",
+        "applied_entry_ids",
+        "applied_morphism_ids",
+        "checksum",
+        "created_at",
+        "source_ids",
+        "metadata"
+      ],
+      "properties": {
+        "revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "case_space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "applied_entry_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "applied_morphism_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "parent_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        }
+      }
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    }
+  }
+}

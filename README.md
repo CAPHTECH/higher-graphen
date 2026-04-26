@@ -183,6 +183,48 @@ cargo run -q -p casegraphen -- \
 This emits a CaseGraphen workflow reasoning report over a structured workflow
 graph.
 
+Native CaseGraphen case management is also available through the repo-owned
+`casegraphen` CLI:
+
+```sh
+cargo run -q -p casegraphen -- \
+  case import \
+  --store /tmp/casegraphen-native-store \
+  --input schemas/casegraphen/native.case.space.example.json \
+  --revision-id revision:native-reference-imported \
+  --format json
+```
+
+After import, derive native reasoning views from the replayed `CaseSpace` plus
+`MorphismLog`:
+
+```sh
+cargo run -q -p casegraphen -- case reason --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- case close-check --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --base-revision-id revision:native-reference-imported --validation-evidence-id evidence:native-schema-json-valid --format json
+```
+
+The DDD diagnostic example uses the same native report surface to review a
+Sales/Billing `Customer` domain model decision:
+
+```sh
+cargo run -q -p casegraphen -- \
+  case import \
+  --store /tmp/casegraphen-ddd-store \
+  --input examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json \
+  --revision-id revision:ddd-sales-billing-imported \
+  --format json
+```
+
+Then run:
+
+```sh
+cargo run -q -p casegraphen -- case reason --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+```
+
+The expected result is a blocked domain model decision with boundary semantic
+loss, missing accepted evidence, unreviewed completion candidates, and
+projection loss represented as successful JSON report data.
+
 ## CaseGraphen As The First Real Case
 
 CaseGraphen is the first concrete system built inside this repository from the
@@ -206,6 +248,12 @@ CaseGraphen makes the product thesis inspectable:
   an operating protocol for reading and authoring CaseGraphen workspaces.
 - [`examples/casegraphen/reference/`](examples/casegraphen/reference/) shows a
   runnable reference workflow graph and report.
+- [`examples/casegraphen/native/`](examples/casegraphen/native/) shows the
+  native `CaseSpace` plus `MorphismLog` case management flow.
+- [`examples/casegraphen/ddd/domain-model-design/`](examples/casegraphen/ddd/domain-model-design/)
+  shows DDD domain model diagnostics over native CaseGraphen reports.
+- [`skills/casegraphen-ddd-diagnostics/SKILL.md`](skills/casegraphen-ddd-diagnostics/SKILL.md)
+  gives AI agents a bounded context and domain model review protocol.
 
 This matters because it demonstrates the intended direction of HigherGraphen:
 complex work is not reduced to a human-facing issue list, document, dashboard,
@@ -216,14 +264,16 @@ can inspect and operate directly.
 The current CaseGraphen surface is specified in
 [`docs/specs/intermediate-tools/casegraphen.md`](docs/specs/intermediate-tools/casegraphen.md),
 [`docs/specs/intermediate-tools/casegraphen-workflow-contracts.md`](docs/specs/intermediate-tools/casegraphen-workflow-contracts.md),
+[`docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md`](docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md),
 and
-[`docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md`](docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md).
+[`docs/specs/intermediate-tools/casegraphen-native-case-management.md`](docs/specs/intermediate-tools/casegraphen-native-case-management.md).
 
 ## Status
 
 This repository is an early public implementation. It contains the core Rust
 workspace, package boundaries, report schemas, CLI contracts, reference product
-packages, public examples, and CaseGraphen CLI and skill surfaces.
+packages, public examples, native CaseGraphen case management, and CaseGraphen
+CLI and skill surfaces.
 
 The implementation is still evolving. The most stable entry point is the
 reference Architecture Product smoke report. The broader goal is to make the
@@ -241,7 +291,10 @@ If you are new to HigherGraphen, start here:
 3. Run the Architecture Product smoke command above and inspect the JSON report.
 4. Run the CaseGraphen workflow reasoning command above and inspect
    [`examples/casegraphen/reference/`](examples/casegraphen/reference/).
-5. Use [`docs/index.md`](docs/index.md) when you want the full specification
+5. Run the native CaseGraphen or DDD diagnostic examples when you want to see
+   `CaseSpace`, `MorphismLog`, evidence boundaries, completion candidates, and
+   projection loss in action.
+6. Use [`docs/index.md`](docs/index.md) when you want the full specification
    reading order.
 
 ## License And Commercial Boundary
@@ -271,9 +324,14 @@ boundary.
 - [`docs/specs/intermediate-tools-map.md`](docs/specs/intermediate-tools-map.md) - Core packages and intermediate `*graphen` tools
 - [`docs/specs/intermediate-tools/casegraphen.md`](docs/specs/intermediate-tools/casegraphen.md) - CaseGraphen intermediate tool specification
 - [`docs/specs/intermediate-tools/casegraphen-workflow-contracts.md`](docs/specs/intermediate-tools/casegraphen-workflow-contracts.md) - CaseGraphen workflow contracts
+- [`docs/specs/intermediate-tools/casegraphen-native-case-management.md`](docs/specs/intermediate-tools/casegraphen-native-case-management.md) - Native CaseGraphen CaseSpace and MorphismLog case management contract
 - [`examples/casegraphen/reference/README.md`](examples/casegraphen/reference/README.md) - CaseGraphen reference workflow example
+- [`examples/casegraphen/native/README.md`](examples/casegraphen/native/README.md) - Native CaseGraphen reference flow
+- [`examples/casegraphen/ddd/domain-model-design/README.md`](examples/casegraphen/ddd/domain-model-design/README.md) - DDD domain model diagnostic example
 - [`docs/specs/ai-agent-integration.md`](docs/specs/ai-agent-integration.md) - Skills, plugins, MCP, and marketplace integration strategy
 - [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
+- [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Repository-owned CaseGraphen CLI skill
+- [`skills/casegraphen-ddd-diagnostics/SKILL.md`](skills/casegraphen-ddd-diagnostics/SKILL.md) - Repository-owned DDD diagnostic skill
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification
 - [`docs/product-packages/architecture-product.md`](docs/product-packages/architecture-product.md) - Reference Architecture Product

@@ -1,7 +1,7 @@
 {
   "schema": "highergraphen.cli_skill_bundle.v1",
   "name": "highergraphen-cli-skill-bundle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Provider-neutral package for the current HigherGraphen CLI and skill integration surface.",
   "provider_neutral": true,
   "distribution_mode": "cli_skill_bundle",
@@ -33,6 +33,26 @@
       "casegraphen cg workflow patch check --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --transition-id transition:id --format json",
       "casegraphen cg workflow patch apply|reject --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --transition-id transition:id --reviewer-id reviewer:id --reason reason --revision-id revision:id --format json"
     ],
+    "casegraphen_native_case_commands": [
+      "casegraphen case new --store casegraphen-native-store --case-space-id case_space:id --space-id space:id --title title --revision-id revision:id --format json",
+      "casegraphen case import --store casegraphen-native-store --input native.case.space.json --revision-id revision:id --format json",
+      "casegraphen case inspect --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case replay --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case validate --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case reason --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case frontier --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case obstructions --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case completions --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case evidence --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case project --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case close-check --store casegraphen-native-store --case-space-id case_space:id --base-revision-id revision:id --validation-evidence-id evidence:id --format json"
+    ],
+    "casegraphen_native_morphism_commands": [
+      "casegraphen morphism propose --store casegraphen-native-store --case-space-id case_space:id --input case_morphism.json --format json",
+      "casegraphen morphism check --store casegraphen-native-store --case-space-id case_space:id --morphism-id morphism:id --format json",
+      "casegraphen morphism apply --store casegraphen-native-store --case-space-id case_space:id --morphism-id morphism:id --base-revision-id revision:id --reviewer-id reviewer:id --reason reason --format json",
+      "casegraphen morphism reject --store casegraphen-native-store --case-space-id case_space:id --morphism-id morphism:id --reviewer-id reviewer:id --reason reason --revision-id revision:id --format json"
+    ],
     "contract_validator": "python3 scripts/validate-cli-report-contract.py",
     "bundle_smoke_check": "python3 integrations/cli-skill-bundle/check-bundle.py"
   },
@@ -48,6 +68,15 @@
     "casegraphen_workflow_graph_fixture": "schemas/casegraphen/workflow.graph.example.json",
     "casegraphen_workflow_report_fixture": "schemas/casegraphen/workflow.report.example.json",
     "casegraphen_feature_completion_contract": "docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md",
+    "casegraphen_native_contract": "docs/specs/intermediate-tools/casegraphen-native-case-management.md",
+    "casegraphen_native_case_schema": "schemas/casegraphen/native.case.space.schema.json",
+    "casegraphen_native_report_schema": "schemas/casegraphen/native.case.report.schema.json",
+    "casegraphen_native_case_fixture": "schemas/casegraphen/native.case.space.example.json",
+    "casegraphen_native_report_fixture": "schemas/casegraphen/native.case.report.example.json",
+    "casegraphen_native_reference_readme": "examples/casegraphen/native/README.md",
+    "casegraphen_ddd_diagnostic_example": "examples/casegraphen/ddd/domain-model-design/README.md",
+    "casegraphen_ddd_diagnostic_fixture": "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json",
+    "casegraphen_ddd_diagnostic_source_skill": "skills/casegraphen-ddd-diagnostics/SKILL.md",
     "casegraphen_reference_readme": "examples/casegraphen/reference/README.md",
     "casegraphen_source_skill": "skills/casegraphen/SKILL.md",
     "contract_validator": "scripts/validate-cli-report-contract.py",
@@ -64,6 +93,12 @@
       "name": "casegraphen",
       "source": "skills/casegraphen/SKILL.md",
       "bundle_path": "integrations/cli-skill-bundle/skills/casegraphen/SKILL.md",
+      "sync_policy": "byte_for_byte"
+    },
+    {
+      "name": "casegraphen-ddd-diagnostics",
+      "source": "skills/casegraphen-ddd-diagnostics/SKILL.md",
+      "bundle_path": "integrations/cli-skill-bundle/skills/casegraphen-ddd-diagnostics/SKILL.md",
       "sync_policy": "byte_for_byte"
     },
     {

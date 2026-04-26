@@ -1,0 +1,85 @@
+{
+  "schema": "highergraphen.case.native.report.v1",
+  "report_type": "native_case_contract",
+  "report_version": 1,
+  "metadata": {
+    "command": "casegraphen case inspect --format json",
+    "tool_package": "tools/casegraphen",
+    "core_packages": [
+      "higher-graphen-core"
+    ]
+  },
+  "input": {
+    "case_space_schema": "highergraphen.case.space.v1",
+    "case_space_schema_version": 1,
+    "case_space_id": "case_space:native-case-management-contract",
+    "space_id": "space:higher-graphen-casegraphen",
+    "revision_id": "revision:native-contract-v1"
+  },
+  "result": {
+    "case_space": {
+      "schema": "highergraphen.case.space.v1",
+      "schema_version": 1,
+      "case_space_id": "case_space:native-case-management-contract",
+      "space_id": "space:higher-graphen-casegraphen",
+      "case_cells": [],
+      "case_relations": [],
+      "morphism_log": [],
+      "projections": [],
+      "revision": {
+        "revision_id": "revision:native-contract-v1",
+        "case_space_id": "case_space:native-case-management-contract",
+        "applied_entry_ids": [],
+        "applied_morphism_ids": [],
+        "checksum": "sha256:native-contract-v1-fixture",
+        "created_at": "2026-04-26T01:00:00Z",
+        "source_ids": [
+          "source:native-design-doc"
+        ],
+        "metadata": {}
+      },
+      "close_policy_id": "close_policy:native-default",
+      "metadata": {
+        "contract_status": "report_fixture"
+      }
+    },
+    "close_check": {
+      "check_id": "close_check:native-contract-v1",
+      "case_space_id": "case_space:native-case-management-contract",
+      "revision_id": "revision:native-contract-v1",
+      "close_policy_id": "close_policy:native-default",
+      "closable": false,
+      "invariant_results": [
+        {
+          "invariant_id": "close_invariant:reviews-complete",
+          "passed": false,
+          "severity": "high",
+          "witness_ids": [
+            "work:review-native-contract"
+          ],
+          "message": "Native implementation is contract-only; close workflow is out of scope."
+        }
+      ],
+      "completion_candidate_ids": [],
+      "evidence_ids": [
+        "evidence:native-schema-json-valid"
+      ],
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document",
+          "uri": "docs/specs/intermediate-tools/casegraphen-native-case-management.md"
+        },
+        "confidence": 1.0,
+        "review_status": "reviewed"
+      },
+      "metadata": {}
+    }
+  },
+  "projection": {
+    "views": [],
+    "summary": "Native case report envelope fixture for schema and API contract tests."
+  }
+}

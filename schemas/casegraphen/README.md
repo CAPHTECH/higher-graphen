@@ -16,6 +16,12 @@ This directory contains the first file-based JSON contracts for the
   `highergraphen.case.workflow.report.v1` outputs for readiness, obstructions,
   completion candidates, evidence-boundary findings, projection loss,
   correspondence, and evolution.
+- `native.case.space.schema.json` validates
+  `highergraphen.case.space.v1` native case-space contracts for cells,
+  relations, morphism-log entries, projections, revisions, reviews, and
+  close-check skeletons.
+- `native.case.report.schema.json` validates
+  `highergraphen.case.native.report.v1` package-level native report envelopes.
 
 The matching `*.example.json` files are used by package tests and can be passed
 directly to the `casegraphen` CLI.

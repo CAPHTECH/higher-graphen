@@ -1,0 +1,405 @@
+{
+  "schema": "highergraphen.case.space.v1",
+  "schema_version": 1,
+  "case_space_id": "case_space:ddd-sales-billing-demo",
+  "space_id": "space:ddd-order-to-cash",
+  "case_cells": [
+    {
+      "id": "context:sales",
+      "cell_type": "custom:context",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Sales bounded context",
+      "summary": "Customer means a prospect or negotiation party in Sales.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": [],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.9,
+        "review_status": "accepted"
+      },
+      "metadata": {"ddd_kind": "bounded_context"}
+    },
+    {
+      "id": "context:billing",
+      "cell_type": "custom:context",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Billing bounded context",
+      "summary": "Customer means the legal billing counterparty in Billing.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": [],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.9,
+        "review_status": "accepted"
+      },
+      "metadata": {"ddd_kind": "bounded_context"}
+    },
+    {
+      "id": "entity:sales.customer",
+      "cell_type": "custom:entity",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Sales Customer",
+      "summary": "A commercial contact or prospect participating in a deal.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": ["context:sales"],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.88,
+        "review_status": "accepted"
+      },
+      "metadata": {"ddd_kind": "entity", "context_id": "context:sales"}
+    },
+    {
+      "id": "entity:billing.customer",
+      "cell_type": "custom:entity",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Billing Customer",
+      "summary": "The legal counterparty that receives invoices and owns payment obligations.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": ["context:billing"],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.88,
+        "review_status": "accepted"
+      },
+      "metadata": {"ddd_kind": "entity", "context_id": "context:billing"}
+    },
+    {
+      "id": "decision:unified-customer-model",
+      "cell_type": "decision",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Use a single Customer model across Sales and Billing",
+      "summary": "The proposed model collapses Sales Customer and Billing Customer into one shared Customer.",
+      "lifecycle": "active",
+      "source_ids": ["source:architecture-sketch"],
+      "structure_ids": ["entity:sales.customer", "entity:billing.customer"],
+      "provenance": {
+        "source": {"kind": "document", "title": "Architecture sketch"},
+        "confidence": 0.7,
+        "review_status": "reviewed"
+      },
+      "metadata": {"decision_kind": "domain_modeling"}
+    },
+    {
+      "id": "constraint:billing-legal-party-preserved",
+      "cell_type": "custom:constraint",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Billing legal counterparty must be preserved",
+      "summary": "Billing must retain a distinct legal counterparty even when Sales uses a broader customer concept.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": ["context:billing", "entity:billing.customer"],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.92,
+        "review_status": "accepted"
+      },
+      "metadata": {"invariant": "legal_counterparty_identity"}
+    },
+    {
+      "id": "semantic_case:customer-identity-loss",
+      "cell_type": "custom:semantic_case",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Customer identity loss across Sales and Billing",
+      "summary": "A single Customer model can erase the distinction between deal participant and billing legal counterparty.",
+      "lifecycle": "active",
+      "source_ids": ["evidence:workshop-notes", "evidence:ai-customer-collapse-diagnostic"],
+      "structure_ids": ["decision:unified-customer-model", "constraint:billing-legal-party-preserved"],
+      "provenance": {
+        "source": {"kind": "ai", "title": "CaseGraphen DDD diagnostic inference"},
+        "confidence": 0.72,
+        "review_status": "unreviewed",
+        "extraction_method": "casegraphen-ddd-diagnostics"
+      },
+      "metadata": {
+        "case_type": "boundary_issue",
+        "severity": "high",
+        "contexts": ["context:sales", "context:billing"]
+      }
+    },
+    {
+      "id": "completion:missing-sales-billing-acl",
+      "cell_type": "completion",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Add an explicit Sales-to-Billing anti-corruption mapping",
+      "summary": "The model should define how Sales Customer maps to Billing Customer without collapsing identity.",
+      "lifecycle": "proposed",
+      "source_ids": ["semantic_case:customer-identity-loss"],
+      "structure_ids": ["decision:unified-customer-model", "context:sales", "context:billing"],
+      "provenance": {
+        "source": {"kind": "ai", "title": "CaseGraphen DDD diagnostic inference"},
+        "confidence": 0.78,
+        "review_status": "unreviewed",
+        "extraction_method": "casegraphen-ddd-diagnostics"
+      },
+      "metadata": {
+        "suggested_record_kind": "boundary",
+        "suggested_relation": "translation_preserves_legal_counterparty"
+      }
+    },
+    {
+      "id": "review:domain-model-acceptance",
+      "cell_type": "review",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Domain model acceptance review",
+      "summary": "A human domain review is required before accepting the unified Customer model.",
+      "lifecycle": "proposed",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": ["decision:unified-customer-model"],
+      "provenance": {
+        "source": {"kind": "human", "title": "Pending domain review"},
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "evidence:workshop-notes",
+      "cell_type": "evidence",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "Workshop notes distinguish Sales and Billing Customer",
+      "summary": "Workshop notes say Sales Customer can be a contact, while Billing Customer is the invoiced legal party.",
+      "lifecycle": "accepted",
+      "source_ids": ["source:domain-workshop"],
+      "structure_ids": ["entity:sales.customer", "entity:billing.customer"],
+      "provenance": {
+        "source": {"kind": "human", "title": "Domain workshop notes"},
+        "confidence": 0.93,
+        "review_status": "accepted"
+      },
+      "metadata": {"evidence_boundary": "source_backed"}
+    },
+    {
+      "id": "evidence:customer-equivalence-proof",
+      "cell_type": "evidence",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "AI-inferred equivalence proof for Customer",
+      "summary": "The only current equivalence proof is inferred and unreviewed.",
+      "lifecycle": "active",
+      "source_ids": ["source:ai-diagnostic"],
+      "structure_ids": ["decision:unified-customer-model"],
+      "provenance": {
+        "source": {"kind": "ai", "title": "AI diagnostic note"},
+        "confidence": 0.55,
+        "review_status": "unreviewed",
+        "extraction_method": "casegraphen-ddd-diagnostics"
+      },
+      "metadata": {"evidence_boundary": "inferred"}
+    },
+    {
+      "id": "evidence:ai-customer-collapse-diagnostic",
+      "cell_type": "evidence",
+      "space_id": "space:ddd-order-to-cash",
+      "title": "AI diagnostic for Customer semantic collapse",
+      "summary": "AI inferred that the model may collapse different Customer meanings.",
+      "lifecycle": "active",
+      "source_ids": ["source:ai-diagnostic"],
+      "structure_ids": ["semantic_case:customer-identity-loss"],
+      "provenance": {
+        "source": {"kind": "ai", "title": "AI diagnostic note"},
+        "confidence": 0.72,
+        "review_status": "unreviewed",
+        "extraction_method": "casegraphen-ddd-diagnostics"
+      },
+      "metadata": {"evidence_boundary": "inferred"}
+    }
+  ],
+  "case_relations": [
+    {
+      "id": "relation:sales-customer-belongs-sales",
+      "relation_type": "custom:belongs_to",
+      "relation_strength": "diagnostic",
+      "from_id": "entity:sales.customer",
+      "to_id": "context:sales",
+      "evidence_ids": ["evidence:workshop-notes"],
+      "source_ids": ["source:domain-workshop"],
+      "provenance": {"source": {"kind": "human"}, "confidence": 0.9, "review_status": "accepted"},
+      "metadata": {}
+    },
+    {
+      "id": "relation:billing-customer-belongs-billing",
+      "relation_type": "custom:belongs_to",
+      "relation_strength": "diagnostic",
+      "from_id": "entity:billing.customer",
+      "to_id": "context:billing",
+      "evidence_ids": ["evidence:workshop-notes"],
+      "source_ids": ["source:domain-workshop"],
+      "provenance": {"source": {"kind": "human"}, "confidence": 0.9, "review_status": "accepted"},
+      "metadata": {}
+    },
+    {
+      "id": "relation:decision-requires-equivalence-proof",
+      "relation_type": "requires_evidence",
+      "relation_strength": "hard",
+      "from_id": "decision:unified-customer-model",
+      "to_id": "evidence:customer-equivalence-proof",
+      "evidence_ids": [],
+      "source_ids": ["source:architecture-sketch"],
+      "provenance": {"source": {"kind": "document"}, "confidence": 0.84, "review_status": "reviewed"},
+      "metadata": {}
+    },
+    {
+      "id": "relation:decision-requires-review",
+      "relation_type": "accepts",
+      "relation_strength": "hard",
+      "from_id": "decision:unified-customer-model",
+      "to_id": "review:domain-model-acceptance",
+      "evidence_ids": [],
+      "source_ids": ["source:domain-workshop"],
+      "provenance": {"source": {"kind": "human"}, "confidence": 1.0, "review_status": "reviewed"},
+      "metadata": {}
+    },
+    {
+      "id": "relation:risk-blocks-unified-customer",
+      "relation_type": "blocks",
+      "relation_strength": "hard",
+      "from_id": "semantic_case:customer-identity-loss",
+      "to_id": "decision:unified-customer-model",
+      "evidence_ids": ["evidence:workshop-notes"],
+      "source_ids": ["source:ai-diagnostic"],
+      "provenance": {"source": {"kind": "ai"}, "confidence": 0.72, "review_status": "unreviewed"},
+      "metadata": {"diagnostic_pattern": "boundary_semantic_loss"}
+    },
+    {
+      "id": "relation:workshop-verifies-risk",
+      "relation_type": "verifies",
+      "relation_strength": "hard",
+      "from_id": "evidence:workshop-notes",
+      "to_id": "semantic_case:customer-identity-loss",
+      "evidence_ids": ["evidence:workshop-notes"],
+      "source_ids": ["source:domain-workshop"],
+      "provenance": {"source": {"kind": "human"}, "confidence": 0.86, "review_status": "accepted"},
+      "metadata": {}
+    }
+  ],
+  "morphism_log": [
+    {
+      "schema": "highergraphen.case.morphism_log_entry.v1",
+      "schema_version": 1,
+      "case_space_id": "case_space:ddd-sales-billing-demo",
+      "sequence": 1,
+      "entry_id": "morphism_log_entry:ddd-demo-genesis",
+      "morphism_id": "morphism:create-ddd-demo",
+      "target_revision_id": "revision:ddd-demo-v1",
+      "morphism": {
+        "morphism_id": "morphism:create-ddd-demo",
+        "morphism_type": "create",
+        "target_revision_id": "revision:ddd-demo-v1",
+        "added_ids": [
+          "context:sales",
+          "context:billing",
+          "entity:sales.customer",
+          "entity:billing.customer",
+          "decision:unified-customer-model",
+          "constraint:billing-legal-party-preserved",
+          "semantic_case:customer-identity-loss",
+          "completion:missing-sales-billing-acl",
+          "review:domain-model-acceptance",
+          "evidence:workshop-notes",
+          "evidence:customer-equivalence-proof",
+          "evidence:ai-customer-collapse-diagnostic",
+          "relation:sales-customer-belongs-sales",
+          "relation:billing-customer-belongs-billing",
+          "relation:decision-requires-equivalence-proof",
+          "relation:decision-requires-review",
+          "relation:risk-blocks-unified-customer",
+          "relation:workshop-verifies-risk",
+          "projection:implementation-view",
+          "projection:audit-view"
+        ],
+        "updated_ids": [],
+        "retired_ids": [],
+        "preserved_ids": [],
+        "violated_invariant_ids": ["constraint:billing-legal-party-preserved"],
+        "review_status": "accepted",
+        "evidence_ids": ["evidence:workshop-notes"],
+        "source_ids": ["source:domain-workshop", "source:architecture-sketch"],
+        "metadata": {"demo": true}
+      },
+      "actor_id": "actor:casegraphen-ddd-diagnostic-demo",
+      "recorded_at": "2026-04-26T03:10:00Z",
+      "provenance": {
+        "source": {"kind": "ai", "title": "CaseGraphen DDD diagnostic demo"},
+        "confidence": 0.8,
+        "review_status": "reviewed"
+      },
+      "source_ids": ["source:domain-workshop", "source:architecture-sketch"],
+      "replay_checksum": "sha256:ddd-demo-v1"
+    }
+  ],
+  "projections": [
+    {
+      "projection_id": "projection:implementation-view",
+      "audience": "ai_agent",
+      "revision_id": "revision:ddd-demo-v1",
+      "represented_cell_ids": ["decision:unified-customer-model", "entity:sales.customer", "entity:billing.customer"],
+      "represented_relation_ids": ["relation:decision-requires-equivalence-proof"],
+      "omitted_cell_ids": ["semantic_case:customer-identity-loss", "constraint:billing-legal-party-preserved", "evidence:workshop-notes"],
+      "omitted_relation_ids": ["relation:risk-blocks-unified-customer", "relation:workshop-verifies-risk"],
+      "information_loss": [
+        {
+          "description": "Implementation view hides the boundary issue and accepted workshop evidence behind the unified Customer decision.",
+          "represented_ids": ["decision:unified-customer-model"],
+          "omitted_ids": ["semantic_case:customer-identity-loss", "evidence:workshop-notes"]
+        }
+      ],
+      "allowed_operations": ["case.inspect", "case.reason"],
+      "source_ids": ["source:architecture-sketch"],
+      "warnings": ["information_loss"],
+      "metadata": {}
+    },
+    {
+      "projection_id": "projection:audit-view",
+      "audience": "audit",
+      "revision_id": "revision:ddd-demo-v1",
+      "represented_cell_ids": [
+        "context:sales",
+        "context:billing",
+        "entity:sales.customer",
+        "entity:billing.customer",
+        "decision:unified-customer-model",
+        "constraint:billing-legal-party-preserved",
+        "semantic_case:customer-identity-loss",
+        "completion:missing-sales-billing-acl",
+        "review:domain-model-acceptance",
+        "evidence:workshop-notes",
+        "evidence:customer-equivalence-proof",
+        "evidence:ai-customer-collapse-diagnostic"
+      ],
+      "represented_relation_ids": [
+        "relation:sales-customer-belongs-sales",
+        "relation:billing-customer-belongs-billing",
+        "relation:decision-requires-equivalence-proof",
+        "relation:decision-requires-review",
+        "relation:risk-blocks-unified-customer",
+        "relation:workshop-verifies-risk"
+      ],
+      "omitted_cell_ids": [],
+      "omitted_relation_ids": [],
+      "information_loss": [],
+      "allowed_operations": ["case.inspect", "case.close-check"],
+      "source_ids": ["source:domain-workshop", "source:architecture-sketch"],
+      "warnings": [],
+      "metadata": {}
+    }
+  ],
+  "revision": {
+    "revision_id": "revision:ddd-demo-v1",
+    "case_space_id": "case_space:ddd-sales-billing-demo",
+    "applied_entry_ids": ["morphism_log_entry:ddd-demo-genesis"],
+    "applied_morphism_ids": ["morphism:create-ddd-demo"],
+    "checksum": "sha256:ddd-demo-v1",
+    "created_at": "2026-04-26T03:10:00Z",
+    "source_ids": ["source:domain-workshop", "source:architecture-sketch"],
+    "metadata": {}
+  },
+  "close_policy_id": "close_policy:ddd-model-review",
+  "metadata": {
+    "diagnostic_method": "casegraphen-ddd-diagnostics",
+    "demo": true
+  }
+}

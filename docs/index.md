@@ -25,13 +25,16 @@ The original proposal remains available as source material:
 16. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
 17. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
 18. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
-19. [`cli/highergraphen.md`](cli/highergraphen.md)
-20. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-21. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-22. [`specs/engine-traits.md`](specs/engine-traits.md)
-23. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-24. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-25. [`mvp-roadmap.md`](mvp-roadmap.md)
+19. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
+20. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
+21. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
+22. [`cli/highergraphen.md`](cli/highergraphen.md)
+23. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+24. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+25. [`specs/engine-traits.md`](specs/engine-traits.md)
+26. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+27. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+28. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -49,6 +52,10 @@ The original proposal remains available as source material:
 | [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md) | Inventories the current `casegraphen` CLI, schema, test, example, and skill surface against the workflow reasoning engine target. |
 | [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md) | Defines implementable workflow model and report contracts for readiness, obstructions, completions, evidence, transitions, projections, correspondence, and evolution. |
 | [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md) | Summarizes the completed CaseGraphen CLI and skill operator surface, bridge boundaries, review workflows, and verification gates. |
+| [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md) | Defines the native CaseGraphen case management design around CaseSpace, CaseCell taxonomy, MorphismLog replay, derived readiness, review semantics, close invariants, store layout, CLI/API targets, and workflow migration. |
+| [`../examples/casegraphen/native/README.md`](../examples/casegraphen/native/README.md) | Provides native CaseGraphen operator examples for `casegraphen case ...` and `casegraphen morphism ...`, including expected report pointers and residual limitations. |
+| [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md) | Provides a DDD domain model diagnostic example using native CaseGraphen reports for Sales/Billing Customer boundary review. |
+| [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md) | Provides the repository-owned skill for DDD and bounded context diagnostics over CaseGraphen data. |
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |

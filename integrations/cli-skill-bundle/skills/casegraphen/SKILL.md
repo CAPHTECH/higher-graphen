@@ -24,7 +24,13 @@ provider marketplace metadata, and the external
 - Workflow graph example: `schemas/casegraphen/workflow.graph.example.json`
 - Workflow report example: `schemas/casegraphen/workflow.report.example.json`
 - Reference workflow: `examples/casegraphen/reference/workflow.graph.json`
+- Native case management design:
+  `docs/specs/intermediate-tools/casegraphen-native-case-management.md`
+- Native case schema: `schemas/casegraphen/native.case.space.schema.json`
+- Native case example: `schemas/casegraphen/native.case.space.example.json`
+- Native reference examples: `examples/casegraphen/native/README.md`
 - CLI implementation: `tools/casegraphen/src/cli.rs`
+- Native CLI implementation: `tools/casegraphen/src/native_cli.rs`
 
 Do not restate the schemas as competing contracts. Consume the schema, fixture,
 and CLI output.
@@ -66,6 +72,53 @@ cargo run -q -p casegraphen -- <args>
 Repo-owned `casegraphen` reports use `schema`, `metadata`, `input`, `result`,
 and `projection` fields. They are not native installed-`cg` events and do not
 replace `cg frontier`, `cg blockers`, or `cg validate --case`.
+
+### Native CaseGraphen
+
+Use native repo-owned `casegraphen case ...` and `casegraphen morphism ...`
+commands for CaseSpace plus MorphismLog work. Native CaseGraphen is not a
+`cg` clone: task-like work is only one `CaseCell` type, readiness/frontier are
+derived by replay, and accepted evidence or review state requires explicit
+native records or morphisms.
+
+Create or import a native case space:
+
+```sh
+casegraphen case new --store <dir> --case-space-id <id> --space-id <id> --title "<title>" --revision-id <revision_id> --format json
+casegraphen case import --store <dir> --input native.case.space.json --revision-id <revision_id> --format json
+casegraphen case list --store <dir> --format json
+casegraphen case inspect --store <dir> --case-space-id <id> --format json
+casegraphen case history --store <dir> --case-space-id <id> --format json
+casegraphen case replay --store <dir> --case-space-id <id> --format json
+casegraphen case validate --store <dir> --case-space-id <id> --format json
+```
+
+Reason over replayed native state:
+
+```sh
+casegraphen case reason --store <dir> --case-space-id <id> --format json
+casegraphen case frontier --store <dir> --case-space-id <id> --format json
+casegraphen case obstructions --store <dir> --case-space-id <id> --format json
+casegraphen case completions --store <dir> --case-space-id <id> --format json
+casegraphen case evidence --store <dir> --case-space-id <id> --format json
+casegraphen case project --store <dir> --case-space-id <id> --format json
+casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
+```
+
+Propose, check, apply, or reject native morphisms:
+
+```sh
+casegraphen morphism propose --store <dir> --case-space-id <id> --input case_morphism.json --format json
+casegraphen morphism check --store <dir> --case-space-id <id> --morphism-id <morphism_id> --format json
+casegraphen morphism apply --store <dir> --case-space-id <id> --morphism-id <morphism_id> --base-revision-id <revision_id> --reviewer-id <reviewer_id> --reason "<reason>" --format json
+casegraphen morphism reject --store <dir> --case-space-id <id> --morphism-id <morphism_id> --reviewer-id <reviewer_id> --reason "<reason>" --revision-id <revision_id> --format json
+```
+
+Native CLI limitations are part of the contract. Current morphism mutation is
+metadata-only; unmaterialized payload changes are rejected instead of silently
+rewriting a case space. There is `case close-check`, but no native `case close`
+command yet. Document residual limitations when publishing examples or
+operator reports.
 
 ## Native Case Workflow
 
@@ -280,6 +333,15 @@ casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format 
 casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json
 ```
 
+For native CaseSpace stores, run:
+
+```sh
+casegraphen case validate --store <dir> --case-space-id <id> --format json
+casegraphen case history --store <dir> --case-space-id <id> --format json
+casegraphen case replay --store <dir> --case-space-id <id> --format json
+casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
+```
+
 After CLI or model changes, prefer:
 
 ```sh
@@ -306,6 +368,9 @@ cargo check -p casegraphen
 - Do not mutate input workflow graphs when interpreting reports.
 - Do not treat `casegraphen cg workflow ...` history as native `.casegraphen`
   event history.
+- Do not treat installed `cg` as the native CaseGraphen product model.
+- Native `casegraphen case ...` reports derive readiness/frontier/blockers from
+  replayed `CaseSpace` plus `MorphismLog`, not stored task state.
 
 ## Agent Output Shape
 
@@ -322,6 +387,8 @@ When reporting results to a user, include:
 - Review actions taken, reviewer/revision IDs, and linked evidence or decision
   IDs when relevant.
 - Validation commands run before close.
+- Native residual limitations when relevant, especially metadata-only morphism
+  application and absence of a native `case close` command.
 
 ## Safety Rules
 
@@ -336,3 +403,5 @@ When reporting results to a user, include:
   this CLI skill path.
 - Do not change existing `highergraphen.case.graph.v1` command semantics when
   working on workflow reasoning.
+- Do not document `casegraphen cg workflow ...` as the native CaseGraphen
+  product surface; it is a compatibility bridge for workflow graphs.

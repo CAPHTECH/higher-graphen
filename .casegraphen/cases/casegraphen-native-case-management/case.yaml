@@ -1,0 +1,12 @@
+case_id: casegraphen-native-case-management
+title: Native CaseGraphen case management
+description: 'Design, document, and implement native casegraphen case management at the CaseSpace and MorphismLog abstraction level. This case intentionally does not copy the cg task tracker model: installed cg is only the meta workflow driver for this implementation. Done means casegraphen can create, store, reason about, review, project, evolve, and close native cases through CLI and package APIs. MCP and direct changes to the external /Users/rizumita/Workspace/casegraphen repository are out of scope.'
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T01:37:36.455Z
+updated_at: 2026-04-26T02:46:56.034Z
+case_revision:
+  current: 59
+  last_event_id: 01KQ3TXM92T4DVMV9EGPVGR6S7

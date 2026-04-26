@@ -1,0 +1,364 @@
+{
+  "schema": "highergraphen.case.space.v1",
+  "schema_version": 1,
+  "case_space_id": "case_space:native-case-management-contract",
+  "space_id": "space:higher-graphen-casegraphen",
+  "case_cells": [
+    {
+      "id": "goal:native-case-contract",
+      "cell_type": "goal",
+      "space_id": "space:higher-graphen-casegraphen",
+      "title": "Define native case schema and API contracts",
+      "summary": "Stable native CaseSpace and MorphismLog contracts exist before store or CLI implementation.",
+      "lifecycle": "active",
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "structure_ids": [
+        "schemas/casegraphen/native.case.space.schema.json",
+        "tools/casegraphen/src/native_model.rs"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document",
+          "uri": "docs/specs/intermediate-tools/casegraphen-native-case-management.md",
+          "title": "Native CaseGraphen Case Management Design"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "case:native-contract-example",
+      "cell_type": "case",
+      "space_id": "space:higher-graphen-casegraphen",
+      "title": "Native contract fixture parses as strict serde",
+      "summary": "The example fixture rejects hidden readiness fields and round-trips through Rust models.",
+      "lifecycle": "active",
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "structure_ids": [
+        "goal:native-case-contract"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document",
+          "uri": "schemas/casegraphen/native.case.space.example.json"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {
+        "evidence_boundary": "source_backed"
+      }
+    },
+    {
+      "id": "work:review-native-contract",
+      "cell_type": "work",
+      "space_id": "space:higher-graphen-casegraphen",
+      "title": "Review native contract before store implementation",
+      "summary": "Review must be explicit before generated native changes can satisfy hard requirements.",
+      "lifecycle": "waiting",
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "structure_ids": [
+        "review:native-contract-acceptance"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "human",
+          "title": "Implementation task"
+        },
+        "confidence": 0.9,
+        "review_status": "reviewed"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "evidence:native-schema-json-valid",
+      "cell_type": "evidence",
+      "space_id": "space:higher-graphen-casegraphen",
+      "title": "Native schema and example JSON parse",
+      "summary": "Package tests parse native schema and example files as valid JSON.",
+      "lifecycle": "accepted",
+      "source_ids": [
+        "source:cargo-test"
+      ],
+      "structure_ids": [
+        "schemas/casegraphen/native.case.space.schema.json",
+        "schemas/casegraphen/native.case.space.example.json"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "log",
+          "title": "cargo test -p casegraphen"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {
+        "evidence_boundary": "source_backed"
+      }
+    },
+    {
+      "id": "review:native-contract-acceptance",
+      "cell_type": "review",
+      "space_id": "space:higher-graphen-casegraphen",
+      "title": "Native contract acceptance review",
+      "summary": "Review record cell preserving accepted source-backed evidence boundary.",
+      "lifecycle": "accepted",
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "structure_ids": [
+        "evidence:native-schema-json-valid"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "human",
+          "title": "Contract review"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted",
+        "reviewer_id": "reviewer:native-lead",
+        "reviewed_at": "2026-04-26T01:00:00Z"
+      },
+      "metadata": {}
+    }
+  ],
+  "case_relations": [
+    {
+      "id": "relation:case-covers-goal",
+      "relation_type": "covers",
+      "relation_strength": "hard",
+      "from_id": "case:native-contract-example",
+      "to_id": "goal:native-case-contract",
+      "evidence_ids": [
+        "evidence:native-schema-json-valid"
+      ],
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "relation:work-waits-for-review",
+      "relation_type": "waits_for",
+      "relation_strength": "hard",
+      "from_id": "work:review-native-contract",
+      "to_id": "review:native-contract-acceptance",
+      "evidence_ids": [],
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "document"
+        },
+        "confidence": 0.9,
+        "review_status": "reviewed"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "relation:evidence-verifies-case",
+      "relation_type": "verifies",
+      "relation_strength": "hard",
+      "from_id": "evidence:native-schema-json-valid",
+      "to_id": "case:native-contract-example",
+      "evidence_ids": [],
+      "source_ids": [
+        "source:cargo-test"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "log"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "relation:review-accepts-evidence",
+      "relation_type": "accepts",
+      "relation_strength": "hard",
+      "from_id": "review:native-contract-acceptance",
+      "to_id": "evidence:native-schema-json-valid",
+      "evidence_ids": [
+        "evidence:native-schema-json-valid"
+      ],
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "provenance": {
+        "source": {
+          "kind": "human"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "metadata": {}
+    }
+  ],
+  "morphism_log": [
+    {
+      "schema": "highergraphen.case.morphism_log_entry.v1",
+      "schema_version": 1,
+      "case_space_id": "case_space:native-case-management-contract",
+      "sequence": 1,
+      "entry_id": "morphism_log_entry:genesis-native-contract",
+      "morphism_id": "morphism:create-native-contract",
+      "target_revision_id": "revision:native-contract-v1",
+      "morphism": {
+        "morphism_id": "morphism:create-native-contract",
+        "morphism_type": "create",
+        "target_revision_id": "revision:native-contract-v1",
+        "added_ids": [
+          "goal:native-case-contract",
+          "case:native-contract-example",
+          "work:review-native-contract",
+          "evidence:native-schema-json-valid",
+          "review:native-contract-acceptance"
+        ],
+        "updated_ids": [],
+        "retired_ids": [],
+        "preserved_ids": [],
+        "violated_invariant_ids": [],
+        "review_status": "accepted",
+        "evidence_ids": [
+          "evidence:native-schema-json-valid"
+        ],
+        "source_ids": [
+          "source:native-design-doc"
+        ],
+        "metadata": {
+          "contract_only": true
+        }
+      },
+      "actor_id": "actor:casegraphen-contract-author",
+      "recorded_at": "2026-04-26T01:00:00Z",
+      "provenance": {
+        "source": {
+          "kind": "document",
+          "uri": "docs/specs/intermediate-tools/casegraphen-native-case-management.md"
+        },
+        "confidence": 1.0,
+        "review_status": "accepted"
+      },
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "replay_checksum": "sha256:native-contract-v1-fixture"
+    }
+  ],
+  "projections": [
+    {
+      "projection_id": "projection:native-human-review",
+      "audience": "human_review",
+      "revision_id": "revision:native-contract-v1",
+      "represented_cell_ids": [
+        "work:review-native-contract",
+        "review:native-contract-acceptance"
+      ],
+      "represented_relation_ids": [
+        "relation:work-waits-for-review"
+      ],
+      "omitted_cell_ids": [
+        "goal:native-case-contract",
+        "case:native-contract-example",
+        "evidence:native-schema-json-valid"
+      ],
+      "omitted_relation_ids": [
+        "relation:case-covers-goal",
+        "relation:evidence-verifies-case",
+        "relation:review-accepts-evidence"
+      ],
+      "information_loss": [
+        {
+          "description": "Human review view omits source-backed schema evidence details.",
+          "represented_ids": [
+            "review:native-contract-acceptance"
+          ],
+          "omitted_ids": [
+            "evidence:native-schema-json-valid"
+          ]
+        }
+      ],
+      "allowed_operations": [
+        "review.accept",
+        "review.reject",
+        "review.reopen"
+      ],
+      "source_ids": [
+        "source:native-design-doc"
+      ],
+      "warnings": [
+        "information_loss"
+      ],
+      "metadata": {}
+    },
+    {
+      "projection_id": "projection:native-audit",
+      "audience": "audit",
+      "revision_id": "revision:native-contract-v1",
+      "represented_cell_ids": [
+        "goal:native-case-contract",
+        "case:native-contract-example",
+        "work:review-native-contract",
+        "evidence:native-schema-json-valid",
+        "review:native-contract-acceptance"
+      ],
+      "represented_relation_ids": [
+        "relation:case-covers-goal",
+        "relation:work-waits-for-review",
+        "relation:evidence-verifies-case",
+        "relation:review-accepts-evidence"
+      ],
+      "omitted_cell_ids": [],
+      "omitted_relation_ids": [],
+      "information_loss": [],
+      "allowed_operations": [
+        "case.inspect",
+        "morphism.history",
+        "case.close-check"
+      ],
+      "source_ids": [
+        "source:native-design-doc",
+        "source:cargo-test"
+      ],
+      "warnings": [],
+      "metadata": {}
+    }
+  ],
+  "revision": {
+    "revision_id": "revision:native-contract-v1",
+    "case_space_id": "case_space:native-case-management-contract",
+    "applied_entry_ids": [
+      "morphism_log_entry:genesis-native-contract"
+    ],
+    "applied_morphism_ids": [
+      "morphism:create-native-contract"
+    ],
+    "checksum": "sha256:native-contract-v1-fixture",
+    "created_at": "2026-04-26T01:00:00Z",
+    "source_ids": [
+      "source:native-design-doc"
+    ],
+    "metadata": {}
+  },
+  "close_policy_id": "close_policy:native-default",
+  "metadata": {
+    "contract_status": "schema_and_api_only"
+  }
+}

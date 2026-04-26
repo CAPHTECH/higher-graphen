@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.case.native.report.v1",
+  "title": "Native CaseGraphen Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "input",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.case.native.report.v1"
+    },
+    "report_type": {
+      "const": "native_case_contract"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "tool_package",
+        "core_packages"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "tool_package": {
+          "const": "tools/casegraphen"
+        },
+        "core_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_space_schema",
+        "case_space_schema_version",
+        "case_space_id",
+        "space_id",
+        "revision_id"
+      ],
+      "properties": {
+        "case_space_schema": {
+          "const": "highergraphen.case.space.v1"
+        },
+        "case_space_schema_version": {
+          "const": 1
+        },
+        "case_space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision_id": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_space"
+      ],
+      "properties": {
+        "case_space": {
+          "type": "object"
+        },
+        "close_check": {
+          "type": "object"
+        },
+        "operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operation_id",
+            "operation_type",
+            "base_revision_id",
+            "target_revision_id",
+            "accepted",
+            "payload"
+          ],
+          "properties": {
+            "operation_id": {
+              "$ref": "#/$defs/id"
+            },
+            "operation_type": {
+              "type": "string"
+            },
+            "base_revision_id": {
+              "$ref": "#/$defs/id"
+            },
+            "target_revision_id": {
+              "$ref": "#/$defs/id"
+            },
+            "accepted": {
+              "type": "boolean"
+            },
+            "payload": true
+          }
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "views",
+        "summary"
+      ],
+      "properties": {
+        "views": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

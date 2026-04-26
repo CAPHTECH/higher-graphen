@@ -1,6 +1,7 @@
 use crate::{
     eval::{detect_conflicts, detect_missing_cases, evaluate_coverage, validate_case_graph},
     model::{CaseGraph, ProjectionDefinition},
+    native_cli::{NativeCliCommand, NativeCliError},
     report,
     store::{read_case_graph, read_coverage_policy, read_projection, write_report, LocalCaseStore},
     workflow_eval::cli_reports::{
@@ -46,7 +47,9 @@ const USAGE: &str = "usage:
   casegraphen cg workflow completion accept|reject|reopen --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
   casegraphen cg workflow completion patch --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--transition-id <id>] [--reviewed-at <text>] [--output <path>]
   casegraphen cg workflow patch check --store <dir> --workflow-graph-id <id> --transition-id <id> --format json [--output <path>]
-  casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]";
+  casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
+  casegraphen case new|import|list|inspect|history|replay|validate|reason|frontier|obstructions|completions|evidence|project|close-check ... --format json [--output <path>]
+  casegraphen morphism propose|check|apply|reject ... --format json [--output <path>]";
 
 pub fn main_entry() -> ExitCode {
     match run(env::args_os().skip(1)) {
@@ -155,6 +158,7 @@ enum Command {
         output: Option<PathBuf>,
     },
     CgWorkflowBridge(CgWorkflowBridgeCommand),
+    Native(NativeCliCommand),
 }
 
 impl Command {
@@ -189,6 +193,12 @@ impl Command {
             Some("project") => Self::parse_project(args),
             Some("compare") => Self::parse_compare(args),
             Some("workflow") => Self::parse_workflow(args),
+            Some("case") => NativeCliCommand::parse("case", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("morphism") => NativeCliCommand::parse("morphism", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
             Some("cg") => CgWorkflowBridgeCommand::parse(args)
                 .map(Self::CgWorkflowBridge)
                 .map_err(CliError::usage),
@@ -363,6 +373,7 @@ impl Command {
             | Self::WorkflowCorrespond { output, .. }
             | Self::WorkflowEvolution { output, .. } => output.as_ref(),
             Self::CgWorkflowBridge(command) => command.output(),
+            Self::Native(command) => command.output(),
         }
     }
 
@@ -416,6 +427,7 @@ impl Command {
                 workflow_evolution_json(input).map_err(CliError::from)
             }
             Self::CgWorkflowBridge(command) => command.run_json().map_err(CliError::from),
+            Self::Native(command) => command.run_json().map_err(CliError::from),
         }
     }
 }
@@ -577,6 +589,7 @@ pub enum CliError {
     Store(crate::store::StoreError),
     WorkflowCommand(WorkflowCommandError),
     WorkflowBridge(WorkflowBridgeError),
+    Native(NativeCliError),
     Json(serde_json::Error),
 }
 
@@ -610,6 +623,12 @@ impl From<WorkflowBridgeError> for CliError {
     }
 }
 
+impl From<NativeCliError> for CliError {
+    fn from(error: NativeCliError) -> Self {
+        Self::Native(error)
+    }
+}
+
 impl From<serde_json::Error> for CliError {
     fn from(error: serde_json::Error) -> Self {
         Self::Json(error)
@@ -624,6 +643,7 @@ impl fmt::Display for CliError {
             Self::Store(error) => write!(formatter, "{error}"),
             Self::WorkflowCommand(error) => write!(formatter, "{error}"),
             Self::WorkflowBridge(error) => write!(formatter, "{error}"),
+            Self::Native(error) => write!(formatter, "{error}"),
             Self::Json(error) => write!(formatter, "{error}"),
         }
     }
