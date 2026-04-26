@@ -35,6 +35,60 @@ turns domain material into AI-operable structure:
 The practical goal is to let AI agents operate on the structure directly while
 humans receive reports, dashboards, and review surfaces as projections.
 
+## Higher-Order Concepts
+
+HigherGraphen uses the following product-level concepts as AI-operable objects:
+
+- `Space`: the bounded structural world under analysis, such as a codebase,
+  project, incident, contract, feed, or research corpus.
+- `Cell`: a unit inside that world. A cell may represent an entity, relation,
+  observation, constraint, or higher-order relation.
+- `Complex`: an organized structure of cells and incidences. It represents
+  relationships that are richer than ordinary node-edge graphs.
+- `Context`: a local region where vocabulary, validity, or rules apply. This
+  lets the system represent cases where local structures are valid but do not
+  compose cleanly into a global structure.
+- `Morphism`: a structure-preserving or structure-transforming map, such as a
+  lift, projection, migration, interpretation, or comparison.
+- `Invariant`: a property that should remain true across changes or
+  interpretations.
+- `Obstruction`: a structured reason that something cannot hold, proceed, or
+  be accepted safely.
+- `CompletionCandidate`: a plausible missing structure proposed by a system or
+  AI agent, kept separate from accepted fact until review.
+- `Projection`: a purpose-specific view for humans, AI agents, audits, CLI
+  output, or other consumers, with declared information loss.
+- `InterpretationPackage`: the domain-specific meaning layer that maps a
+  product domain onto the shared higher-structure core.
+
+These are not only internal implementation types. They are product concepts
+that an AI agent can inspect, operate, validate, and pass through workflows.
+
+## Mathematical Influences
+
+HigherGraphen does not require users to know advanced mathematics. The project
+borrows structural ideas from several fields and turns them into engineering
+objects that AI agents can inspect and operate.
+
+- **Graphs and hypergraphs** inform how ordinary relations and simultaneous
+  multi-entity relations are represented.
+- **Cell complexes and simplicial complexes** inform how points, edges, faces,
+  higher-dimensional cells, boundaries, and holes can be modeled.
+- **Category theory and morphisms** inform transformations, composition,
+  preservation, distortion, and loss between structures.
+- **Sheaf-inspired local-to-global modeling** informs how locally valid
+  contexts can fail to glue into a consistent global picture.
+- **Topology and obstruction theory** inform how missing regions, holes,
+  impossibility, and blocked progress are represented structurally.
+- **Type theory, contracts, and invariants** inform how invalid states are
+  prevented or detected.
+- **Provenance and evidence modeling** inform the distinction between
+  observation, claim, AI inference, reviewable candidate, and accepted
+  conclusion.
+
+The detailed theory-to-engineering mapping lives in
+[`docs/concepts/theoretical-foundations.md`](docs/concepts/theoretical-foundations.md).
+
 ## Why HigherGraphen Exists
 
 AI agents can read documents, logs, code, tickets, API responses, and tabular
