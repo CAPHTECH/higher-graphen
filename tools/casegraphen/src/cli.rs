@@ -2,7 +2,11 @@ use crate::{
     eval::{detect_conflicts, detect_missing_cases, evaluate_coverage, validate_case_graph},
     model::{CaseGraph, ProjectionDefinition},
     report,
-    store::{read_case_graph, read_coverage_policy, read_projection, write_report, LocalCaseStore},
+    store::{
+        read_case_graph, read_coverage_policy, read_projection, read_workflow_graph, write_report,
+        LocalCaseStore,
+    },
+    workflow_report,
 };
 use higher_graphen_core::Id;
 use std::{
@@ -22,7 +26,8 @@ const USAGE: &str = "usage:
   casegraphen missing --input <path> --coverage <path> --format json [--output <path>]
   casegraphen conflicts --input <path> --format json [--output <path>]
   casegraphen project --input <path> --projection <path> --format json [--output <path>]
-  casegraphen compare --left <path> --right <path> --format json [--output <path>]";
+  casegraphen compare --left <path> --right <path> --format json [--output <path>]
+  casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]";
 
 pub fn main_entry() -> ExitCode {
     match run(env::args_os().skip(1)) {
@@ -91,6 +96,10 @@ enum Command {
         right: PathBuf,
         output: Option<PathBuf>,
     },
+    WorkflowReason {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
 }
 
 impl Command {
@@ -124,6 +133,7 @@ impl Command {
             }
             Some("project") => Self::parse_project(args),
             Some("compare") => Self::parse_compare(args),
+            Some("workflow") => Self::parse_workflow(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
         }
     }
@@ -209,6 +219,16 @@ impl Command {
         })
     }
 
+    fn parse_workflow(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut args = args;
+        match required_segment(&mut args, "workflow operation")?.to_str() {
+            Some("reason") => {
+                Self::parse_one_input(args, |input, output| Self::WorkflowReason { input, output })
+            }
+            Some(_) | None => Err(CliError::usage("unsupported workflow command segment")),
+        }
+    }
+
     fn output(&self) -> Option<&PathBuf> {
         match self {
             Self::Create { output, .. }
@@ -219,7 +239,8 @@ impl Command {
             | Self::Missing { output, .. }
             | Self::Conflicts { output, .. }
             | Self::Project { output, .. }
-            | Self::Compare { output, .. } => output.as_ref(),
+            | Self::Compare { output, .. }
+            | Self::WorkflowReason { output, .. } => output.as_ref(),
         }
     }
 
@@ -245,6 +266,7 @@ impl Command {
                 input, projection, ..
             } => run_project(input, projection),
             Self::Compare { left, right, .. } => run_compare(left, right),
+            Self::WorkflowReason { input, .. } => run_workflow_reason(input),
         }
     }
 }
@@ -393,6 +415,11 @@ fn run_compare(left: &Path, right: &Path) -> Result<String, CliError> {
         &left_graph,
         &right_graph,
     ))
+}
+
+fn run_workflow_reason(input: &Path) -> Result<String, CliError> {
+    let graph = read_workflow_graph(input)?;
+    serialize(&workflow_report::reason_workflow(&graph))
 }
 
 fn serialize(report: &impl serde::Serialize) -> Result<String, CliError> {

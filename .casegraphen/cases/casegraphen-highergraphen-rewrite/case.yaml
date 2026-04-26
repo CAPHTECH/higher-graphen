@@ -1,12 +1,12 @@
 case_id: casegraphen-highergraphen-rewrite
 title: Rewrite casegraphen as a HigherGraphen workflow reasoning engine
 description: ''
-state: open
+state: closed
 labels: []
 metadata: {}
 extensions: {}
 created_at: 2026-04-25T22:49:14.854Z
-updated_at: 2026-04-25T23:35:46.238Z
+updated_at: 2026-04-26T00:04:18.952Z
 case_revision:
-  current: 39
-  last_event_id: 01KQ3FZK9YBF6CC960MKM14NNS
+  current: 50
+  last_event_id: 01KQ3HKVW8DZZGZE7WVD1VGB7G

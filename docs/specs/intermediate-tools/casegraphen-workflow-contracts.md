@@ -884,6 +884,7 @@ Workflow commands should live under a `workflow` namespace to avoid overloading
 current report contracts:
 
 ```sh
+casegraphen workflow reason --input workflow.graph.json --format json [--output report.json]
 casegraphen workflow validate --input workflow.graph.json --format json
 casegraphen workflow readiness --input workflow.graph.json --format json [--projection projection.json] [--output report.json]
 casegraphen workflow obstructions --input workflow.graph.json --format json [--output report.json]
@@ -894,6 +895,20 @@ casegraphen workflow project --input workflow.graph.json --projection projection
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json [--output report.json]
 casegraphen workflow evolution --input workflow.graph.json --format json [--output report.json]
 ```
+
+The first implemented workflow CLI surface is:
+
+```sh
+casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]
+```
+
+It reads `highergraphen.case.workflow.graph.v1` inputs with
+`read_workflow_graph`, derives readiness, obstruction, completion, evidence
+boundary, projection, correspondence, and evolution results, and emits the
+`highergraphen.case.workflow.report.v1` report. The command is read-only:
+domain findings such as blocked work, missing proof, unreviewed completion
+candidates, or projection loss remain successful JSON report results and do not
+mutate the workflow graph.
 
 All workflow commands must support `--format json`. `--output` should write the
 same JSON report that would otherwise be printed to stdout.

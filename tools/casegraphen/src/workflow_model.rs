@@ -370,15 +370,15 @@ mod tests {
     }
 
     #[test]
-    fn workflow_model_does_not_add_cli_workflow_command_surface() {
+    fn workflow_cli_reason_requires_explicit_input() {
         let error = crate::cli::run([
             OsString::from("workflow"),
-            OsString::from("validate"),
+            OsString::from("reason"),
             OsString::from("--format"),
             OsString::from("json"),
         ])
-        .expect_err("workflow CLI commands are intentionally out of scope");
+        .expect_err("workflow reasoning requires an input graph");
 
-        assert!(error.to_string().contains("unsupported command segment"));
+        assert!(error.to_string().contains("--input <path> is required"));
     }
 }

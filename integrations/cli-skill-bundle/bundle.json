@@ -8,6 +8,8 @@
   "entrypoints": {
     "cli_command": "highergraphen architecture smoke direct-db-access --format json",
     "cargo_command": "cargo run -q -p highergraphen-cli -- architecture smoke direct-db-access --format json",
+    "casegraphen_workflow_command": "casegraphen workflow reason --input workflow.graph.json --format json",
+    "casegraphen_workflow_cargo_command": "cargo run -q -p casegraphen -- workflow reason --input schemas/casegraphen/workflow.graph.example.json --format json",
     "contract_validator": "python3 scripts/validate-cli-report-contract.py",
     "bundle_smoke_check": "python3 integrations/cli-skill-bundle/check-bundle.py"
   },
@@ -17,6 +19,11 @@
     "agent_integration_spec": "docs/specs/ai-agent-integration.md",
     "report_schema": "schemas/reports/architecture-direct-db-access-smoke.report.schema.json",
     "report_fixture": "schemas/reports/architecture-direct-db-access-smoke.report.example.json",
+    "casegraphen_workflow_contract": "docs/specs/intermediate-tools/casegraphen-workflow-contracts.md",
+    "casegraphen_workflow_graph_schema": "schemas/casegraphen/workflow.graph.schema.json",
+    "casegraphen_workflow_report_schema": "schemas/casegraphen/workflow.report.schema.json",
+    "casegraphen_workflow_graph_fixture": "schemas/casegraphen/workflow.graph.example.json",
+    "casegraphen_workflow_report_fixture": "schemas/casegraphen/workflow.report.example.json",
     "contract_validator": "scripts/validate-cli-report-contract.py",
     "bundle_contract_reference": "integrations/cli-skill-bundle/references/cli-contract.md"
   },
@@ -25,6 +32,12 @@
       "name": "highergraphen",
       "source": "skills/highergraphen/SKILL.md",
       "bundle_path": "integrations/cli-skill-bundle/skills/highergraphen/SKILL.md",
+      "sync_policy": "byte_for_byte"
+    },
+    {
+      "name": "casegraphen",
+      "source": "skills/casegraphen/SKILL.md",
+      "bundle_path": "integrations/cli-skill-bundle/skills/casegraphen/SKILL.md",
       "sync_policy": "byte_for_byte"
     },
     {
@@ -45,4 +58,3 @@
     "provider_specific_manifest"
   ]
 }
-

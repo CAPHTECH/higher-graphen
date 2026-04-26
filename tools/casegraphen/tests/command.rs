@@ -109,6 +109,49 @@ fn project_preserves_missing_cases_conflicts_and_sources() {
 }
 
 #[test]
+fn workflow_reason_emits_reasoning_report_for_workflow_fixture() {
+    let output = run_cli(&[
+        "workflow",
+        "reason",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.workflow.report.v1")
+    );
+    assert_eq!(value["report_type"], json!("case_workflow_reasoning"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen workflow reason")
+    );
+    assert_eq!(
+        value["metadata"]["tool_package"],
+        json!("tools/casegraphen")
+    );
+    assert_eq!(value["result"]["status"], json!("obstructions_detected"));
+    assert_eq!(
+        value["result"]["readiness"]["ready_item_ids"],
+        json!(["task:define-workflow-reasoning-contract"])
+    );
+    assert_eq!(
+        value["result"]["completion_candidates"][0]["review_status"],
+        json!("unreviewed")
+    );
+    assert_eq!(
+        value["projection"]["ai_view"]["audience"],
+        json!("ai_agent")
+    );
+}
+
+#[test]
 fn create_list_and_inspect_use_local_file_store() {
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
@@ -146,6 +189,159 @@ fn create_list_and_inspect_use_local_file_store() {
     assert_eq!(stdout_json(&list)["result"]["graph_count"], json!(1));
 
     fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn workflow_reason_supports_output_file_without_stdout() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let output_path = directory.join("workflow.report.json");
+
+    let output = run_cli(&[
+        "workflow",
+        "reason",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+        "--output",
+        output_path.to_str().expect("output path"),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read report"))
+            .expect("report JSON");
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.workflow.report.v1")
+    );
+    assert_eq!(
+        value["input"]["workflow_graph_id"],
+        json!("workflow_graph:casegraphen-rewrite-contract")
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn reference_workflow_reasoning_matches_checked_in_report() {
+    let output = run_cli(&[
+        "workflow",
+        "reason",
+        "--input",
+        reference_workflow_fixture()
+            .to_str()
+            .expect("reference workflow path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value = stdout_json(&output);
+    let reference = json_file(reference_workflow_report_fixture());
+    assert_eq!(value, reference);
+
+    assert_eq!(
+        value["result"]["readiness"]["ready_item_ids"],
+        json!(["task:define-workflow-reasoning-contract"])
+    );
+    assert_eq!(
+        value["result"]["readiness"]["not_ready_items"][0]["work_item_id"],
+        json!("proof:workflow-schema-parse-check")
+    );
+
+    let obstructions = value["result"]["obstructions"]
+        .as_array()
+        .expect("obstructions");
+    assert!(obstructions
+        .iter()
+        .any(|record| record["obstruction_type"] == json!("missing_evidence")));
+    assert!(obstructions
+        .iter()
+        .any(|record| record["obstruction_type"] == json!("missing_proof")));
+    assert!(obstructions
+        .iter()
+        .any(|record| record["obstruction_type"] == json!("unresolved_dependency")));
+    assert!(obstructions
+        .iter()
+        .any(|record| record["obstruction_type"] == json!("review_required")));
+
+    let completion_candidates = value["result"]["completion_candidates"]
+        .as_array()
+        .expect("completion candidates");
+    assert!(completion_candidates
+        .iter()
+        .any(|record| record["candidate_type"] == json!("missing_evidence")));
+    assert!(completion_candidates
+        .iter()
+        .any(|record| record["candidate_type"] == json!("missing_proof")));
+    assert!(completion_candidates
+        .iter()
+        .any(|record| record["candidate_type"] == json!("missing_task")));
+
+    assert_eq!(
+        value["result"]["evidence_findings"]["accepted_evidence_ids"],
+        json!(["evidence:workflow-target-doc"])
+    );
+    assert_eq!(
+        value["result"]["evidence_findings"]["inference_record_ids"],
+        json!(["evidence:workflow-gap-inference"])
+    );
+    assert!(value["result"]["evidence_findings"]["findings"]
+        .as_array()
+        .expect("evidence findings")
+        .iter()
+        .any(|record| record["finding_type"] == json!("evidence_missing")));
+
+    assert_eq!(
+        value["result"]["projection"]["projection_profile_id"],
+        json!("projection:workflow-ai-review")
+    );
+    assert_eq!(
+        value["projection"]["ai_view"]["audience"],
+        json!("ai_agent")
+    );
+    let ai_records = value["projection"]["ai_view"]["records"]
+        .as_array()
+        .expect("ai records");
+    for record_type in [
+        "readiness",
+        "obstruction",
+        "completion_candidate",
+        "evidence_finding",
+        "projection",
+        "correspondence",
+        "evolution",
+    ] {
+        assert!(
+            ai_records
+                .iter()
+                .any(|record| record["record_type"] == json!(record_type)),
+            "missing AI projection record type {record_type}"
+        );
+    }
+
+    assert_eq!(
+        value["result"]["correspondence"][0]["correspondence_type"],
+        json!("similar_with_loss")
+    );
+    assert_eq!(
+        value["result"]["evolution"]["transition_ids"],
+        json!(["transition:foundation-docs-to-workflow-contract"])
+    );
+    assert_eq!(
+        value["result"]["evolution"]["persisted_shape_ids"],
+        json!([
+            "schemas/casegraphen/case.graph.schema.json",
+            "schemas/casegraphen/case.report.schema.json"
+        ])
+    );
 }
 
 #[test]
@@ -231,6 +427,11 @@ fn stdout_json(output: &Output) -> Value {
     serde_json::from_str(stdout.trim_end()).expect("stdout JSON")
 }
 
+fn json_file(path: PathBuf) -> Value {
+    serde_json::from_str(&fs::read_to_string(&path).expect("read JSON file"))
+        .unwrap_or_else(|error| panic!("{} should be valid JSON: {error}", path.display()))
+}
+
 fn stdout(output: &Output) -> String {
     String::from_utf8(output.stdout.clone()).expect("stdout utf8")
 }
@@ -262,6 +463,18 @@ fn projection_fixture() -> PathBuf {
     repo_path("schemas/casegraphen/projection.example.json")
 }
 
+fn workflow_fixture() -> PathBuf {
+    repo_path("schemas/casegraphen/workflow.graph.example.json")
+}
+
+fn reference_workflow_fixture() -> PathBuf {
+    repo_path("examples/casegraphen/reference/workflow.graph.json")
+}
+
+fn reference_workflow_report_fixture() -> PathBuf {
+    repo_path("examples/casegraphen/reference/reports/workflow.reason.report.json")
+}
+
 fn repo_path(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -281,6 +494,8 @@ fn schema_fixture_paths() -> Vec<PathBuf> {
         "schemas/casegraphen/case.report.schema.json",
         "schemas/casegraphen/workflow.graph.schema.json",
         "schemas/casegraphen/workflow.report.schema.json",
+        "examples/casegraphen/reference/workflow.graph.json",
+        "examples/casegraphen/reference/reports/workflow.reason.report.json",
     ]
     .iter()
     .map(|path| repo_path(path))

@@ -26,6 +26,11 @@ REQUIRED_METADATA_PATHS = [
     ("contract_references", "agent_integration_spec"),
     ("contract_references", "report_schema"),
     ("contract_references", "report_fixture"),
+    ("contract_references", "casegraphen_workflow_contract"),
+    ("contract_references", "casegraphen_workflow_graph_schema"),
+    ("contract_references", "casegraphen_workflow_report_schema"),
+    ("contract_references", "casegraphen_workflow_graph_fixture"),
+    ("contract_references", "casegraphen_workflow_report_fixture"),
     ("contract_references", "contract_validator"),
     ("contract_references", "bundle_contract_reference"),
 ]
@@ -103,12 +108,12 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
         require_path(errors, relative)
 
     skills = metadata.get("skills")
-    if not isinstance(skills, list) or len(skills) != 2:
-        errors.append("skills: expected highergraphen and architecture-review")
+    if not isinstance(skills, list) or len(skills) != 3:
+        errors.append("skills: expected highergraphen, casegraphen, and architecture-review")
         return errors
 
     skill_names = {skill.get("name") for skill in skills if isinstance(skill, dict)}
-    if skill_names != {"highergraphen", "architecture-review"}:
+    if skill_names != {"highergraphen", "casegraphen", "architecture-review"}:
         errors.append(f"skills: unexpected names {sorted(skill_names)!r}")
 
     for skill in skills:
@@ -125,14 +130,22 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
 
 
 def check_highergraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    skill = find_skill(metadata, "highergraphen")
+    return check_byte_for_byte_skill_sync(metadata, "highergraphen")
+
+
+def check_casegraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
+    return check_byte_for_byte_skill_sync(metadata, "casegraphen")
+
+
+def check_byte_for_byte_skill_sync(metadata: dict[str, Any], name: str) -> list[str]:
+    skill = find_skill(metadata, name)
     if skill is None:
-        return ["highergraphen skill metadata is missing"]
+        return [f"{name} skill metadata is missing"]
 
     source = require_existing_path(skill, "source")
     packaged = require_existing_path(skill, "bundle_path")
     if source.read_text(encoding="utf-8") != packaged.read_text(encoding="utf-8"):
-        return ["bundled highergraphen skill is out of sync with source skill"]
+        return [f"bundled {name} skill is out of sync with source skill"]
     return []
 
 
@@ -181,6 +194,7 @@ def main() -> int:
         errors = []
         errors.extend(check_metadata(metadata))
         errors.extend(check_highergraphen_skill_sync(metadata))
+        errors.extend(check_casegraphen_skill_sync(metadata))
         errors.extend(check_architecture_review_skill(metadata))
         errors.extend(check_provider_specific_files())
     except BundleError as error:
@@ -198,4 +212,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

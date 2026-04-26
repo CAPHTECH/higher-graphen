@@ -24,6 +24,21 @@ highergraphen architecture smoke direct-db-access \
   --output architecture-direct-db-access-smoke.report.json
 ```
 
+CaseGraphen workflow reasoning command:
+
+```sh
+casegraphen workflow reason --input workflow.graph.json --format json
+```
+
+Cargo form:
+
+```sh
+cargo run -q -p casegraphen -- \
+  workflow reason \
+  --input schemas/casegraphen/workflow.graph.example.json \
+  --format json
+```
+
 ## Stable Files
 
 | Surface | Path |
@@ -34,6 +49,10 @@ highergraphen architecture smoke direct-db-access \
 | Example fixture | `schemas/reports/architecture-direct-db-access-smoke.report.example.json` |
 | Contract validator | `scripts/validate-cli-report-contract.py` |
 | Source skill | `skills/highergraphen/SKILL.md` |
+| CaseGraphen workflow contract | `docs/specs/intermediate-tools/casegraphen-workflow-contracts.md` |
+| CaseGraphen workflow graph schema | `schemas/casegraphen/workflow.graph.schema.json` |
+| CaseGraphen workflow report schema | `schemas/casegraphen/workflow.report.schema.json` |
+| CaseGraphen source skill | `skills/casegraphen/SKILL.md` |
 
 ## Required Semantics
 
@@ -46,6 +65,11 @@ highergraphen architecture smoke direct-db-access \
 - The workflow is deterministic smoke coverage, not ingestion of real
   architecture documents, source code, ADRs, tickets, databases, or OpenAPI
   files.
+- CaseGraphen workflow reasoning treats blocked work, obstructions, missing
+  proof, completion candidates, and projection loss as successful JSON report
+  findings.
+- CaseGraphen workflow reports do not promote AI inference to accepted evidence
+  or accept completion candidates without an explicit review workflow.
 
 ## Validation
 
@@ -61,4 +85,3 @@ To validate a report file:
 python3 scripts/validate-cli-report-contract.py \
   --report architecture-direct-db-access-smoke.report.json
 ```
-

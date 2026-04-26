@@ -1,0 +1,1262 @@
+{
+  "input": {
+    "case_graph_id": "case_graph:casegraphen-highergraphen-rewrite",
+    "projection_profile_ids": [
+      "projection:workflow-ai-review",
+      "projection:workflow-audit"
+    ],
+    "space_id": "space:casegraphen-workflow-reasoning",
+    "workflow_graph_id": "workflow_graph:casegraphen-rewrite-contract",
+    "workflow_graph_schema": "highergraphen.case.workflow.graph.v1"
+  },
+  "metadata": {
+    "command": "casegraphen workflow reason",
+    "core_packages": [
+      "higher-graphen-core",
+      "higher-graphen-space",
+      "higher-graphen-projection"
+    ],
+    "tool_package": "tools/casegraphen"
+  },
+  "projection": {
+    "ai_view": {
+      "audience": "ai_agent",
+      "information_loss": [
+        {
+          "description": "AI view preserves machine identifiers and review boundaries but omits full prose source documents.",
+          "omitted_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "represented_ids": [
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine",
+            "proof:workflow-schema-parse-check"
+          ]
+        }
+      ],
+      "purpose": "workflow_readiness",
+      "records": [
+        {
+          "confidence": 1.0,
+          "id": "task:define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "document",
+              "uri": "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "Define workflow reasoning contracts"
+        },
+        {
+          "confidence": 0.86,
+          "id": "proof:workflow-schema-parse-check",
+          "provenance": {
+            "confidence": 0.86,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Schema parse proof requirement"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "schemas/casegraphen/workflow.graph.schema.json",
+            "schemas/casegraphen/workflow.report.schema.json"
+          ],
+          "summary": "Parse workflow schema and example JSON files"
+        },
+        {
+          "confidence": 0.82,
+          "id": "task:implement-workflow-engine",
+          "provenance": {
+            "confidence": 0.82,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Implementation should wait for contract"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "tools/casegraphen"
+          ],
+          "summary": "Implement first workflow reasoning engine slice"
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:task-define-workflow-reasoning-contract:readiness-state-allows-work",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "task:define-workflow-reasoning-contract"
+          ],
+          "summary": "task:define-workflow-reasoning-contract satisfied readiness:state-allows-work."
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:proof-workflow-schema-parse-check:readiness-dependencies-done",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+            "proof:workflow-schema-parse-check"
+          ],
+          "summary": "proof:workflow-schema-parse-check failed readiness:dependencies-done with 1 obstruction(s)."
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:proof-workflow-schema-parse-check:readiness-evidence-available",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+            "proof:workflow-schema-parse-check"
+          ],
+          "summary": "proof:workflow-schema-parse-check failed readiness:evidence-available with 1 obstruction(s)."
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:task-implement-workflow-engine:readiness-dependencies-done",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+            "task:implement-workflow-engine"
+          ],
+          "summary": "task:implement-workflow-engine failed readiness:dependencies-done with 1 obstruction(s)."
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:task-implement-workflow-engine:readiness-required-proof-attached",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+            "task:implement-workflow-engine"
+          ],
+          "summary": "task:implement-workflow-engine failed readiness:required-proof-attached with 1 obstruction(s)."
+        },
+        {
+          "confidence": 0.84,
+          "id": "readiness_result:task-implement-workflow-engine:readiness-state-allows-work",
+          "record_type": "readiness",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+            "task:implement-workflow-engine"
+          ],
+          "summary": "task:implement-workflow-engine failed readiness:state-allows-work with 1 obstruction(s)."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "evidence:json-parse-check-output"
+          ],
+          "summary": "proof:workflow-schema-parse-check requires source-backed or accepted evidence evidence:json-parse-check-output, but none is available."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "proof:workflow-schema-parse-check"
+          ],
+          "summary": "task:implement-workflow-engine requires proof proof:workflow-schema-parse-check, but no accepted proof or completed proof item is available."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "task:implement-workflow-engine"
+          ],
+          "summary": "task:implement-workflow-engine is explicitly in blocked state."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract"
+          ],
+          "summary": "proof:workflow-schema-parse-check depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "task:define-workflow-reasoning-contract"
+          ],
+          "summary": "task:implement-workflow-engine depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state."
+        },
+        {
+          "confidence": 0.82,
+          "id": "candidate:missing-evidence:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output",
+          "provenance": {
+            "confidence": 0.82,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow completion candidate"
+            }
+          },
+          "record_type": "completion_candidate",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "evidence:json-parse-check-output",
+            "proof:workflow-schema-parse-check",
+            "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output"
+          ],
+          "summary": "A required evidence record is missing or only represented by inference."
+        },
+        {
+          "confidence": 0.82,
+          "id": "candidate:missing-proof:obstruction-missing-proof-task-implement-workflow-engine-proof-workflow-schema-parse-check",
+          "provenance": {
+            "confidence": 0.82,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow completion candidate"
+            }
+          },
+          "record_type": "completion_candidate",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "task:implement-workflow-engine",
+            "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check"
+          ],
+          "summary": "A required proof is absent or has not reached an accepted terminal state."
+        },
+        {
+          "confidence": 0.82,
+          "id": "candidate:missing-review-action:obstruction-review-required-task-implement-workflow-engine-task-implement-workflow-engine",
+          "provenance": {
+            "confidence": 0.82,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow completion candidate"
+            }
+          },
+          "record_type": "completion_candidate",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine"
+          ],
+          "summary": "A blocked, failed, cancelled, or rejected state needs explicit review."
+        },
+        {
+          "confidence": 0.82,
+          "id": "candidate:missing-task:obstruction-unresolved-dependency-proof-workflow-schema-parse-check-task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.82,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow completion candidate"
+            }
+          },
+          "record_type": "completion_candidate",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract",
+            "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract"
+          ],
+          "summary": "A dependency needs a completed task-like structure before downstream work is ready."
+        },
+        {
+          "confidence": 0.82,
+          "id": "candidate:missing-task:obstruction-unresolved-dependency-task-implement-workflow-engine-task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.82,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow completion candidate"
+            }
+          },
+          "record_type": "completion_candidate",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine",
+            "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+          ],
+          "summary": "A dependency needs a completed task-like structure before downstream work is ready."
+        },
+        {
+          "confidence": 0.8,
+          "id": "finding:evidence-workflow-target-doc:accepted",
+          "record_type": "evidence_finding",
+          "review_status": "accepted",
+          "source_ids": [
+            "evidence:workflow-target-doc"
+          ],
+          "summary": "evidence:workflow-target-doc is accepted or accepted-boundary evidence."
+        },
+        {
+          "confidence": 0.8,
+          "id": "finding:evidence-workflow-gap-inference:inference-separated",
+          "record_type": "evidence_finding",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "evidence:workflow-gap-inference"
+          ],
+          "summary": "evidence:workflow-gap-inference is an inference record and is not treated as accepted evidence."
+        },
+        {
+          "confidence": 0.8,
+          "id": "finding:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output:evidence-missing",
+          "record_type": "evidence_finding",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "evidence:json-parse-check-output"
+          ],
+          "summary": "proof:workflow-schema-parse-check requires source-backed or accepted evidence evidence:json-parse-check-output, but none is available."
+        },
+        {
+          "confidence": 0.78,
+          "id": "correspondence:baseline-casegraphen-to-workflow-contract",
+          "record_type": "correspondence",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "evidence:workflow-gap-inference",
+            "pattern:missing-case-to-completion-candidate"
+          ],
+          "summary": "SimilarWithLoss correspondence between 2 left and 2 right identifier(s)."
+        },
+        {
+          "confidence": 0.82,
+          "id": "revision:workflow-contract-schema",
+          "record_type": "evolution",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "transition:foundation-docs-to-workflow-contract",
+            "schemas/casegraphen/case.graph.schema.json",
+            "schemas/casegraphen/case.report.schema.json"
+          ],
+          "summary": "1 transition(s), 5 appeared obstruction(s), 2 persisted shape id(s)."
+        },
+        {
+          "confidence": 0.86,
+          "id": "projection:workflow-ai-review",
+          "record_type": "projection",
+          "review_status": "unreviewed",
+          "severity": "info",
+          "source_ids": [
+            "evidence:workflow-gap-inference",
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine",
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "AiAgent projection represents 4 id(s) and omits 1 id(s)."
+        }
+      ],
+      "source_ids": [
+        "candidate:missing-evidence:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output",
+        "candidate:missing-proof:obstruction-missing-proof-task-implement-workflow-engine-proof-workflow-schema-parse-check",
+        "candidate:missing-review-action:obstruction-review-required-task-implement-workflow-engine-task-implement-workflow-engine",
+        "candidate:missing-task:obstruction-unresolved-dependency-proof-workflow-schema-parse-check-task-define-workflow-reasoning-contract",
+        "candidate:missing-task:obstruction-unresolved-dependency-task-implement-workflow-engine-task-define-workflow-reasoning-contract",
+        "correspondence:baseline-casegraphen-to-workflow-contract",
+        "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md",
+        "evidence:json-parse-check-output",
+        "evidence:workflow-gap-inference",
+        "evidence:workflow-target-doc",
+        "finding:evidence-workflow-gap-inference:inference-separated",
+        "finding:evidence-workflow-target-doc:accepted",
+        "finding:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output:evidence-missing",
+        "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+        "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+        "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+        "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+        "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+        "pattern:missing-case-to-completion-candidate",
+        "projection:workflow-ai-review",
+        "proof:workflow-schema-parse-check",
+        "readiness_result:proof-workflow-schema-parse-check:readiness-dependencies-done",
+        "readiness_result:proof-workflow-schema-parse-check:readiness-evidence-available",
+        "readiness_result:task-define-workflow-reasoning-contract:readiness-state-allows-work",
+        "readiness_result:task-implement-workflow-engine:readiness-dependencies-done",
+        "readiness_result:task-implement-workflow-engine:readiness-required-proof-attached",
+        "readiness_result:task-implement-workflow-engine:readiness-state-allows-work",
+        "revision:workflow-contract-schema",
+        "schemas/casegraphen/case.graph.schema.json",
+        "schemas/casegraphen/case.report.schema.json",
+        "schemas/casegraphen/workflow.graph.schema.json",
+        "schemas/casegraphen/workflow.report.schema.json",
+        "task:define-workflow-reasoning-contract",
+        "task:implement-workflow-engine",
+        "tools/casegraphen",
+        "transition:foundation-docs-to-workflow-contract"
+      ],
+      "summary": "Machine view preserves readiness, obstruction, completion, evidence, correspondence, and evolution identifiers."
+    },
+    "audit_trace": {
+      "audience": "audit",
+      "information_loss": [
+        {
+          "description": "Audit view records source and transition identifiers while omitting full nested workflow payloads.",
+          "omitted_ids": [],
+          "represented_ids": [
+            "evidence:workflow-target-doc",
+            "evidence:workflow-gap-inference",
+            "transition:foundation-docs-to-workflow-contract"
+          ]
+        }
+      ],
+      "purpose": "evidence_boundary_trace",
+      "records": [
+        {
+          "confidence": 1.0,
+          "id": "evidence:workflow-target-doc",
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "accepted",
+            "source": {
+              "kind": "document",
+              "uri": "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+            }
+          },
+          "record_type": "evidence_finding",
+          "review_status": "accepted",
+          "source_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "Workflow target document defines readiness, obstruction, completion, evidence, projection, correspondence, and evolution requirements."
+        },
+        {
+          "confidence": 0.78,
+          "id": "evidence:workflow-gap-inference",
+          "provenance": {
+            "confidence": 0.78,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Current surface gap mapping"
+            }
+          },
+          "record_type": "evidence_finding",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "docs/specs/intermediate-tools/casegraphen-current-surface-inventory.md"
+          ],
+          "summary": "The current baseline has no first-class workflow item, readiness, or evolution model."
+        },
+        {
+          "confidence": 0.9,
+          "id": "transition:foundation-docs-to-workflow-contract",
+          "provenance": {
+            "confidence": 0.9,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Contract schema transition"
+            }
+          },
+          "record_type": "evolution",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "Patch transition from revision:casegraphen-foundation-docs to revision:workflow-contract-schema."
+        },
+        {
+          "confidence": 0.86,
+          "id": "projection:workflow-ai-review",
+          "record_type": "projection",
+          "review_status": "unreviewed",
+          "severity": "info",
+          "source_ids": [
+            "evidence:workflow-gap-inference",
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine",
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "AiAgent projection represents 4 id(s) and omits 1 id(s)."
+        }
+      ],
+      "source_ids": [
+        "docs/specs/intermediate-tools/casegraphen-current-surface-inventory.md",
+        "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md",
+        "evidence:workflow-gap-inference",
+        "evidence:workflow-target-doc",
+        "projection:workflow-ai-review",
+        "proof:workflow-schema-parse-check",
+        "task:define-workflow-reasoning-contract",
+        "task:implement-workflow-engine",
+        "transition:foundation-docs-to-workflow-contract"
+      ],
+      "summary": "Audit view preserves evidence boundary, transition, and projection loss identifiers."
+    },
+    "human_review": {
+      "audience": "human_review",
+      "information_loss": [
+        {
+          "description": "HumanReview projection omits full source payloads and preserves stable workflow identifiers.",
+          "omitted_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md",
+            "schemas/casegraphen/workflow.graph.schema.json",
+            "schemas/casegraphen/workflow.report.schema.json",
+            "tools/casegraphen"
+          ],
+          "represented_ids": [
+            "evidence:workflow-gap-inference",
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine"
+          ]
+        }
+      ],
+      "purpose": "workflow_human_review",
+      "records": [
+        {
+          "confidence": 1.0,
+          "id": "task:define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 1.0,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "document",
+              "uri": "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "summary": "Define workflow reasoning contracts"
+        },
+        {
+          "confidence": 0.86,
+          "id": "proof:workflow-schema-parse-check",
+          "provenance": {
+            "confidence": 0.86,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Schema parse proof requirement"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "schemas/casegraphen/workflow.graph.schema.json",
+            "schemas/casegraphen/workflow.report.schema.json"
+          ],
+          "summary": "Parse workflow schema and example JSON files"
+        },
+        {
+          "confidence": 0.82,
+          "id": "task:implement-workflow-engine",
+          "provenance": {
+            "confidence": 0.82,
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Implementation should wait for contract"
+            }
+          },
+          "record_type": "work_item",
+          "review_status": "unreviewed",
+          "source_ids": [
+            "tools/casegraphen"
+          ],
+          "summary": "Implement first workflow reasoning engine slice"
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "evidence:json-parse-check-output"
+          ],
+          "summary": "proof:workflow-schema-parse-check requires source-backed or accepted evidence evidence:json-parse-check-output, but none is available."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "medium",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "proof:workflow-schema-parse-check"
+          ],
+          "summary": "task:implement-workflow-engine requires proof proof:workflow-schema-parse-check, but no accepted proof or completed proof item is available."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "task:implement-workflow-engine"
+          ],
+          "summary": "task:implement-workflow-engine is explicitly in blocked state."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "proof:workflow-schema-parse-check",
+            "task:define-workflow-reasoning-contract"
+          ],
+          "summary": "proof:workflow-schema-parse-check depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state."
+        },
+        {
+          "confidence": 0.84,
+          "id": "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+          "provenance": {
+            "confidence": 0.84,
+            "extraction_method": "casegraphen.workflow_eval.v1",
+            "review_status": "unreviewed",
+            "source": {
+              "kind": "agent_inference",
+              "title": "Workflow readiness obstruction"
+            }
+          },
+          "record_type": "obstruction",
+          "review_status": "unreviewed",
+          "severity": "high",
+          "source_ids": [
+            "task:implement-workflow-engine",
+            "task:define-workflow-reasoning-contract"
+          ],
+          "summary": "task:implement-workflow-engine depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state."
+        }
+      ],
+      "source_ids": [
+        "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md",
+        "evidence:json-parse-check-output",
+        "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+        "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+        "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+        "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+        "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+        "proof:workflow-schema-parse-check",
+        "schemas/casegraphen/workflow.graph.schema.json",
+        "schemas/casegraphen/workflow.report.schema.json",
+        "task:define-workflow-reasoning-contract",
+        "task:implement-workflow-engine",
+        "tools/casegraphen"
+      ],
+      "summary": "1 ready item(s), 2 not-ready item(s), 5 obstruction(s)."
+    }
+  },
+  "report_type": "case_workflow_reasoning",
+  "report_version": 1,
+  "result": {
+    "completion_candidates": [
+      {
+        "candidate_type": "missing_evidence",
+        "confidence": 0.82,
+        "id": "candidate:missing-evidence:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output",
+        "inferred_from": [
+          "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output"
+        ],
+        "provenance": {
+          "confidence": 0.82,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow completion candidate"
+          }
+        },
+        "rationale": "A required evidence record is missing or only represented by inference.",
+        "review_status": "unreviewed",
+        "suggested_structure": {
+          "evidence_boundary": "source_backed_evidence",
+          "review_status": "unreviewed",
+          "structure_type": "evidence_record"
+        },
+        "target_ids": [
+          "evidence:json-parse-check-output",
+          "proof:workflow-schema-parse-check"
+        ]
+      },
+      {
+        "candidate_type": "missing_proof",
+        "confidence": 0.82,
+        "id": "candidate:missing-proof:obstruction-missing-proof-task-implement-workflow-engine-proof-workflow-schema-parse-check",
+        "inferred_from": [
+          "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check"
+        ],
+        "provenance": {
+          "confidence": 0.82,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow completion candidate"
+          }
+        },
+        "rationale": "A required proof is absent or has not reached an accepted terminal state.",
+        "review_status": "unreviewed",
+        "suggested_structure": {
+          "item_type": "proof",
+          "state": "todo",
+          "structure_type": "work_item"
+        },
+        "target_ids": [
+          "proof:workflow-schema-parse-check",
+          "task:implement-workflow-engine"
+        ]
+      },
+      {
+        "candidate_type": "missing_review_action",
+        "confidence": 0.82,
+        "id": "candidate:missing-review-action:obstruction-review-required-task-implement-workflow-engine-task-implement-workflow-engine",
+        "inferred_from": [
+          "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine"
+        ],
+        "provenance": {
+          "confidence": 0.82,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow completion candidate"
+          }
+        },
+        "rationale": "A blocked, failed, cancelled, or rejected state needs explicit review.",
+        "review_status": "unreviewed",
+        "suggested_structure": {
+          "purpose": "blocked_state_resolution",
+          "structure_type": "review_action"
+        },
+        "target_ids": [
+          "task:implement-workflow-engine"
+        ]
+      },
+      {
+        "candidate_type": "missing_task",
+        "confidence": 0.82,
+        "id": "candidate:missing-task:obstruction-unresolved-dependency-proof-workflow-schema-parse-check-task-define-workflow-reasoning-contract",
+        "inferred_from": [
+          "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract"
+        ],
+        "provenance": {
+          "confidence": 0.82,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow completion candidate"
+          }
+        },
+        "rationale": "A dependency needs a completed task-like structure before downstream work is ready.",
+        "review_status": "unreviewed",
+        "suggested_structure": {
+          "item_type": "task",
+          "state": "todo",
+          "structure_type": "work_item"
+        },
+        "target_ids": [
+          "proof:workflow-schema-parse-check",
+          "task:define-workflow-reasoning-contract"
+        ]
+      },
+      {
+        "candidate_type": "missing_task",
+        "confidence": 0.82,
+        "id": "candidate:missing-task:obstruction-unresolved-dependency-task-implement-workflow-engine-task-define-workflow-reasoning-contract",
+        "inferred_from": [
+          "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+        ],
+        "provenance": {
+          "confidence": 0.82,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow completion candidate"
+          }
+        },
+        "rationale": "A dependency needs a completed task-like structure before downstream work is ready.",
+        "review_status": "unreviewed",
+        "suggested_structure": {
+          "item_type": "task",
+          "state": "todo",
+          "structure_type": "work_item"
+        },
+        "target_ids": [
+          "task:define-workflow-reasoning-contract",
+          "task:implement-workflow-engine"
+        ]
+      }
+    ],
+    "correspondence": [
+      {
+        "confidence": 0.78,
+        "correspondence_type": "similar_with_loss",
+        "id": "correspondence:baseline-casegraphen-to-workflow-contract",
+        "left_ids": [
+          "highergraphen.case.graph.v1",
+          "highergraphen.case.missing.report.v1"
+        ],
+        "mismatch_evidence_ids": [
+          "evidence:workflow-gap-inference"
+        ],
+        "review_status": "unreviewed",
+        "right_ids": [
+          "highergraphen.case.workflow.graph.v1",
+          "highergraphen.case.workflow.report.v1"
+        ],
+        "transferable_pattern_ids": [
+          "pattern:missing-case-to-completion-candidate"
+        ]
+      }
+    ],
+    "evidence_findings": {
+      "accepted_evidence_ids": [
+        "evidence:workflow-target-doc"
+      ],
+      "boundary_violations": [],
+      "findings": [
+        {
+          "evidence_ids": [
+            "evidence:workflow-target-doc"
+          ],
+          "finding_type": "accepted_evidence_present",
+          "id": "finding:evidence-workflow-target-doc:accepted",
+          "review_status": "accepted",
+          "summary": "evidence:workflow-target-doc is accepted or accepted-boundary evidence."
+        },
+        {
+          "evidence_ids": [
+            "evidence:workflow-gap-inference"
+          ],
+          "finding_type": "inference_separated",
+          "id": "finding:evidence-workflow-gap-inference:inference-separated",
+          "review_status": "unreviewed",
+          "summary": "evidence:workflow-gap-inference is an inference record and is not treated as accepted evidence."
+        },
+        {
+          "evidence_ids": [
+            "evidence:json-parse-check-output"
+          ],
+          "finding_type": "evidence_missing",
+          "id": "finding:obstruction-missing-evidence-proof-workflow-schema-parse-check-evidence-json-parse-check-output:evidence-missing",
+          "review_status": "unreviewed",
+          "summary": "proof:workflow-schema-parse-check requires source-backed or accepted evidence evidence:json-parse-check-output, but none is available."
+        }
+      ],
+      "inference_record_ids": [
+        "evidence:workflow-gap-inference"
+      ],
+      "promoted_evidence_ids": [],
+      "source_backed_evidence_ids": [
+        "evidence:workflow-target-doc"
+      ],
+      "unreviewed_inference_ids": [
+        "evidence:workflow-gap-inference"
+      ]
+    },
+    "evolution": {
+      "accepted_completion_ids": [],
+      "appeared_obstruction_ids": [
+        "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+        "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+        "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+        "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+        "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+      ],
+      "invariant_breaks": [],
+      "persisted_shape_ids": [
+        "schemas/casegraphen/case.graph.schema.json",
+        "schemas/casegraphen/case.report.schema.json"
+      ],
+      "previous_revision_id": "revision:casegraphen-foundation-docs",
+      "rejected_completion_ids": [],
+      "resolved_obstruction_ids": [],
+      "revision_id": "revision:workflow-contract-schema",
+      "transition_ids": [
+        "transition:foundation-docs-to-workflow-contract"
+      ]
+    },
+    "obstructions": [
+      {
+        "affected_ids": [
+          "proof:workflow-schema-parse-check"
+        ],
+        "blocking": true,
+        "explanation": "proof:workflow-schema-parse-check requires source-backed or accepted evidence evidence:json-parse-check-output, but none is available.",
+        "id": "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+        "obstruction_type": "missing_evidence",
+        "provenance": {
+          "confidence": 0.84,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow readiness obstruction"
+          }
+        },
+        "required_resolution": "Attach source-backed evidence or promote reviewed evidence for this requirement.",
+        "severity": "medium",
+        "source_constraint_id": "constraint:workflow-evidence",
+        "witness_ids": [
+          "evidence:json-parse-check-output"
+        ]
+      },
+      {
+        "affected_ids": [
+          "task:implement-workflow-engine"
+        ],
+        "blocking": true,
+        "explanation": "task:implement-workflow-engine requires proof proof:workflow-schema-parse-check, but no accepted proof or completed proof item is available.",
+        "id": "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+        "obstruction_type": "missing_proof",
+        "provenance": {
+          "confidence": 0.84,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow readiness obstruction"
+          }
+        },
+        "required_resolution": "Complete the proof work item or attach accepted proof evidence.",
+        "severity": "medium",
+        "source_constraint_id": "constraint:evidence-boundary",
+        "witness_ids": [
+          "proof:workflow-schema-parse-check"
+        ]
+      },
+      {
+        "affected_ids": [
+          "task:implement-workflow-engine"
+        ],
+        "blocking": true,
+        "explanation": "task:implement-workflow-engine is explicitly in blocked state.",
+        "id": "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+        "obstruction_type": "review_required",
+        "provenance": {
+          "confidence": 0.84,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow readiness obstruction"
+          }
+        },
+        "required_resolution": "Review the blocking condition or move the work item out of blocked state.",
+        "severity": "high",
+        "source_constraint_id": "constraint:workflow-state",
+        "witness_ids": [
+          "task:implement-workflow-engine"
+        ]
+      },
+      {
+        "affected_ids": [
+          "proof:workflow-schema-parse-check"
+        ],
+        "blocking": true,
+        "explanation": "proof:workflow-schema-parse-check depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state.",
+        "id": "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+        "obstruction_type": "unresolved_dependency",
+        "provenance": {
+          "confidence": 0.84,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow readiness obstruction"
+          }
+        },
+        "required_resolution": "Complete, accept, or add the required dependency work item.",
+        "severity": "high",
+        "source_constraint_id": "constraint:workflow-readiness",
+        "witness_ids": [
+          "task:define-workflow-reasoning-contract"
+        ]
+      },
+      {
+        "affected_ids": [
+          "task:implement-workflow-engine"
+        ],
+        "blocking": true,
+        "explanation": "task:implement-workflow-engine depends on task:define-workflow-reasoning-contract, which has not reached done or accepted state.",
+        "id": "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+        "obstruction_type": "unresolved_dependency",
+        "provenance": {
+          "confidence": 0.84,
+          "extraction_method": "casegraphen.workflow_eval.v1",
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "agent_inference",
+            "title": "Workflow readiness obstruction"
+          }
+        },
+        "required_resolution": "Complete, accept, or add the required dependency work item.",
+        "severity": "high",
+        "source_constraint_id": "constraint:workflow-readiness",
+        "witness_ids": [
+          "task:define-workflow-reasoning-contract"
+        ]
+      }
+    ],
+    "projection": {
+      "audience": "ai_agent",
+      "information_loss": [
+        {
+          "description": "AI view preserves machine identifiers and review boundaries but omits full prose source documents.",
+          "omitted_ids": [
+            "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          ],
+          "represented_ids": [
+            "task:define-workflow-reasoning-contract",
+            "task:implement-workflow-engine",
+            "proof:workflow-schema-parse-check"
+          ]
+        }
+      ],
+      "omitted_ids": [
+        "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+      ],
+      "projection_profile_id": "projection:workflow-ai-review",
+      "represented_ids": [
+        "evidence:workflow-gap-inference",
+        "proof:workflow-schema-parse-check",
+        "task:define-workflow-reasoning-contract",
+        "task:implement-workflow-engine"
+      ]
+    },
+    "readiness": {
+      "evaluated_work_item_ids": [
+        "task:define-workflow-reasoning-contract",
+        "proof:workflow-schema-parse-check",
+        "task:implement-workflow-engine"
+      ],
+      "not_ready_items": [
+        {
+          "evidence_requirement_ids": [
+            "evidence:json-parse-check-output"
+          ],
+          "external_wait_ids": [],
+          "hard_dependency_ids": [
+            "task:define-workflow-reasoning-contract"
+          ],
+          "obstruction_ids": [
+            "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+            "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract"
+          ],
+          "proof_requirement_ids": [],
+          "state": "todo",
+          "work_item_id": "proof:workflow-schema-parse-check"
+        },
+        {
+          "evidence_requirement_ids": [],
+          "external_wait_ids": [],
+          "hard_dependency_ids": [
+            "task:define-workflow-reasoning-contract"
+          ],
+          "obstruction_ids": [
+            "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+            "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+            "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+          ],
+          "proof_requirement_ids": [
+            "proof:workflow-schema-parse-check"
+          ],
+          "state": "blocked",
+          "work_item_id": "task:implement-workflow-engine"
+        }
+      ],
+      "ready_item_ids": [
+        "task:define-workflow-reasoning-contract"
+      ],
+      "rule_results": [
+        {
+          "id": "readiness_result:task-define-workflow-reasoning-contract:readiness-state-allows-work",
+          "obstruction_ids": [],
+          "ready": true,
+          "rule_id": "readiness:state-allows-work",
+          "target_work_item_id": "task:define-workflow-reasoning-contract"
+        },
+        {
+          "id": "readiness_result:proof-workflow-schema-parse-check:readiness-dependencies-done",
+          "obstruction_ids": [
+            "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract"
+          ],
+          "ready": false,
+          "rule_id": "readiness:dependencies-done",
+          "target_work_item_id": "proof:workflow-schema-parse-check"
+        },
+        {
+          "id": "readiness_result:proof-workflow-schema-parse-check:readiness-evidence-available",
+          "obstruction_ids": [
+            "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output"
+          ],
+          "ready": false,
+          "rule_id": "readiness:evidence-available",
+          "target_work_item_id": "proof:workflow-schema-parse-check"
+        },
+        {
+          "id": "readiness_result:task-implement-workflow-engine:readiness-dependencies-done",
+          "obstruction_ids": [
+            "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+          ],
+          "ready": false,
+          "rule_id": "readiness:dependencies-done",
+          "target_work_item_id": "task:implement-workflow-engine"
+        },
+        {
+          "id": "readiness_result:task-implement-workflow-engine:readiness-required-proof-attached",
+          "obstruction_ids": [
+            "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check"
+          ],
+          "ready": false,
+          "rule_id": "readiness:required-proof-attached",
+          "target_work_item_id": "task:implement-workflow-engine"
+        },
+        {
+          "id": "readiness_result:task-implement-workflow-engine:readiness-state-allows-work",
+          "obstruction_ids": [
+            "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine"
+          ],
+          "ready": false,
+          "rule_id": "readiness:state-allows-work",
+          "target_work_item_id": "task:implement-workflow-engine"
+        }
+      ]
+    },
+    "status": "obstructions_detected"
+  },
+  "schema": "highergraphen.case.workflow.report.v1"
+}
