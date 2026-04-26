@@ -234,6 +234,47 @@ fn rejects_inference_that_reuses_an_accepted_cell_id() {
         .contains("proposes an already accepted cell"));
 }
 
+#[test]
+fn rejects_relation_with_unknown_component_endpoint() {
+    let mut input = fixture();
+    input.relations[0].to_cell_id = id("cell:missing-db");
+
+    let error =
+        run_architecture_input_lift(input).expect_err("unknown relation endpoint should fail");
+
+    assert_eq!(error.code(), "workflow_construction");
+    assert!(error
+        .to_string()
+        .contains("references unknown to component cell:missing-db"));
+}
+
+#[test]
+fn rejects_inference_with_undeclared_context() {
+    let mut input = fixture();
+    input.inferred_structures[0].context_ids = vec![id("context:missing")];
+
+    let error =
+        run_architecture_input_lift(input).expect_err("unknown inference context should fail");
+
+    assert_eq!(error.code(), "workflow_construction");
+    assert!(error
+        .to_string()
+        .contains("references unknown context context:missing"));
+}
+
+#[test]
+fn rejects_duplicate_input_identifiers_before_lifting() {
+    let mut input = fixture();
+    input.relations[0].id = id(ORDER_SERVICE);
+
+    let error = run_architecture_input_lift(input).expect_err("duplicate ids should fail");
+
+    assert_eq!(error.code(), "workflow_construction");
+    assert!(error
+        .to_string()
+        .contains("relation id cell:order-service duplicates existing component id"));
+}
+
 fn fixture() -> ArchitectureInputLiftDocument {
     serde_json::from_str(include_str!(
         "../../../schemas/inputs/architecture-lift.input.example.json"

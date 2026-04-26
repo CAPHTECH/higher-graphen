@@ -172,7 +172,7 @@ pub struct Incidence {
     pub relation_type: String,
     /// Relation directionality.
     pub orientation: IncidenceOrientation,
-    /// Optional finite relation weight.
+    /// Optional relation weight. Insertion rejects non-finite values.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
     /// Source and review metadata for this incidence.
@@ -256,6 +256,14 @@ impl Complex {
     }
 }
 
+impl ComplexType {
+    /// Creates a downstream-owned complex type after trimming surrounding whitespace.
+    pub fn custom(extension: impl Into<String>) -> Result<Self> {
+        let normalized = normalize_required("complex_type", extension.into())?;
+        Ok(Self::Custom(normalized))
+    }
+}
+
 /// Cell query selectors supported by the MVP in-memory store.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -335,7 +343,7 @@ impl CellQuery {
 }
 
 /// In-memory MVP store for spaces, cells, incidences, complexes, and basic cell queries.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct InMemorySpaceStore {
     spaces: BTreeMap<Id, Space>,
@@ -355,6 +363,9 @@ impl InMemorySpaceStore {
     pub fn insert_space(&mut self, space: Space) -> Result<Space> {
         let mut space = space;
         space.name = normalize_required("name", space.name)?;
+        ensure_empty("cell_ids", &space.cell_ids)?;
+        ensure_empty("incidence_ids", &space.incidence_ids)?;
+        ensure_empty("complex_ids", &space.complex_ids)?;
         space.cell_ids = unique_ids(space.cell_ids);
         space.incidence_ids = unique_ids(space.incidence_ids);
         space.complex_ids = unique_ids(space.complex_ids);
@@ -365,7 +376,7 @@ impl InMemorySpaceStore {
         Ok(space)
     }
 
-    /// Inserts a cell, registers it with its space, and updates boundary coboundaries.
+    /// Inserts a cell, registers it with its space, and updates boundary/coboundary inverses.
     pub fn insert_cell(&mut self, cell: Cell) -> Result<Cell> {
         let mut cell = cell;
         cell.cell_type = normalize_required("cell_type", cell.cell_type)?;
@@ -377,7 +388,7 @@ impl InMemorySpaceStore {
 
         self.cells.insert(cell.id.clone(), cell.clone());
         self.register_cell_in_space(&cell);
-        self.register_boundary_coboundaries(&cell);
+        self.register_boundary_inverses(&cell);
         Ok(cell)
     }
 
@@ -402,6 +413,7 @@ impl InMemorySpaceStore {
     pub fn insert_complex(&mut self, complex: Complex) -> Result<Complex> {
         let mut complex = complex;
         complex.name = normalize_required("name", complex.name)?;
+        complex.complex_type = normalize_complex_type(complex.complex_type)?;
         complex.cell_ids = unique_ids(complex.cell_ids);
         complex.incidence_ids = unique_ids(complex.incidence_ids);
         self.ensure_complex_absent(&complex.id)?;
@@ -520,7 +532,17 @@ impl InMemorySpaceStore {
     fn validate_complex_references(&self, complex: &Complex) -> Result<Dimension> {
         self.ensure_space_exists(&complex.space_id)?;
         for incidence_id in &complex.incidence_ids {
-            self.incidence_in_space(incidence_id, &complex.space_id)?;
+            let incidence = self.incidence_in_space(incidence_id, &complex.space_id)?;
+            if !complex.cell_ids.contains(&incidence.from_cell_id)
+                || !complex.cell_ids.contains(&incidence.to_cell_id)
+            {
+                return Err(malformed(
+                    "incidence_ids",
+                    format!(
+                        "incidence {incidence_id} endpoints must both be included in complex cell_ids"
+                    ),
+                ));
+            }
         }
 
         let mut max_dimension = 0;
@@ -579,13 +601,20 @@ impl InMemorySpaceStore {
         }
     }
 
-    fn register_boundary_coboundaries(&mut self, cell: &Cell) {
+    fn register_boundary_inverses(&mut self, cell: &Cell) {
         for boundary_id in &cell.boundary {
             let boundary = self
                 .cells
                 .get_mut(boundary_id)
                 .expect("validated boundary cell should exist");
             push_unique(&mut boundary.coboundary, cell.id.clone());
+        }
+        for coboundary_id in &cell.coboundary {
+            let coboundary = self
+                .cells
+                .get_mut(coboundary_id)
+                .expect("validated coboundary cell should exist");
+            push_unique(&mut coboundary.boundary, cell.id.clone());
         }
     }
 }
@@ -624,6 +653,24 @@ fn ensure_absent(occupied: bool, field: &str, id: &Id) -> Result<()> {
     }
 }
 
+fn ensure_empty(field: &str, ids: &[Id]) -> Result<()> {
+    if ids.is_empty() {
+        Ok(())
+    } else {
+        Err(malformed(
+            field,
+            "store-owned membership lists must be populated through insert operations",
+        ))
+    }
+}
+
+fn normalize_complex_type(complex_type: ComplexType) -> Result<ComplexType> {
+    match complex_type {
+        ComplexType::Custom(extension) => ComplexType::custom(extension),
+        built_in => Ok(built_in),
+    }
+}
+
 fn missing(field: &str, id: &Id) -> CoreError {
     malformed(
         field,
@@ -646,132 +693,4 @@ fn malformed(field: &str, reason: impl Into<String>) -> CoreError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(value: &str) -> Id {
-        Id::new(value).expect("valid test id")
-    }
-
-    fn seeded_store() -> InMemorySpaceStore {
-        let mut store = InMemorySpaceStore::new();
-        store
-            .insert_space(Space::new(id("space-a"), "Abstract space"))
-            .expect("insert space");
-        store
-    }
-
-    #[test]
-    fn inserts_cells_and_queries_by_space_type_dimension_and_context() {
-        let mut store = seeded_store();
-        let context_id = id("context-alpha");
-        let cell = Cell::new(id("cell-1"), id("space-a"), 0, "entity")
-            .with_label("Entity")
-            .with_context(context_id.clone());
-        store.insert_cell(cell).expect("insert cell");
-
-        let query = CellQuery::new()
-            .in_space(id("space-a"))
-            .of_type("entity")
-            .with_dimension(0)
-            .in_context(context_id.clone());
-        let results = store.query_cells(&query);
-
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].id, id("cell-1"));
-        assert_eq!(
-            store.space(&id("space-a")).expect("space").context_ids,
-            vec![context_id]
-        );
-    }
-
-    #[test]
-    fn cell_insertion_updates_boundary_coboundary_membership() {
-        let mut store = seeded_store();
-        store
-            .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
-            .expect("insert boundary cell");
-        let edge =
-            Cell::new(id("edge-a"), id("space-a"), 1, "edge").with_boundary_cell(id("point-a"));
-        store.insert_cell(edge).expect("insert edge");
-
-        let point = store.cell(&id("point-a")).expect("point cell");
-        let edge = store.cell(&id("edge-a")).expect("edge cell");
-        assert_eq!(point.coboundary, vec![id("edge-a")]);
-        assert_eq!(edge.boundary, vec![id("point-a")]);
-    }
-
-    #[test]
-    fn incidence_insertion_requires_cells_from_the_same_space() {
-        let mut store = seeded_store();
-        store
-            .insert_cell(Cell::new(id("source"), id("space-a"), 0, "node"))
-            .expect("insert source");
-        store
-            .insert_cell(Cell::new(id("target"), id("space-a"), 0, "node"))
-            .expect("insert target");
-
-        let incidence = Incidence::new(
-            id("incidence-a"),
-            id("space-a"),
-            id("source"),
-            id("target"),
-            "relates",
-            IncidenceOrientation::Directed,
-        )
-        .with_weight(1.0);
-        store.insert_incidence(incidence).expect("insert incidence");
-
-        let space = store.space(&id("space-a")).expect("space");
-        assert_eq!(space.incidence_ids, vec![id("incidence-a")]);
-        assert!(store.incidence(&id("incidence-a")).is_some());
-    }
-
-    #[test]
-    fn complex_construction_validates_membership_and_computes_max_dimension() {
-        let mut store = seeded_store();
-        store
-            .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
-            .expect("insert point");
-        store
-            .insert_cell(Cell::new(id("edge-a"), id("space-a"), 1, "edge"))
-            .expect("insert edge");
-        store
-            .insert_incidence(Incidence::new(
-                id("incidence-a"),
-                id("space-a"),
-                id("point-a"),
-                id("edge-a"),
-                "bounds",
-                IncidenceOrientation::Directed,
-            ))
-            .expect("insert incidence");
-
-        let complex = store
-            .construct_complex(
-                id("complex-a"),
-                id("space-a"),
-                "Typed graph",
-                ComplexType::TypedGraph,
-                [id("point-a"), id("edge-a")],
-                [id("incidence-a")],
-            )
-            .expect("construct complex");
-
-        assert_eq!(complex.max_dimension, 1);
-        assert_eq!(
-            store.space(&id("space-a")).expect("space").complex_ids,
-            vec![id("complex-a")]
-        );
-    }
-
-    #[test]
-    fn invalid_references_return_core_malformed_field_errors() {
-        let mut store = seeded_store();
-        let error = store
-            .insert_cell(Cell::new(id("orphan"), id("missing-space"), 0, "node"))
-            .expect_err("missing space should fail");
-
-        assert_eq!(error.code(), "malformed_field");
-    }
-}
+mod tests;

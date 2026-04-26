@@ -35,7 +35,7 @@ pub fn run_architecture_input_lift(
     input: ArchitectureInputLiftDocument,
 ) -> RuntimeResult<ArchitectureInputLiftReport> {
     validate_input_schema(&input)?;
-    ensure_component_contexts_declared(&input)?;
+    validate_input_references(&input)?;
     let interpretation = architecture_interpretation_package()?;
 
     let lifted = lift_architecture_input(&input, &interpretation)?;
@@ -519,6 +519,46 @@ fn validate_input_schema(input: &ArchitectureInputLiftDocument) -> RuntimeResult
     ))
 }
 
+fn validate_input_references(input: &ArchitectureInputLiftDocument) -> RuntimeResult<()> {
+    ensure_unique_input_ids(input)?;
+    ensure_component_contexts_declared(input)?;
+    ensure_relation_endpoints_reference_components(input)?;
+    ensure_inference_contexts_declared(input)?;
+    ensure_inference_related_ids_accepted(input)
+}
+
+fn ensure_unique_input_ids(input: &ArchitectureInputLiftDocument) -> RuntimeResult<()> {
+    let mut seen = Vec::new();
+    ensure_unique_id(&mut seen, &input.space.id, "space")?;
+    for context in &input.contexts {
+        ensure_unique_id(&mut seen, &context.id, "context")?;
+    }
+    for component in &input.components {
+        ensure_unique_id(&mut seen, &component.id, "component")?;
+    }
+    for relation in &input.relations {
+        ensure_unique_id(&mut seen, &relation.id, "relation")?;
+    }
+    for inference in &input.inferred_structures {
+        ensure_unique_id(&mut seen, &inference.id, "inference")?;
+    }
+    Ok(())
+}
+
+fn ensure_unique_id(
+    seen: &mut Vec<(Id, &'static str)>,
+    id: &Id,
+    role: &'static str,
+) -> RuntimeResult<()> {
+    if let Some((_, existing_role)) = seen.iter().find(|(seen_id, _)| seen_id == id) {
+        return Err(validation_error(format!(
+            "{role} id {id} duplicates existing {existing_role} id"
+        )));
+    }
+    seen.push((id.clone(), role));
+    Ok(())
+}
+
 fn ensure_component_contexts_declared(input: &ArchitectureInputLiftDocument) -> RuntimeResult<()> {
     let context_ids = input
         .contexts
@@ -536,18 +576,80 @@ fn ensure_component_contexts_declared(input: &ArchitectureInputLiftDocument) -> 
     Ok(())
 }
 
+fn ensure_relation_endpoints_reference_components(
+    input: &ArchitectureInputLiftDocument,
+) -> RuntimeResult<()> {
+    let component_ids = input_component_ids(input);
+    for relation in &input.relations {
+        ensure_known_id(
+            &component_ids,
+            &relation.from_cell_id,
+            "relation",
+            &relation.id,
+            "from component",
+        )?;
+        ensure_known_id(
+            &component_ids,
+            &relation.to_cell_id,
+            "relation",
+            &relation.id,
+            "to component",
+        )?;
+    }
+    Ok(())
+}
+
+fn ensure_inference_contexts_declared(input: &ArchitectureInputLiftDocument) -> RuntimeResult<()> {
+    let context_ids = input
+        .contexts
+        .iter()
+        .map(|context| context.id.clone())
+        .collect::<Vec<_>>();
+    for inference in &input.inferred_structures {
+        for context_id in &inference.context_ids {
+            ensure_known_id(
+                &context_ids,
+                context_id,
+                "inference",
+                &inference.id,
+                "context",
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn ensure_inference_related_ids_accepted(
+    input: &ArchitectureInputLiftDocument,
+) -> RuntimeResult<()> {
+    let accepted_ids = input_accepted_fact_ids(input);
+    for inference in &input.inferred_structures {
+        for related_id in &inference.related_ids {
+            ensure_known_id(
+                &accepted_ids,
+                related_id,
+                "inference",
+                &inference.id,
+                "related source",
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn ensure_inferred_from_accepted(
     input: &ArchitectureInputLiftDocument,
     inference: &ArchitectureInputInference,
 ) -> RuntimeResult<()> {
     let accepted_ids = input_accepted_fact_ids(input);
     for source_id in &inference.inferred_from {
-        if !accepted_ids.contains(source_id) {
-            return Err(validation_error(format!(
-                "inference {} references non-accepted source {}",
-                inference.id, source_id
-            )));
-        }
+        ensure_known_id(
+            &accepted_ids,
+            source_id,
+            "inference",
+            &inference.id,
+            "inferred_from source",
+        )?;
     }
     Ok(())
 }
@@ -579,6 +681,29 @@ fn input_accepted_fact_ids(input: &ArchitectureInputLiftDocument) -> Vec<Id> {
     );
     ids.extend(input.relations.iter().map(|relation| relation.id.clone()));
     ids
+}
+
+fn input_component_ids(input: &ArchitectureInputLiftDocument) -> Vec<Id> {
+    input
+        .components
+        .iter()
+        .map(|component| component.id.clone())
+        .collect()
+}
+
+fn ensure_known_id(
+    known_ids: &[Id],
+    referenced_id: &Id,
+    owner_role: &str,
+    owner_id: &Id,
+    referenced_role: &str,
+) -> RuntimeResult<()> {
+    if known_ids.contains(referenced_id) {
+        return Ok(());
+    }
+    Err(validation_error(format!(
+        "{owner_role} {owner_id} references unknown {referenced_role} {referenced_id}"
+    )))
 }
 
 fn push_unique(ids: &mut Vec<Id>, id: Id) {

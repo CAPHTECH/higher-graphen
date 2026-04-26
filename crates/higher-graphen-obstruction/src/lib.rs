@@ -141,10 +141,13 @@ pub struct RequiredResolution {
     /// Short human-readable resolution requirement.
     pub summary: String,
     /// Cells that should be changed, supplied, or reviewed to resolve the obstruction.
+    #[serde(default)]
     pub target_cell_ids: Vec<Id>,
     /// Contexts that should be changed, supplied, or reviewed to resolve the obstruction.
+    #[serde(default)]
     pub target_context_ids: Vec<Id>,
     /// Morphisms that should be changed, supplied, or reviewed to resolve the obstruction.
+    #[serde(default)]
     pub target_morphism_ids: Vec<Id>,
 }
 
@@ -161,19 +164,19 @@ impl RequiredResolution {
 
     /// Adds a cell target to this resolution hint.
     pub fn with_target_cell(mut self, cell_id: Id) -> Self {
-        self.target_cell_ids.push(cell_id);
+        push_unique(&mut self.target_cell_ids, cell_id);
         self
     }
 
     /// Adds a context target to this resolution hint.
     pub fn with_target_context(mut self, context_id: Id) -> Self {
-        self.target_context_ids.push(context_id);
+        push_unique(&mut self.target_context_ids, context_id);
         self
     }
 
     /// Adds a morphism target to this resolution hint.
     pub fn with_target_morphism(mut self, morphism_id: Id) -> Self {
-        self.target_morphism_ids.push(morphism_id);
+        push_unique(&mut self.target_morphism_ids, morphism_id);
         self
     }
 }
@@ -225,10 +228,13 @@ pub struct Counterexample {
     /// Human-readable witness description.
     pub description: String,
     /// Stable textual assignments used by the witness.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub assignments: BTreeMap<String, String>,
     /// Cell path or witness cells involved in the counterexample.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub path_cell_ids: Vec<Id>,
     /// Contexts involved in the counterexample.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context_ids: Vec<Id>,
 }
 
@@ -258,13 +264,13 @@ impl Counterexample {
 
     /// Adds a cell to the witness path.
     pub fn with_path_cell(mut self, cell_id: Id) -> Self {
-        self.path_cell_ids.push(cell_id);
+        push_unique(&mut self.path_cell_ids, cell_id);
         self
     }
 
     /// Adds a context to the witness.
     pub fn with_context(mut self, context_id: Id) -> Self {
-        self.context_ids.push(context_id);
+        push_unique(&mut self.context_ids, context_id);
         self
     }
 }
@@ -280,10 +286,13 @@ pub struct Obstruction {
     /// Type of structured failure.
     pub obstruction_type: ObstructionType,
     /// Cells where the obstruction occurs.
+    #[serde(default)]
     pub location_cell_ids: Vec<Id>,
     /// Contexts where the obstruction occurs.
+    #[serde(default)]
     pub location_context_ids: Vec<Id>,
     /// Morphisms related to the obstruction.
+    #[serde(default)]
     pub related_morphisms: Vec<RelatedMorphism>,
     /// Projection-neutral explanation of the obstruction.
     pub explanation: ObstructionExplanation,
@@ -326,19 +335,19 @@ impl Obstruction {
 
     /// Adds a cell location to this obstruction.
     pub fn with_location_cell(mut self, cell_id: Id) -> Self {
-        self.location_cell_ids.push(cell_id);
+        push_unique(&mut self.location_cell_ids, cell_id);
         self
     }
 
     /// Adds a context location to this obstruction.
     pub fn with_location_context(mut self, context_id: Id) -> Self {
-        self.location_context_ids.push(context_id);
+        push_unique(&mut self.location_context_ids, context_id);
         self
     }
 
     /// Adds a related morphism to this obstruction.
     pub fn with_related_morphism(mut self, related_morphism: RelatedMorphism) -> Self {
-        self.related_morphisms.push(related_morphism);
+        push_unique(&mut self.related_morphisms, related_morphism);
         self
     }
 
@@ -379,6 +388,12 @@ fn normalized_required_text(field: &'static str, value: impl Into<String>) -> Re
     Ok(normalized)
 }
 
+fn push_unique<T: Eq>(items: &mut Vec<T>, item: T) {
+    if !items.contains(&item) {
+        items.push(item);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -387,6 +402,7 @@ mod tests {
     };
     use higher_graphen_core::{Confidence, Id, Provenance, Severity, SourceKind, SourceRef};
     use serde::{Deserialize, Serialize};
+    use serde_json::json;
     use std::str::FromStr;
 
     fn assert_serde_contract<T>()
@@ -454,6 +470,8 @@ mod tests {
             provenance(),
         )
         .with_location_cell(id("cell/b"))
+        .with_location_cell(id("cell/b"))
+        .with_location_context(id("context/local"))
         .with_location_context(id("context/local"))
         .with_related_morphism(related_morphism)
         .with_counterexample(counterexample)
@@ -468,6 +486,52 @@ mod tests {
             id("morphism/m1")
         );
         assert_eq!(obstruction.severity, Severity::High);
+    }
+
+    #[test]
+    fn serde_defaults_empty_obstruction_collections() {
+        let value = json!({
+            "id": "obstruction/o1",
+            "space_id": "space/main",
+            "obstruction_type": "missing_morphism",
+            "explanation": {
+                "summary": "required morphism is absent"
+            },
+            "severity": "high",
+            "provenance": provenance()
+        });
+
+        let obstruction: Obstruction = serde_json::from_value(value).expect("obstruction");
+
+        assert!(obstruction.location_cell_ids.is_empty());
+        assert!(obstruction.location_context_ids.is_empty());
+        assert!(obstruction.related_morphisms.is_empty());
+        assert!(obstruction.counterexample.is_none());
+        assert!(obstruction.required_resolution.is_none());
+    }
+
+    #[test]
+    fn builders_deduplicate_set_like_targets_and_locations() {
+        let resolution = RequiredResolution::new("review duplicate cell")
+            .expect("resolution")
+            .with_target_cell(id("cell/a"))
+            .with_target_cell(id("cell/a"))
+            .with_target_context(id("context/a"))
+            .with_target_context(id("context/a"))
+            .with_target_morphism(id("morphism/a"))
+            .with_target_morphism(id("morphism/a"));
+        let counterexample = Counterexample::new("duplicate witness ids")
+            .expect("counterexample")
+            .with_path_cell(id("cell/a"))
+            .with_path_cell(id("cell/a"))
+            .with_context(id("context/a"))
+            .with_context(id("context/a"));
+
+        assert_eq!(resolution.target_cell_ids, vec![id("cell/a")]);
+        assert_eq!(resolution.target_context_ids, vec![id("context/a")]);
+        assert_eq!(resolution.target_morphism_ids, vec![id("morphism/a")]);
+        assert_eq!(counterexample.path_cell_ids, vec![id("cell/a")]);
+        assert_eq!(counterexample.context_ids, vec![id("context/a")]);
     }
 
     #[test]

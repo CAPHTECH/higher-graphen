@@ -96,49 +96,14 @@ fn reference_projection_declares_information_loss() {
 #[test]
 fn checked_in_report_matches_reference_contract() {
     let generated = run_feed_reader(reference_input()).expect("runtime report");
-    let checked_in: FeedReaderReport =
-        serde_json::from_str(include_str!("../reference/reports/feed-reader.report.json"))
-            .expect("checked-in report parses");
+    let checked_in_text = include_str!("../reference/reports/feed-reader.report.json");
+    let _checked_in: FeedReaderReport =
+        serde_json::from_str(checked_in_text).expect("checked-in report parses");
+    let generated_text = serde_json::to_string(&generated).expect("runtime report serializes");
 
-    assert_eq!(checked_in.schema, generated.schema);
-    assert_eq!(checked_in.report_type, generated.report_type);
-    assert_eq!(checked_in.report_version, generated.report_version);
     assert_eq!(
-        checked_in.scenario.input_schema,
-        generated.scenario.input_schema
-    );
-    assert_eq!(
-        checked_in.scenario.source.uri,
-        generated.scenario.source.uri
-    );
-    assert_eq!(checked_in.result.status, generated.result.status);
-    assert_eq!(
-        checked_in.result.observed_entry_ids,
-        generated.result.observed_entry_ids
-    );
-    assert_eq!(
-        checked_in.result.inferred_topic_ids,
-        generated.result.inferred_topic_ids
-    );
-    assert_eq!(
-        checked_in.result.completion_candidates.len(),
-        generated.result.completion_candidates.len()
-    );
-    assert_eq!(
-        checked_in.result.obstructions.len(),
-        generated.result.obstructions.len()
-    );
-    assert_eq!(
-        checked_in.projection.timeline.records.len(),
-        generated.projection.timeline.records.len()
-    );
-    assert_eq!(
-        checked_in.projection.topic_digest.records.len(),
-        generated.projection.topic_digest.records.len()
-    );
-    assert_eq!(
-        checked_in.projection.audit_trace.traces.len(),
-        generated.projection.audit_trace.traces.len()
+        checked_in_text, generated_text,
+        "checked-in feed reader report drifted"
     );
 }
 

@@ -23,7 +23,8 @@ impl Confidence {
             ));
         }
 
-        Ok(Self(value))
+        let normalized = if value == 0.0 { 0.0 } else { value };
+        Ok(Self(normalized))
     }
 
     /// Returns the validated numeric confidence score.

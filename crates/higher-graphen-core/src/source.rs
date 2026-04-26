@@ -47,17 +47,31 @@ impl SourceKind {
         matches!(self, Self::Custom(_))
     }
 
-    /// Returns the stable serialized string for this source kind.
+    /// Returns the stable serialized string for validated source kinds.
+    ///
+    /// Use [`Self::try_serialized_value`] when `Custom` may have been constructed directly.
     pub fn serialized_value(&self) -> String {
+        self.try_serialized_value()
+            .unwrap_or_else(|_| CUSTOM_PREFIX.to_owned())
+    }
+
+    /// Returns the stable serialized string after validating custom extensions.
+    pub fn try_serialized_value(&self) -> Result<String> {
         match self {
-            Self::Document => "document".to_owned(),
-            Self::Log => "log".to_owned(),
-            Self::Api => "api".to_owned(),
-            Self::Human => "human".to_owned(),
-            Self::Ai => "ai".to_owned(),
-            Self::Code => "code".to_owned(),
-            Self::External => "external".to_owned(),
-            Self::Custom(extension) => format!("{CUSTOM_PREFIX}{extension}"),
+            Self::Document => Ok("document".to_owned()),
+            Self::Log => Ok("log".to_owned()),
+            Self::Api => Ok("api".to_owned()),
+            Self::Human => Ok("human".to_owned()),
+            Self::Ai => Ok("ai".to_owned()),
+            Self::Code => Ok("code".to_owned()),
+            Self::External => Ok("external".to_owned()),
+            Self::Custom(extension) => {
+                let custom = Self::custom(extension.clone())?;
+                let Self::Custom(normalized) = custom else {
+                    unreachable!("SourceKind::custom always returns a custom source kind");
+                };
+                Ok(format!("{CUSTOM_PREFIX}{normalized}"))
+            }
         }
     }
 }
@@ -90,7 +104,10 @@ impl Serialize for SourceKind {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.serialized_value())
+        let value = self
+            .try_serialized_value()
+            .map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(&value)
     }
 }
 

@@ -1,7 +1,7 @@
 //! Projection definitions, selectors, results, and renderers for HigherGraphen.
 
 use higher_graphen_core::{CoreError, Id, Result, Severity};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Target consumer for a projected view.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -462,7 +462,7 @@ impl ProjectionEntry {
 }
 
 /// Result of applying a projection.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionResult {
     /// Projection identifier used to produce this result.
@@ -500,6 +500,8 @@ impl ProjectionResult {
         I: IntoIterator<Item = Id>,
         L: IntoIterator<Item = InformationLoss>,
     {
+        ensure_output_matches_schema(&output_schema, &output)?;
+
         Ok(Self {
             projection_id,
             audience,
@@ -544,6 +546,110 @@ impl ProjectionResult {
     /// Returns the information-loss declarations that apply to the output.
     pub fn information_loss(&self) -> &[InformationLoss] {
         &self.information_loss
+    }
+}
+
+impl<'de> Deserialize<'de> for ProjectionResult {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            projection_id: Id,
+            audience: ProjectionAudience,
+            purpose: ProjectionPurpose,
+            output_schema: OutputSchema,
+            renderer: RendererKind,
+            output: ProjectionOutput,
+            source_ids: Vec<Id>,
+            information_loss: Vec<InformationLoss>,
+        }
+
+        let wire = Wire::deserialize(deserializer)?;
+        Self::new(
+            wire.projection_id,
+            wire.audience,
+            wire.purpose,
+            wire.output_schema,
+            wire.renderer,
+            wire.output,
+            wire.source_ids,
+            wire.information_loss,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}
+
+fn ensure_output_matches_schema(
+    output_schema: &OutputSchema,
+    output: &ProjectionOutput,
+) -> Result<()> {
+    match (output_schema, output) {
+        (OutputSchema::Text, ProjectionOutput::Text { .. }) => Ok(()),
+        (OutputSchema::Sections { section_names }, ProjectionOutput::Sections { sections }) => {
+            if sections
+                .iter()
+                .map(|section| section.title.as_str())
+                .eq(section_names.iter().map(String::as_str))
+            {
+                Ok(())
+            } else {
+                Err(malformed_field(
+                    "output",
+                    "section output titles must match output_schema.section_names",
+                ))
+            }
+        }
+        (
+            OutputSchema::Table { columns },
+            ProjectionOutput::Table {
+                columns: output_columns,
+                ..
+            },
+        ) => {
+            if output_columns == columns {
+                Ok(())
+            } else {
+                Err(malformed_field(
+                    "output",
+                    "table output columns must match output_schema.columns",
+                ))
+            }
+        }
+        (OutputSchema::KeyValue { keys }, ProjectionOutput::KeyValue { entries }) => {
+            if entries
+                .iter()
+                .map(|entry| entry.key.as_str())
+                .eq(keys.iter().map(String::as_str))
+            {
+                Ok(())
+            } else {
+                Err(malformed_field(
+                    "output",
+                    "key-value output keys must match output_schema.keys",
+                ))
+            }
+        }
+        (OutputSchema::Custom { fields, .. }, ProjectionOutput::KeyValue { entries }) => {
+            if entries
+                .iter()
+                .map(|entry| entry.key.as_str())
+                .eq(fields.iter().map(String::as_str))
+            {
+                Ok(())
+            } else {
+                Err(malformed_field(
+                    "output",
+                    "custom output keys must match output_schema.fields",
+                ))
+            }
+        }
+        _ => Err(malformed_field(
+            "output",
+            "projection output kind must match output_schema kind",
+        )),
     }
 }
 
@@ -619,114 +725,4 @@ fn malformed_field(field: impl Into<String>, reason: impl Into<String>) -> CoreE
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(value: &str) -> Id {
-        Id::new(value).expect("test id should be valid")
-    }
-
-    fn loss(source_id: &str) -> InformationLoss {
-        InformationLoss::declared("summarized detail", [id(source_id)])
-            .expect("test loss should be valid")
-    }
-
-    #[test]
-    fn projection_requires_declared_information_loss() {
-        let projection = Projection::new(
-            id("projection:architecture-summary"),
-            id("space:architecture"),
-            "Architecture summary",
-            ProjectionAudience::Architect,
-            ProjectionPurpose::Report,
-            ProjectionSelector::all(),
-            OutputSchema::sections(["summary", "risks"]).expect("schema should be valid"),
-            Vec::<InformationLoss>::new(),
-        );
-
-        assert_eq!(
-            projection
-                .expect_err("empty information loss should fail")
-                .code(),
-            "malformed_field"
-        );
-    }
-
-    #[test]
-    fn result_requires_explicit_source_ids() {
-        let result = ProjectionResult::new(
-            id("projection:architecture-summary"),
-            ProjectionAudience::Architect,
-            ProjectionPurpose::Report,
-            OutputSchema::text(),
-            RendererKind::PlainText,
-            ProjectionOutput::text("summary").expect("output should be valid"),
-            Vec::<Id>::new(),
-            [loss("cell:service-a")],
-        );
-
-        assert_eq!(
-            result.expect_err("empty source ids should fail").code(),
-            "malformed_field"
-        );
-    }
-
-    #[test]
-    fn output_sections_keep_section_source_ids() {
-        let source_id = id("cell:service-a");
-        let section = ProjectionSection::new("Risk", "Dependency is unstable", [source_id.clone()])
-            .expect("section should be valid");
-
-        let output = ProjectionOutput::sections([section.clone()]).expect("output should be valid");
-
-        assert_eq!(section.source_ids(), [source_id]);
-        assert!(matches!(output, ProjectionOutput::Sections { .. }));
-    }
-
-    #[test]
-    fn projection_result_can_be_created_from_projection_with_explicit_trace_data() {
-        let source_id = id("cell:service-a");
-        let declared_loss = loss(source_id.as_str());
-        let projection = Projection::new(
-            id("projection:architecture-summary"),
-            id("space:architecture"),
-            " Architecture summary ",
-            ProjectionAudience::Architect,
-            ProjectionPurpose::Report,
-            ProjectionSelector::all().with_cell_ids([source_id.clone()]),
-            OutputSchema::key_value(["risk"]).expect("schema should be valid"),
-            [declared_loss.clone()],
-        )
-        .expect("projection should be valid")
-        .with_renderer(RendererKind::Structured);
-
-        let result = ProjectionResult::from_projection(
-            &projection,
-            RendererKind::Structured,
-            ProjectionOutput::key_value([ProjectionEntry::new(
-                "risk",
-                "Dependency is unstable",
-                [source_id.clone()],
-            )
-            .expect("entry should be valid")])
-            .expect("output should be valid"),
-            [source_id.clone()],
-            [declared_loss],
-        )
-        .expect("result should be valid");
-
-        assert_eq!(projection.name, "Architecture summary");
-        assert_eq!(result.source_ids(), [source_id]);
-        assert_eq!(result.information_loss().len(), 1);
-    }
-
-    #[test]
-    fn table_output_requires_rows_to_match_columns() {
-        let output = ProjectionOutput::table(["cell", "risk"], vec![vec!["cell:1".to_owned()]]);
-
-        assert_eq!(
-            output.expect_err("mismatched row should fail").code(),
-            "malformed_field"
-        );
-    }
-}
+mod tests;

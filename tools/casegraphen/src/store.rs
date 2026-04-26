@@ -175,13 +175,16 @@ fn is_graph_file(path: &Path) -> bool {
 }
 
 fn file_stem(id: &higher_graphen_core::Id) -> String {
-    id.as_str()
-        .chars()
-        .map(|character| match character {
-            'a'..='z' | 'A'..='Z' | '0'..='9' => character,
-            _ => '-',
-        })
-        .collect()
+    let mut stem = String::new();
+    for byte in id.as_str().bytes() {
+        match byte {
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' => {
+                stem.push(byte as char);
+            }
+            _ => stem.push_str(&format!("~{byte:02x}")),
+        }
+    }
+    stem
 }
 
 impl std::fmt::Display for StoreError {
@@ -217,6 +220,34 @@ mod tests {
             json!("case_graph:architecture-smoke")
         );
         assert!(path.exists());
+
+        fs::remove_dir_all(root).expect("remove temp store");
+    }
+
+    #[test]
+    fn local_store_keeps_distinct_graph_ids_with_similar_path_segments() {
+        let root = std::env::temp_dir().join(format!(
+            "casegraphen-store-collision-test-{}",
+            std::process::id()
+        ));
+        let store = LocalCaseStore::new(root.clone());
+        let mut first = sample_graph();
+        first.case_graph_id = "case_graph:a:b".try_into().expect("first id");
+        let mut second = sample_graph();
+        second.case_graph_id = "case_graph:a-b".try_into().expect("second id");
+
+        let first_path = store.create_graph(&first).expect("create first graph");
+        let second_path = store.create_graph(&second).expect("create second graph");
+
+        assert_ne!(first_path, second_path);
+        let entries = store.list_graphs().expect("list graphs");
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .any(|entry| entry["case_graph_id"] == json!("case_graph:a:b")));
+        assert!(entries
+            .iter()
+            .any(|entry| entry["case_graph_id"] == json!("case_graph:a-b")));
 
         fs::remove_dir_all(root).expect("remove temp store");
     }

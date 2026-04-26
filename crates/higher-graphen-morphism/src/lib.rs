@@ -74,16 +74,22 @@ pub struct Morphism {
     /// Product-neutral transformation category.
     pub morphism_type: MorphismType,
     /// Explicit source-cell to target-cell mappings.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub cell_mapping: CellMapping,
     /// Explicit source-relation to target-relation mappings.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub relation_mapping: RelationMapping,
     /// Invariants known to be preserved by this morphism.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preserved_invariant_ids: Vec<Id>,
     /// Source elements known to be lost by this morphism.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lost_structure: Vec<LostStructure>,
     /// Distortions known to be introduced by this morphism.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub distortion: Vec<Distortion>,
     /// Morphism identifiers declared compatible by metadata.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub composable_with: Vec<Id>,
     /// Source and review metadata for this morphism.
     pub provenance: Provenance,
@@ -94,13 +100,37 @@ pub struct Morphism {
 #[serde(deny_unknown_fields)]
 pub struct PreservationReport {
     /// Selected invariant IDs found in the morphism preserved set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preserved: Vec<Id>,
     /// Selected invariant IDs absent from the morphism preserved set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub violated: Vec<Id>,
     /// Lost structure recorded on the checked morphism.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lost_structure: Vec<LostStructure>,
     /// Distortion recorded on the checked morphism.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub distortion: Vec<Distortion>,
+}
+
+/// Explicit mapping coverage for a two-morphism composition.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompositionCoverage {
+    /// Intermediate cell IDs produced by the first morphism but not accepted by the second.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmapped_cell_intermediate_ids: Vec<Id>,
+    /// Intermediate relation IDs produced by the first morphism but not accepted by the second.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmapped_relation_intermediate_ids: Vec<Id>,
+}
+
+impl CompositionCoverage {
+    /// Returns true when every explicit first-morphism mapping can continue through the second.
+    pub fn is_complete(&self) -> bool {
+        self.unmapped_cell_intermediate_ids.is_empty()
+            && self.unmapped_relation_intermediate_ids.is_empty()
+    }
 }
 
 /// Result of an explicit two-morphism composition attempt.
@@ -162,6 +192,11 @@ impl Morphism {
     ) -> CompositionResult {
         compose_morphisms(self, second, composed_id, name, morphism_type, provenance)
     }
+
+    /// Reports explicit first-morphism mappings that cannot continue through `second`.
+    pub fn composition_coverage_with(&self, second: &Self) -> CompositionCoverage {
+        composition_coverage(self, second)
+    }
 }
 
 /// Attempts to compose `first` followed by `second`.
@@ -207,6 +242,21 @@ pub fn compose_morphisms(
     }
 }
 
+/// Reports explicit first-morphism mappings that would be omitted by composition.
+///
+/// Space compatibility is intentionally not checked here. Use this diagnostic
+/// before or after [`compose_morphisms`] to explain which intermediate IDs
+/// prevented complete mapping composition.
+pub fn composition_coverage(first: &Morphism, second: &Morphism) -> CompositionCoverage {
+    CompositionCoverage {
+        unmapped_cell_intermediate_ids: mapping_gaps(&first.cell_mapping, &second.cell_mapping),
+        unmapped_relation_intermediate_ids: mapping_gaps(
+            &first.relation_mapping,
+            &second.relation_mapping,
+        ),
+    }
+}
+
 fn compose_mapping(first: &BTreeMap<Id, Id>, second: &BTreeMap<Id, Id>) -> BTreeMap<Id, Id> {
     first
         .iter()
@@ -215,6 +265,16 @@ fn compose_mapping(first: &BTreeMap<Id, Id>, second: &BTreeMap<Id, Id>) -> BTree
                 .get(intermediate_id)
                 .map(|target_id| (source_id.clone(), target_id.clone()))
         })
+        .collect()
+}
+
+fn mapping_gaps(first: &BTreeMap<Id, Id>, second: &BTreeMap<Id, Id>) -> Vec<Id> {
+    first
+        .values()
+        .filter(|intermediate_id| !second.contains_key(*intermediate_id))
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .collect()
 }
 
@@ -242,6 +302,7 @@ fn partition_by_membership(
 mod tests {
     use super::*;
     use higher_graphen_core::{Confidence, ReviewStatus, SourceKind, SourceRef};
+    use serde_json::json;
 
     #[test]
     fn composition_succeeds_for_compatible_spaces() {
@@ -359,6 +420,56 @@ mod tests {
         assert_eq!(morphism.relation_mapping.len(), 1);
         assert!(!morphism.cell_mapping.contains_key(&id("cell/a2")));
         assert!(!morphism.relation_mapping.contains_key(&id("rel/a2")));
+    }
+
+    #[test]
+    fn composition_coverage_reports_unmatched_intermediate_mappings() {
+        let first = fixture_morphism(
+            "first",
+            "space/a",
+            "space/b",
+            [("cell/a1", "cell/b1"), ("cell/a2", "cell/b2")],
+            [("rel/a1", "rel/b1"), ("rel/a2", "rel/b2")],
+            ["invariant/shared"],
+        );
+        let second = fixture_morphism(
+            "second",
+            "space/b",
+            "space/c",
+            [("cell/b1", "cell/c1")],
+            [("rel/b1", "rel/c1")],
+            ["invariant/shared"],
+        );
+
+        let coverage = first.composition_coverage_with(&second);
+
+        assert!(!coverage.is_complete());
+        assert_eq!(coverage.unmapped_cell_intermediate_ids, vec![id("cell/b2")]);
+        assert_eq!(
+            coverage.unmapped_relation_intermediate_ids,
+            vec![id("rel/b2")]
+        );
+    }
+
+    #[test]
+    fn serde_defaults_empty_morphism_collections() {
+        let value = json!({
+            "id": "morphism/minimal",
+            "source_space_id": "space/a",
+            "target_space_id": "space/b",
+            "name": "minimal",
+            "morphism_type": "translation",
+            "provenance": provenance()
+        });
+
+        let morphism: Morphism = serde_json::from_value(value).expect("deserialize morphism");
+
+        assert!(morphism.cell_mapping.is_empty());
+        assert!(morphism.relation_mapping.is_empty());
+        assert!(morphism.preserved_invariant_ids.is_empty());
+        assert!(morphism.lost_structure.is_empty());
+        assert!(morphism.distortion.is_empty());
+        assert!(morphism.composable_with.is_empty());
     }
 
     #[test]

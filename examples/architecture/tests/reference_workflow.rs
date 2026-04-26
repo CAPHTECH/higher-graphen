@@ -5,15 +5,18 @@ use casegraphen::{
     model::{
         CaseGraph, CoveragePolicy, ProjectionDefinition, CASE_GRAPH_SCHEMA, PROJECTION_SCHEMA,
     },
+    report::{coverage_report, project_report, validate_report},
 };
 use higher_graphen_core::{Id, ReviewStatus};
 use higher_graphen_runtime::{
     run_architecture_direct_db_access_smoke, run_architecture_input_lift, run_completion_review,
-    AiProjectionRecordType, ArchitectureInputLiftDocument, ArchitectureInputLiftStatus,
-    ArchitectureSmokeStatus, CompletionReviewDecision, CompletionReviewRequest,
+    AiProjectionRecordType, ArchitectureDirectDbAccessSmokeReport, ArchitectureInputLiftDocument,
+    ArchitectureInputLiftReport, ArchitectureInputLiftStatus, ArchitectureSmokeStatus,
+    CompletionReviewDecision, CompletionReviewReport, CompletionReviewRequest,
     CompletionReviewSnapshot, CompletionReviewSourceReport, CompletionReviewStatus,
     ProjectionAudience,
 };
+use std::path::Path;
 
 const INPUT_REPORT_SCHEMA: &str = "highergraphen.architecture.input_lift.report.v1";
 const SMOKE_REPORT_SCHEMA: &str = "highergraphen.architecture.direct_db_access_smoke.report.v1";
@@ -183,6 +186,128 @@ fn reference_casegraphen_fixture_validates_and_projects_sources() {
     assert!(!projected.information_loss.is_empty());
 }
 
+#[test]
+fn checked_in_runtime_reports_match_current_contracts() {
+    let generated_lift = run_architecture_input_lift(reference_input()).expect("reference lift");
+    let checked_in_lift: ArchitectureInputLiftReport = serde_json::from_str(include_str!(
+        "../reference/reports/architecture-input-lift.report.json"
+    ))
+    .expect("checked-in input lift report parses");
+    assert_eq!(
+        report_value(&checked_in_lift),
+        report_value(&generated_lift)
+    );
+
+    let generated_smoke =
+        run_architecture_direct_db_access_smoke().expect("direct DB smoke workflow");
+    let checked_in_smoke: ArchitectureDirectDbAccessSmokeReport = serde_json::from_str(
+        include_str!("../reference/reports/architecture-direct-db-access-smoke.report.json"),
+    )
+    .expect("checked-in direct DB smoke report parses");
+    assert_eq!(
+        report_value(&checked_in_smoke),
+        report_value(&generated_smoke)
+    );
+
+    let generated_review = run_completion_review(
+        CompletionReviewSnapshot {
+            source_report: CompletionReviewSourceReport {
+                schema: checked_in_smoke.schema.clone(),
+                report_type: checked_in_smoke.report_type.clone(),
+                report_version: checked_in_smoke.report_version,
+                command: checked_in_smoke.metadata.command.clone(),
+            },
+            completion_candidates: checked_in_smoke.result.completion_candidates.clone(),
+        },
+        CompletionReviewRequest::new(
+            id(CANDIDATE_ID),
+            CompletionReviewDecision::Accepted,
+            id("reviewer:architecture-lead"),
+            "Billing owns the API boundary for status reads.",
+        )
+        .expect("review request")
+        .with_reviewed_at("2026-04-25T00:00:00Z")
+        .expect("review timestamp"),
+    )
+    .expect("completion review");
+    let checked_in_review: CompletionReviewReport = serde_json::from_str(include_str!(
+        "../reference/reports/completion-review-accepted.report.json"
+    ))
+    .expect("checked-in completion review report parses");
+    assert_eq!(
+        report_value(&checked_in_review),
+        report_value(&generated_review)
+    );
+}
+
+#[test]
+fn checked_in_casegraphen_reports_match_current_contracts() {
+    let graph_path =
+        Path::new("examples/architecture/reference/casegraphen-reference.case.graph.json");
+    let coverage_path =
+        Path::new("examples/architecture/reference/casegraphen-reference.coverage.policy.json");
+    let projection_path =
+        Path::new("examples/architecture/reference/casegraphen-reference.projection.json");
+    let graph: CaseGraph = serde_json::from_str(include_str!(
+        "../reference/casegraphen-reference.case.graph.json"
+    ))
+    .expect("reference case graph");
+    let coverage_policy: CoveragePolicy = serde_json::from_str(include_str!(
+        "../reference/casegraphen-reference.coverage.policy.json"
+    ))
+    .expect("reference coverage policy");
+
+    let generated_validate = validate_report(
+        "casegraphen validate",
+        graph_path,
+        &graph,
+        validate_case_graph(&graph),
+    );
+    let checked_in_validate: serde_json::Value = serde_json::from_str(include_str!(
+        "../reference/reports/casegraphen-validate.report.json"
+    ))
+    .expect("checked-in validate report parses");
+    assert_eq!(
+        checked_in_validate,
+        report_value(&generated_validate),
+        "casegraphen validate report drifted"
+    );
+
+    let generated_coverage = coverage_report(
+        "casegraphen coverage",
+        graph_path,
+        coverage_path,
+        &graph,
+        evaluate_coverage(&graph, &coverage_policy),
+    );
+    let checked_in_coverage: serde_json::Value = serde_json::from_str(include_str!(
+        "../reference/reports/casegraphen-coverage.report.json"
+    ))
+    .expect("checked-in coverage report parses");
+    assert_eq!(
+        checked_in_coverage,
+        report_value(&generated_coverage),
+        "casegraphen coverage report drifted"
+    );
+
+    let generated_project = project_report(
+        "casegraphen project",
+        graph_path,
+        projection_path,
+        &graph,
+        projection_result(&graph),
+    );
+    let checked_in_project: serde_json::Value = serde_json::from_str(include_str!(
+        "../reference/reports/casegraphen-project.report.json"
+    ))
+    .expect("checked-in project report parses");
+    assert_eq!(
+        checked_in_project,
+        report_value(&generated_project),
+        "casegraphen project report drifted"
+    );
+}
+
 fn reference_input() -> ArchitectureInputLiftDocument {
     serde_json::from_str(include_str!(
         "../reference/architecture-reference.input.json"
@@ -192,4 +317,8 @@ fn reference_input() -> ArchitectureInputLiftDocument {
 
 fn id(value: &str) -> Id {
     Id::new(value).expect("test id")
+}
+
+fn report_value(report: &impl serde::Serialize) -> serde_json::Value {
+    serde_json::to_value(report).expect("report serializes")
 }

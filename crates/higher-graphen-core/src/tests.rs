@@ -56,6 +56,10 @@ fn confidence_roundtrips_and_rejects_invalid_deserialized_values() {
     let roundtrip: Confidence = serde_json::from_str(&json).expect("deserialize confidence");
     assert!((roundtrip.value() - 0.42).abs() < f64::EPSILON);
     assert!(serde_json::from_str::<Confidence>("-0.1").is_err());
+
+    let zero = Confidence::new(-0.0).expect("negative zero is in range");
+    assert_eq!(zero.value().to_bits(), 0.0_f64.to_bits());
+    assert_eq!(serde_json::to_string(&zero).expect("serialize zero"), "0.0");
 }
 
 #[test]
@@ -87,6 +91,12 @@ fn source_kind_serializes_canonical_values_and_custom_extensions() {
         serde_json::to_string(&custom).expect("serialize custom"),
         "\"custom:dataset\""
     );
+
+    let direct_custom = SourceKind::Custom("  dataset  ".to_owned());
+    assert_eq!(
+        serde_json::to_string(&direct_custom).expect("serialize direct custom"),
+        "\"custom:dataset\""
+    );
 }
 
 #[test]
@@ -95,6 +105,11 @@ fn source_kind_rejects_unknown_values_with_core_code() {
     assert_eq!(custom_error.code(), "invalid_source_kind");
 
     let error = serde_json::from_str::<SourceKind>("\"repository\"").expect_err("unknown kind");
+    assert!(error.to_string().contains("invalid_source_kind"));
+
+    let invalid_direct_custom = SourceKind::Custom("   ".to_owned());
+    let error =
+        serde_json::to_string(&invalid_direct_custom).expect_err("invalid custom serialization");
     assert!(error.to_string().contains("invalid_source_kind"));
 }
 

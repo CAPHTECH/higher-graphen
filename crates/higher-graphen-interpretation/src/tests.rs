@@ -149,6 +149,44 @@ fn package_registers_and_looks_up_interpretation_definitions() {
 }
 
 #[test]
+fn package_deserialization_uses_registration_validation() {
+    let fixture = registered_architecture_fixture();
+    let value = serde_json::to_value(&fixture.package).expect("package should serialize");
+    let decoded: InterpretationPackage =
+        serde_json::from_value(value).expect("valid package should deserialize");
+
+    assert_eq!(decoded, fixture.package);
+
+    let missing_reference = serde_json::json!({
+        "id": "package:test",
+        "name": "Test",
+        "version": "0.1.0",
+        "projection_templates": [{
+            "id": "projection:missing",
+            "name": "Missing invariant report",
+            "audience": "architect",
+            "purpose": "review",
+            "output_shape": "text",
+            "invariant_template_ids": ["invariant:missing"]
+        }]
+    });
+    let malformed_mapping = serde_json::json!({
+        "id": "package:test",
+        "name": "Test",
+        "version": "0.1.0",
+        "type_mappings": [{
+            "id": "type:empty",
+            "source_type": " ",
+            "target_kind": "cell",
+            "target_type": "component"
+        }]
+    });
+
+    assert!(serde_json::from_value::<InterpretationPackage>(missing_reference).is_err());
+    assert!(serde_json::from_value::<InterpretationPackage>(malformed_mapping).is_err());
+}
+
+#[test]
 fn registration_rejects_duplicate_definition_ids() {
     let mut package = InterpretationPackage::new(id("package:test"), "Test", "0.1.0")
         .expect("package should be valid");
@@ -200,6 +238,49 @@ fn registration_rejects_missing_references() {
             .code(),
         "malformed_field"
     );
+}
+
+#[test]
+fn registration_rejects_malformed_deserialized_definitions() {
+    let mut package = InterpretationPackage::new(id("package:test"), "Test", "0.1.0")
+        .expect("package should be valid");
+    let mapping = TypeMapping {
+        id: id("type:empty"),
+        source_type: " ".to_owned(),
+        target_kind: InterpretationTargetKind::Custom(" ".to_owned()),
+        target_type: "component".to_owned(),
+        description: None,
+        metadata: Metadata::new(),
+        provenance: None,
+    };
+
+    let error = package
+        .register_type_mapping(mapping)
+        .expect_err("empty deserialized labels should fail registration");
+
+    assert_eq!(error.code(), "malformed_field");
+    assert!(error.to_string().contains("source_type"));
+}
+
+#[test]
+fn registration_rejects_duplicate_template_parameter_names() {
+    let mut package = InterpretationPackage::new(id("package:test"), "Test", "0.1.0")
+        .expect("package should be valid");
+    let template = InvariantTemplate::new(
+        id("invariant:duplicate-parameter"),
+        "Duplicate parameter",
+        "Template parameter names must be unambiguous.",
+    )
+    .expect("template should be valid")
+    .with_parameter(TemplateParameter::required("owner").expect("parameter should be valid"))
+    .with_parameter(TemplateParameter::optional(" owner ").expect("parameter should be valid"));
+
+    let error = package
+        .register_invariant_template(template)
+        .expect_err("duplicate parameter names should fail registration");
+
+    assert_eq!(error.code(), "malformed_field");
+    assert!(error.to_string().contains("already declared"));
 }
 
 #[test]

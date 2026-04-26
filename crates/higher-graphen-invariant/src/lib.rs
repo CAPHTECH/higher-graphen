@@ -1,7 +1,7 @@
 //! Invariants, constraints, invariant checks, and constraint check results for HigherGraphen.
 
-use higher_graphen_core::{Id, Provenance, Severity};
-use serde::{Deserialize, Serialize};
+use higher_graphen_core::{CoreError, Id, Provenance, Result, Severity};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Scope where an invariant must hold or be preserved.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -260,7 +260,7 @@ impl Violation {
     /// Creates a violation with no location data.
     pub fn new(message: impl Into<String>, severity: Severity) -> Self {
         Self {
-            message: message.into(),
+            message: message.into().trim().to_owned(),
             severity,
             location_cell_ids: Vec::new(),
             location_context_ids: Vec::new(),
@@ -288,7 +288,7 @@ impl Violation {
 }
 
 /// Result for a single invariant or constraint check.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckResult {
     /// Kind of checked definition.
@@ -339,7 +339,7 @@ impl CheckResult {
             target_id,
             status: CheckStatus::Unsupported,
             violation: None,
-            unsupported_reason: Some(reason.into()),
+            unsupported_reason: Some(reason.into().trim().to_owned()),
         }
     }
 
@@ -356,6 +356,95 @@ impl CheckResult {
     /// Returns true when this result is unsupported.
     pub fn is_unsupported(&self) -> bool {
         matches!(self.status, CheckStatus::Unsupported)
+    }
+
+    /// Validates that the status-specific payload fields agree with `status`.
+    pub fn validate(&self) -> Result<()> {
+        match self.status {
+            CheckStatus::Satisfied => {
+                ensure_absent("violation", self.violation.is_none())?;
+                ensure_absent("unsupported_reason", self.unsupported_reason.is_none())
+            }
+            CheckStatus::Violated => {
+                ensure_absent("unsupported_reason", self.unsupported_reason.is_none())?;
+                let violation = self.violation.as_ref().ok_or_else(|| {
+                    malformed_field(
+                        "violation",
+                        "violated results must include violation details",
+                    )
+                })?;
+                ensure_non_empty("violation.message", &violation.message)
+            }
+            CheckStatus::Unsupported => {
+                ensure_absent("violation", self.violation.is_none())?;
+                let reason = self.unsupported_reason.as_deref().ok_or_else(|| {
+                    malformed_field(
+                        "unsupported_reason",
+                        "unsupported results must include a diagnostic reason",
+                    )
+                })?;
+                ensure_non_empty("unsupported_reason", reason)
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CheckResult {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            target_kind: CheckTargetKind,
+            target_id: Id,
+            status: CheckStatus,
+            violation: Option<Violation>,
+            unsupported_reason: Option<String>,
+        }
+
+        let result = {
+            let wire = Wire::deserialize(deserializer)?;
+            Self {
+                target_kind: wire.target_kind,
+                target_id: wire.target_id,
+                status: wire.status,
+                violation: wire.violation,
+                unsupported_reason: wire.unsupported_reason,
+            }
+        };
+        result.validate().map_err(serde::de::Error::custom)?;
+        Ok(result)
+    }
+}
+
+fn ensure_absent(field: &'static str, is_absent: bool) -> Result<()> {
+    if is_absent {
+        Ok(())
+    } else {
+        Err(malformed_field(
+            field,
+            "field must be absent for this check status",
+        ))
+    }
+}
+
+fn ensure_non_empty(field: &'static str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        Err(malformed_field(
+            field,
+            "value must not be empty after trimming",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn malformed_field(field: &'static str, reason: &'static str) -> CoreError {
+    CoreError::MalformedField {
+        field: field.to_owned(),
+        reason: reason.to_owned(),
     }
 }
 
@@ -437,7 +526,7 @@ mod tests {
         let unsupported = CheckResult::unsupported(
             CheckTargetKind::Invariant,
             id("inv:morphism-preservation"),
-            "morphism summary missing",
+            " morphism summary missing ",
         );
 
         assert!(satisfied.is_satisfied());
@@ -451,5 +540,56 @@ mod tests {
             unsupported.unsupported_reason,
             Some("morphism summary missing".to_owned())
         );
+        assert!(satisfied.validate().is_ok());
+        assert!(violated.validate().is_ok());
+        assert!(unsupported.validate().is_ok());
+    }
+
+    #[test]
+    fn validates_status_specific_result_payloads() {
+        let satisfied_with_violation = CheckResult {
+            violation: Some(Violation::new("should not be present", Severity::Low)),
+            ..CheckResult::satisfied(CheckTargetKind::Invariant, id("inv:shape"))
+        };
+        let violated_without_violation = CheckResult {
+            violation: None,
+            ..CheckResult::violated(
+                CheckTargetKind::Constraint,
+                id("constraint:shape"),
+                Violation::new("missing", Severity::Medium),
+            )
+        };
+        let unsupported_without_reason = CheckResult {
+            unsupported_reason: None,
+            ..CheckResult::unsupported(CheckTargetKind::Invariant, id("inv:future"), "missing")
+        };
+        let unsupported_blank_reason =
+            CheckResult::unsupported(CheckTargetKind::Invariant, id("inv:future"), " ");
+
+        assert!(satisfied_with_violation.validate().is_err());
+        assert!(violated_without_violation.validate().is_err());
+        assert!(unsupported_without_reason.validate().is_err());
+        assert!(unsupported_blank_reason.validate().is_err());
+    }
+
+    #[test]
+    fn deserialization_rejects_status_specific_payload_mismatch() {
+        let satisfied_with_violation = serde_json::json!({
+            "target_kind": "invariant",
+            "target_id": "inv:shape",
+            "status": "satisfied",
+            "violation": {
+                "message": "should not be present",
+                "severity": "low"
+            }
+        });
+        let unsupported_without_reason = serde_json::json!({
+            "target_kind": "invariant",
+            "target_id": "inv:future",
+            "status": "unsupported"
+        });
+
+        assert!(serde_json::from_value::<CheckResult>(satisfied_with_violation).is_err());
+        assert!(serde_json::from_value::<CheckResult>(unsupported_without_reason).is_err());
     }
 }

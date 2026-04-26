@@ -129,6 +129,30 @@ This is a conceptual direction, not a strict linear dependency chain. The core
 rule is that low-level model crates must not depend on product packages,
 bindings, apps, or UI code.
 
+## Validation Boundary
+
+Reusable packages must treat deserialization as an external input boundary, not
+as a trusted struct literal. Any public aggregate or result type that has
+constructor, builder, registration, or status-specific invariants must enforce
+the same rules when it is deserialized.
+
+The MVP implementation uses this pattern:
+
+- primitive value objects such as identifiers, confidence values, and custom
+  enum extensions validate in their own `Deserialize` implementations;
+- aggregate result types deserialize through their public constructors;
+- package registries deserialize by rebuilding an empty package, then replaying
+  the same registration methods used by normal Rust callers;
+- validation-time normalization, such as trimming required text and de-duplicating
+  set-like identifier lists, happens before the aggregate is stored;
+- format-specific dependencies such as `serde_json` stay in tests, examples,
+  tools, runtime, or adapters.
+
+Public fields remain acceptable while the workspace is pre-stable and optimized
+for fast internal iteration. Before these crates become externally stable, any
+type whose invariants can be broken by post-construction field mutation should
+move to private fields with accessor and mutation methods.
+
 ## MVP Package Set
 
 The MVP should implement:
