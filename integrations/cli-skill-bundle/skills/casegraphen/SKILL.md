@@ -1,13 +1,14 @@
 ---
 name: casegraphen
-description: Use when an agent needs to run or interpret the repository-owned CaseGraphen intermediate CLI reports, especially workflow reasoning through `casegraphen workflow reason`.
+description: Use when an agent needs to create, inspect, reason over, review, patch, or validate CaseGraphen cases and workflow graphs through the installed `cg` workspace CLI and the repository-owned `casegraphen` CLI.
 ---
 
 # CaseGraphen CLI Skill
 
-Use this skill when a task asks for CaseGraphen intermediate tool output,
-workflow reasoning, readiness, blockers, completion candidates, evidence
-boundaries, or interpretation of `casegraphen workflow reason` reports.
+Use this skill when a task asks for CaseGraphen workspace operation, workflow
+reasoning, readiness, blockers, missing work, completion candidates, evidence
+boundaries, projection loss, review workflows, patch workflows, or
+validation-before-close.
 
 This repository skill is CLI-only. MCP servers, provider SDK integrations,
 provider marketplace metadata, and the external
@@ -15,23 +16,101 @@ provider marketplace metadata, and the external
 
 ## Source Of Truth
 
+- Feature completion contract:
+  `docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md`
 - Workflow contract: `docs/specs/intermediate-tools/casegraphen-workflow-contracts.md`
 - Workflow graph schema: `schemas/casegraphen/workflow.graph.schema.json`
 - Workflow report schema: `schemas/casegraphen/workflow.report.schema.json`
 - Workflow graph example: `schemas/casegraphen/workflow.graph.example.json`
 - Workflow report example: `schemas/casegraphen/workflow.report.example.json`
+- Reference workflow: `examples/casegraphen/reference/workflow.graph.json`
 - CLI implementation: `tools/casegraphen/src/cli.rs`
 
 Do not restate the schemas as competing contracts. Consume the schema, fixture,
 and CLI output.
 
-## When To Run The CLI
+## Command Surfaces
 
-Run the CLI when the user asks for workflow readiness, workflow blockers,
-completion candidates, evidence boundary status, or a machine-readable
-CaseGraphen workflow reasoning report.
+There are two command surfaces. Pick the surface by ownership, not by command
+name similarity.
 
-Generate the workflow reasoning report to stdout:
+### Installed `cg`
+
+Use installed `cg` for the native `.casegraphen/` workspace:
+
+- create or inspect cases: `cg init`, `cg case new`, `cg case list`,
+  `cg case show`;
+- edit native case graphs: `cg node add`, `cg node update`, `cg edge add`,
+  `cg edge remove`;
+- record native progress: `cg task start|done|wait|resume|cancel|fail`,
+  `cg decision decide`, `cg event record`, `cg evidence add`;
+- inspect actionable work and blockers: `cg frontier`, `cg blockers`;
+- validate and diagnose the workspace: `cg validate --case <case_id>`,
+  `cg validate storage`, `cg history topology`.
+
+Installed `cg` owns append-only `.casegraphen` events and derived projections.
+Do not hand-edit `.casegraphen/cases/<case_id>/events.jsonl`, cache files, or
+locks. Run `cg evidence add` and `cg task done` only when the user or parent
+task explicitly allows case mutation.
+
+### Repo-Owned `casegraphen`
+
+Use repo-owned `casegraphen` for strict file-based workflow graph reasoning and
+the `cg`-compatible workflow bridge implemented in this repository. If the
+binary is unavailable, run it through Cargo from the repository root:
+
+```sh
+cargo run -q -p casegraphen -- <args>
+```
+
+Repo-owned `casegraphen` reports use `schema`, `metadata`, `input`, `result`,
+and `projection` fields. They are not native installed-`cg` events and do not
+replace `cg frontier`, `cg blockers`, or `cg validate --case`.
+
+## Native Case Workflow
+
+For a native `.casegraphen` case:
+
+1. Inspect the case and work state:
+
+   ```sh
+   cg case show --case <case_id> --format json
+   cg frontier --case <case_id> --format json
+   cg blockers --case <case_id> --format json
+   ```
+
+2. Create or edit the case only through installed `cg`:
+
+   ```sh
+   cg case new --id <case_id> --title "<title>"
+   cg node add --case <case_id> --id <node_id> --kind task --title "<title>"
+   cg edge add --case <case_id> --id <edge_id> --type depends_on --from <from_id> --to <to_id>
+   ```
+
+3. Record explicit state transitions only after the work happened:
+
+   ```sh
+   cg task start --case <case_id> <task_id>
+   cg task wait --case <case_id> <task_id> --reason "<reason>" --for <event_id>
+   cg task done --case <case_id> <task_id>
+   ```
+
+4. Record task evidence only when case mutation is allowed:
+
+   ```sh
+   cg evidence add --case <case_id> --id <evidence_id> --target <task_id> --title "<title>"
+   ```
+
+## Workflow Reasoning Commands
+
+Run `casegraphen workflow reason` for the aggregate machine-readable workflow
+reasoning report:
+
+```sh
+casegraphen workflow reason --input workflow.graph.json --format json
+```
+
+Cargo form:
 
 ```sh
 cargo run -q -p casegraphen -- \
@@ -40,24 +119,106 @@ cargo run -q -p casegraphen -- \
   --format json
 ```
 
-Generate the report to a file:
+Use focused commands when the user asks for one section:
 
 ```sh
-cargo run -q -p casegraphen -- \
-  workflow reason \
-  --input schemas/casegraphen/workflow.graph.example.json \
+casegraphen workflow validate --input workflow.graph.json --format json
+casegraphen workflow readiness --input workflow.graph.json --format json [--projection projection.json]
+casegraphen workflow obstructions --input workflow.graph.json --format json
+casegraphen workflow completions --input workflow.graph.json --format json
+casegraphen workflow evidence --input workflow.graph.json --format json
+casegraphen workflow project --input workflow.graph.json --projection projection.json --format json
+casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json
+casegraphen workflow evolution --input workflow.graph.json --format json
+```
+
+Every report-producing command supports `--output <path>`. Domain findings such
+as blocked work, missing proof, review-required completion candidates, failed
+semantic validation, non-equivalent correspondence, and projection loss are
+successful JSON report data unless the command itself fails.
+
+There is no standalone `casegraphen workflow transition check` command in the
+implemented CLI. Check reviewable graph transitions through
+`casegraphen cg workflow patch check`.
+
+## Workflow Store Bridge
+
+Use `casegraphen cg workflow ...` when a workflow graph needs a durable
+repo-owned store, history, replay, readiness over stored state, or explicit
+review transitions:
+
+```sh
+casegraphen cg workflow import --store <dir> --input workflow.graph.json --revision-id <revision_id> --format json
+casegraphen cg workflow list --store <dir> --format json
+casegraphen cg workflow inspect --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow validate --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow readiness --store <dir> --workflow-graph-id <id> --format json [--projection projection.json]
+casegraphen cg workflow readiness --input workflow.graph.json --format json [--projection projection.json]
+```
+
+The bridge writes workflow graph snapshots and JSONL history through
+`WorkflowWorkspaceStore` at the explicit `--store <dir>`. It does not append
+native `.casegraphen` events.
+
+## Completion Review And Patch Flow
+
+Completion candidates are proposed structure. They remain `unreviewed` until an
+explicit bridge review records reviewer metadata, reason, revision, and optional
+evidence or decision links.
+
+Review a candidate:
+
+```sh
+casegraphen cg workflow completion accept|reject|reopen \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --candidate-id <candidate_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
   --format json \
-  --output casegraphen-workflow.report.json
+  [--evidence-id <evidence_id> ...] \
+  [--decision-id <decision_id> ...]
 ```
 
-Preferred local validation after CLI or model changes:
+Convert an accepted completion candidate into a reviewable patch transition:
 
 ```sh
-cargo fmt --all --check
-cargo test -p casegraphen --test command
-cargo test -p casegraphen --lib
-cargo check -p casegraphen
+casegraphen cg workflow completion patch \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --candidate-id <candidate_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
+  --format json \
+  [--transition-id <transition_id>]
 ```
+
+Check, apply, or reject the patch transition:
+
+```sh
+casegraphen cg workflow patch check \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --transition-id <transition_id> \
+  --format json
+
+casegraphen cg workflow patch apply|reject \
+  --store <dir> \
+  --workflow-graph-id <id> \
+  --transition-id <transition_id> \
+  --reviewer-id <reviewer_id> \
+  --reason "<reason>" \
+  --revision-id <revision_id> \
+  --format json
+```
+
+Patch review is bounded. It audits the transition record and records review
+state in the workflow store; it does not silently materialize arbitrary
+free-form payloads into full workflow records.
 
 ## Legacy Commands
 
@@ -75,6 +236,59 @@ casegraphen project --input <case.graph.json> --projection <projection.json> --f
 casegraphen compare --left <case.graph.json> --right <case.graph.json> --format json
 ```
 
+## Evidence And Projection Boundaries
+
+- AI inference records do not become accepted evidence because they appear in a
+  report.
+- Source-backed or explicitly accepted evidence is the boundary for satisfying
+  evidence and proof requirements.
+- `casegraphen cg workflow completion accept --evidence-id ...` links evidence
+  IDs in the workflow store; it does not create native `cg` evidence and does
+  not promote unrelated inference records.
+- Projection commands and projection views are read-only. They must keep
+  `projection.information_loss`, omitted IDs, source IDs, confidence, severity,
+  and review status visible.
+- Do not use projection output to accept a completion, resolve a blocker, or
+  satisfy a proof requirement.
+
+## Validation Before Close
+
+Before marking native work done, run the gates that match the task scope:
+
+```sh
+cg validate --case <case_id>
+```
+
+If `.casegraphen` state changed, or this is final release verification, also
+run:
+
+```sh
+cg validate storage
+```
+
+For file-based workflow graphs, run:
+
+```sh
+casegraphen workflow validate --input workflow.graph.json --format json
+```
+
+For bridge stores, run:
+
+```sh
+casegraphen cg workflow validate --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json
+```
+
+After CLI or model changes, prefer:
+
+```sh
+cargo fmt --all --check
+cargo test -p casegraphen --test command
+cargo test -p casegraphen --lib
+cargo check -p casegraphen
+```
+
 ## Interpretation Rules
 
 - Exit code `0` means the command emitted a structurally valid report.
@@ -90,6 +304,8 @@ casegraphen compare --left <case.graph.json> --right <case.graph.json> --format 
 - Keep `projection.information_loss`, source IDs, and audit records visible in
   summaries.
 - Do not mutate input workflow graphs when interpreting reports.
+- Do not treat `casegraphen cg workflow ...` history as native `.casegraphen`
+  event history.
 
 ## Agent Output Shape
 
@@ -103,13 +319,18 @@ When reporting results to a user, include:
 - Evidence boundary findings, especially inference records that remain
   unaccepted.
 - Projection loss or omitted IDs when relevant.
+- Review actions taken, reviewer/revision IDs, and linked evidence or decision
+  IDs when relevant.
+- Validation commands run before close.
 
 ## Safety Rules
 
+- Do not edit `.casegraphen` files directly.
 - Do not promote inferred records to evidence without an explicit review
   transition.
 - Do not accept or reject completion candidates without an explicit review
   workflow.
+- Do not apply a patch transition without checking it first.
 - Do not hide projection loss in human, AI, or audit summaries.
 - Do not introduce MCP, provider SDKs, or external repository dependencies for
   this CLI skill path.

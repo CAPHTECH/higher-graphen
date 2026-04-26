@@ -5,20 +5,32 @@ use crate::workflow_model::{
 use higher_graphen_core::{Confidence, Id, ReviewStatus};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod cli_reports;
 mod completion;
 mod evidence;
 mod result_sections;
+mod sections;
 #[cfg(test)]
 mod tests;
 mod types;
+mod validation;
 
-use completion::completion_candidates;
+use completion::completion_candidates as derive_completion_candidates;
 use evidence::{acceptable_evidence, evidence_findings};
 pub use result_sections::projection_profile_for;
 use result_sections::{
     correspondence_results, evaluation_status, evolution_result, projection_result,
 };
+pub use sections::{
+    evaluate_completion_candidates, evaluate_correspondence, evaluate_evidence_findings,
+    evaluate_evolution, evaluate_obstructions, evaluate_projection, evaluate_readiness,
+    evaluate_workflow_checked,
+};
 pub use types::*;
+pub use validation::{
+    validate_workflow_graph, WorkflowResult, WorkflowValidationCode, WorkflowValidationError,
+    WorkflowValidationViolation,
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 enum ReadinessCheck {
@@ -40,7 +52,7 @@ pub fn evaluate_workflow(graph: &WorkflowCaseGraph) -> WorkflowEvaluation {
 
     let obstructions = merge_obstructions(&item_results);
     let readiness = readiness_result(graph, &item_results);
-    let completion_candidates = completion_candidates(&obstructions);
+    let completion_candidates = derive_completion_candidates(graph, &obstructions);
     let evidence_findings = evidence_findings(graph, &obstructions);
     let projection = projection_result(graph);
     let correspondence = correspondence_results(graph);

@@ -9,6 +9,7 @@ pub mod store;
 pub mod workflow_eval;
 pub mod workflow_model;
 pub mod workflow_report;
+pub mod workflow_workspace;
 
 #[cfg(test)]
 pub(crate) mod fixtures {

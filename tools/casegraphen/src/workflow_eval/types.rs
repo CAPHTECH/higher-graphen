@@ -101,6 +101,8 @@ pub struct CompletionCandidate {
     pub rationale: String,
     pub confidence: Confidence,
     pub review_status: ReviewStatus,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review_record_ids: Vec<Id>,
     pub provenance: WorkflowProvenance,
 }
 

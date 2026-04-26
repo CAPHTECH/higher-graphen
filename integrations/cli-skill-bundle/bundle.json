@@ -1,7 +1,7 @@
 {
   "schema": "highergraphen.cli_skill_bundle.v1",
   "name": "highergraphen-cli-skill-bundle",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Provider-neutral package for the current HigherGraphen CLI and skill integration surface.",
   "provider_neutral": true,
   "distribution_mode": "cli_skill_bundle",
@@ -10,6 +10,29 @@
     "cargo_command": "cargo run -q -p highergraphen-cli -- architecture smoke direct-db-access --format json",
     "casegraphen_workflow_command": "casegraphen workflow reason --input workflow.graph.json --format json",
     "casegraphen_workflow_cargo_command": "cargo run -q -p casegraphen -- workflow reason --input schemas/casegraphen/workflow.graph.example.json --format json",
+    "casegraphen_workflow_focused_commands": [
+      "casegraphen workflow validate --input workflow.graph.json --format json",
+      "casegraphen workflow readiness --input workflow.graph.json --format json",
+      "casegraphen workflow obstructions --input workflow.graph.json --format json",
+      "casegraphen workflow completions --input workflow.graph.json --format json",
+      "casegraphen workflow evidence --input workflow.graph.json --format json",
+      "casegraphen workflow project --input workflow.graph.json --projection projection.json --format json",
+      "casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json",
+      "casegraphen workflow evolution --input workflow.graph.json --format json"
+    ],
+    "casegraphen_cg_workflow_bridge_commands": [
+      "casegraphen cg workflow import --store casegraphen-workflow-store --input workflow.graph.json --revision-id revision:initial --format json",
+      "casegraphen cg workflow list --store casegraphen-workflow-store --format json",
+      "casegraphen cg workflow inspect --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow history --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow replay --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow validate --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow readiness --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow completion accept|reject|reopen --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --candidate-id candidate:id --reviewer-id reviewer:id --reason reason --revision-id revision:id --format json",
+      "casegraphen cg workflow completion patch --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --candidate-id candidate:id --reviewer-id reviewer:id --reason reason --revision-id revision:id --format json",
+      "casegraphen cg workflow patch check --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --transition-id transition:id --format json",
+      "casegraphen cg workflow patch apply|reject --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --transition-id transition:id --reviewer-id reviewer:id --reason reason --revision-id revision:id --format json"
+    ],
     "contract_validator": "python3 scripts/validate-cli-report-contract.py",
     "bundle_smoke_check": "python3 integrations/cli-skill-bundle/check-bundle.py"
   },
@@ -24,6 +47,9 @@
     "casegraphen_workflow_report_schema": "schemas/casegraphen/workflow.report.schema.json",
     "casegraphen_workflow_graph_fixture": "schemas/casegraphen/workflow.graph.example.json",
     "casegraphen_workflow_report_fixture": "schemas/casegraphen/workflow.report.example.json",
+    "casegraphen_feature_completion_contract": "docs/specs/intermediate-tools/casegraphen-feature-completion-contract.md",
+    "casegraphen_reference_readme": "examples/casegraphen/reference/README.md",
+    "casegraphen_source_skill": "skills/casegraphen/SKILL.md",
     "contract_validator": "scripts/validate-cli-report-contract.py",
     "bundle_contract_reference": "integrations/cli-skill-bundle/references/cli-contract.md"
   },

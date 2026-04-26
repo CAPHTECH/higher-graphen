@@ -2,6 +2,7 @@ use crate::model::{
     CaseGraph, CoveragePolicy, ProjectionDefinition, CASE_GRAPH_SCHEMA, COVERAGE_POLICY_SCHEMA,
     PROJECTION_SCHEMA,
 };
+use crate::workflow_eval::{validate_workflow_graph, WorkflowValidationError};
 use crate::workflow_model::{
     WorkflowCaseGraph, WORKFLOW_GRAPH_SCHEMA, WORKFLOW_GRAPH_SCHEMA_VERSION,
 };
@@ -27,6 +28,10 @@ pub enum StoreError {
     Contract {
         path: PathBuf,
         reason: String,
+    },
+    Validation {
+        path: PathBuf,
+        source: WorkflowValidationError,
     },
 }
 
@@ -96,6 +101,10 @@ pub fn read_workflow_graph(path: &Path) -> StoreResult<WorkflowCaseGraph> {
     let graph: WorkflowCaseGraph = read_json(path)?;
     require_schema(path, &graph.schema, WORKFLOW_GRAPH_SCHEMA)?;
     require_schema_version(path, graph.schema_version, WORKFLOW_GRAPH_SCHEMA_VERSION)?;
+    validate_workflow_graph(&graph).map_err(|source| StoreError::Validation {
+        path: path.to_owned(),
+        source,
+    })?;
     Ok(graph)
 }
 
@@ -181,6 +190,9 @@ impl std::fmt::Display for StoreError {
             Self::Io { path, source } => write!(formatter, "{}: {source}", path.display()),
             Self::Json { path, source } => write!(formatter, "{}: {source}", path.display()),
             Self::Contract { path, reason } => write!(formatter, "{}: {reason}", path.display()),
+            Self::Validation { path, source } => {
+                write!(formatter, "{}: {source}", path.display())
+            }
         }
     }
 }

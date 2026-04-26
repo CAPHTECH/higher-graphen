@@ -2,6 +2,7 @@ use super::{
     confidence, dedupe_ids, generated_provenance, sanitize, CompletionCandidate,
     CompletionCandidateType, ObstructionRecord, ObstructionType,
 };
+use crate::workflow_model::{CompletionReviewAction, CompletionReviewRecord, WorkflowCaseGraph};
 use higher_graphen_core::{Id, ReviewStatus};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -13,8 +14,10 @@ struct CandidateShape {
 }
 
 pub(super) fn completion_candidates(
+    graph: &WorkflowCaseGraph,
     obstructions: &[ObstructionRecord],
 ) -> Vec<CompletionCandidate> {
+    let reviews = latest_reviews_by_candidate(&graph.completion_reviews);
     let mut candidates: BTreeMap<Id, CompletionCandidate> = BTreeMap::new();
     for obstruction in obstructions {
         let Some(shape) = candidate_shape(obstruction.obstruction_type) else {
@@ -48,11 +51,49 @@ pub(super) fn completion_candidates(
                 rationale: shape.rationale.to_owned(),
                 confidence: confidence(0.82),
                 review_status: ReviewStatus::Unreviewed,
+                review_record_ids: Vec::new(),
                 provenance: generated_provenance("Workflow completion candidate", 0.82),
             },
         );
     }
-    candidates.into_values().collect()
+    candidates
+        .into_values()
+        .map(|candidate| apply_latest_review(candidate, &reviews))
+        .collect()
+}
+
+fn latest_reviews_by_candidate(
+    reviews: &[CompletionReviewRecord],
+) -> BTreeMap<&str, Vec<&CompletionReviewRecord>> {
+    let mut by_candidate = BTreeMap::<&str, Vec<&CompletionReviewRecord>>::new();
+    for review in reviews {
+        by_candidate
+            .entry(review.candidate_id.as_str())
+            .or_default()
+            .push(review);
+    }
+    by_candidate
+}
+
+fn apply_latest_review(
+    mut candidate: CompletionCandidate,
+    reviews: &BTreeMap<&str, Vec<&CompletionReviewRecord>>,
+) -> CompletionCandidate {
+    let Some(candidate_reviews) = reviews.get(candidate.id.as_str()) else {
+        return candidate;
+    };
+    candidate.review_record_ids = candidate_reviews
+        .iter()
+        .map(|review| review.id.clone())
+        .collect();
+    if let Some(review) = candidate_reviews.last() {
+        candidate.review_status = match review.action {
+            CompletionReviewAction::Accept => ReviewStatus::Accepted,
+            CompletionReviewAction::Reject => ReviewStatus::Rejected,
+            CompletionReviewAction::Reopen => ReviewStatus::Unreviewed,
+        };
+    }
+    candidate
 }
 
 fn candidate_shape(obstruction_type: ObstructionType) -> Option<CandidateShape> {

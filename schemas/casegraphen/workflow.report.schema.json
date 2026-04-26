@@ -438,6 +438,9 @@
         "review_status": {
           "$ref": "#/$defs/review_status"
         },
+        "review_record_ids": {
+          "$ref": "#/$defs/id_array"
+        },
         "provenance": {
           "$ref": "#/$defs/provenance"
         }

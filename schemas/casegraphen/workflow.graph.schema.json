@@ -59,6 +59,12 @@
         "$ref": "#/$defs/evidence_record"
       }
     },
+    "completion_reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/completion_review"
+      }
+    },
     "transition_records": {
       "type": "array",
       "items": {
@@ -472,6 +478,63 @@
         }
       }
     },
+    "completion_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_id",
+        "action",
+        "outcome_review_status",
+        "reviewer_id",
+        "reason",
+        "evidence_ids",
+        "decision_ids",
+        "source_ids",
+        "candidate_snapshot",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "action": {
+          "enum": [
+            "accept",
+            "reject",
+            "reopen"
+          ]
+        },
+        "outcome_review_status": {
+          "$ref": "#/$defs/review_status"
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "decision_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "candidate_snapshot": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
     "transition_record": {
       "type": "object",
       "additionalProperties": false,
@@ -533,6 +596,9 @@
         },
         "provenance": {
           "$ref": "#/$defs/provenance"
+        },
+        "metadata": {
+          "type": "object"
         }
       }
     },

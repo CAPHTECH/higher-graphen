@@ -2,11 +2,14 @@ use crate::{
     eval::{detect_conflicts, detect_missing_cases, evaluate_coverage, validate_case_graph},
     model::{CaseGraph, ProjectionDefinition},
     report,
-    store::{
-        read_case_graph, read_coverage_policy, read_projection, read_workflow_graph, write_report,
-        LocalCaseStore,
+    store::{read_case_graph, read_coverage_policy, read_projection, write_report, LocalCaseStore},
+    workflow_eval::cli_reports::{
+        workflow_completions_json, workflow_correspond_json, workflow_evidence_json,
+        workflow_evolution_json, workflow_obstructions_json, workflow_project_json,
+        workflow_readiness_json, workflow_reason_json, workflow_validate_json,
+        WorkflowCommandError,
     },
-    workflow_report,
+    workflow_workspace::cli_bridge::{CgWorkflowBridgeCommand, WorkflowBridgeError},
 };
 use higher_graphen_core::Id;
 use std::{
@@ -27,7 +30,23 @@ const USAGE: &str = "usage:
   casegraphen conflicts --input <path> --format json [--output <path>]
   casegraphen project --input <path> --projection <path> --format json [--output <path>]
   casegraphen compare --left <path> --right <path> --format json [--output <path>]
-  casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]";
+  casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow validate --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow readiness --input <workflow.graph.json> --format json [--projection <projection.json>] [--output <path>]
+  casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
+  casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
+  casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
+  casegraphen cg workflow import --store <dir> --input <workflow.graph.json> --revision-id <id> --format json [--output <path>]
+  casegraphen cg workflow list --store <dir> --format json [--output <path>]
+  casegraphen cg workflow inspect|history|replay|validate --store <dir> --workflow-graph-id <id> --format json [--output <path>]
+  casegraphen cg workflow readiness (--input <workflow.graph.json> | --store <dir> --workflow-graph-id <id>) --format json [--projection <projection.json>] [--output <path>]
+  casegraphen cg workflow completion accept|reject|reopen --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
+  casegraphen cg workflow completion patch --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--transition-id <id>] [--reviewed-at <text>] [--output <path>]
+  casegraphen cg workflow patch check --store <dir> --workflow-graph-id <id> --transition-id <id> --format json [--output <path>]
+  casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]";
 
 pub fn main_entry() -> ExitCode {
     match run(env::args_os().skip(1)) {
@@ -100,6 +119,42 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    WorkflowValidate {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowReadiness {
+        input: PathBuf,
+        projection: Option<PathBuf>,
+        output: Option<PathBuf>,
+    },
+    WorkflowObstructions {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowCompletions {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowEvidence {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowProject {
+        input: PathBuf,
+        projection: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowCorrespond {
+        left: PathBuf,
+        right: PathBuf,
+        output: Option<PathBuf>,
+    },
+    WorkflowEvolution {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    CgWorkflowBridge(CgWorkflowBridgeCommand),
 }
 
 impl Command {
@@ -134,6 +189,9 @@ impl Command {
             Some("project") => Self::parse_project(args),
             Some("compare") => Self::parse_compare(args),
             Some("workflow") => Self::parse_workflow(args),
+            Some("cg") => CgWorkflowBridgeCommand::parse(args)
+                .map(Self::CgWorkflowBridge)
+                .map_err(CliError::usage),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
         }
     }
@@ -225,8 +283,63 @@ impl Command {
             Some("reason") => {
                 Self::parse_one_input(args, |input, output| Self::WorkflowReason { input, output })
             }
+            Some("validate") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowValidate { input, output }
+            }),
+            Some("readiness") => Self::parse_workflow_readiness(args),
+            Some("obstructions") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowObstructions { input, output }
+            }),
+            Some("completions") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowCompletions { input, output }
+            }),
+            Some("evidence") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowEvidence { input, output }
+            }),
+            Some("project") => Self::parse_workflow_project(args),
+            Some("correspond") => Self::parse_workflow_correspond(args),
+            Some("evolution") => Self::parse_one_input(args, |input, output| {
+                Self::WorkflowEvolution { input, output }
+            }),
             Some(_) | None => Err(CliError::usage("unsupported workflow command segment")),
         }
+    }
+
+    fn parse_workflow_readiness(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let options = Options::parse(args)?;
+        Ok(Self::WorkflowReadiness {
+            input: options
+                .input
+                .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+            projection: options.projection,
+            output: options.output,
+        })
+    }
+
+    fn parse_workflow_project(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let options = Options::parse(args)?;
+        Ok(Self::WorkflowProject {
+            input: options
+                .input
+                .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+            projection: options
+                .projection
+                .ok_or_else(|| CliError::usage("--projection <path> is required"))?,
+            output: options.output,
+        })
+    }
+
+    fn parse_workflow_correspond(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let options = Options::parse(args)?;
+        Ok(Self::WorkflowCorrespond {
+            left: options
+                .left
+                .ok_or_else(|| CliError::usage("--left <path> is required"))?,
+            right: options
+                .right
+                .ok_or_else(|| CliError::usage("--right <path> is required"))?,
+            output: options.output,
+        })
     }
 
     fn output(&self) -> Option<&PathBuf> {
@@ -240,7 +353,16 @@ impl Command {
             | Self::Conflicts { output, .. }
             | Self::Project { output, .. }
             | Self::Compare { output, .. }
-            | Self::WorkflowReason { output, .. } => output.as_ref(),
+            | Self::WorkflowReason { output, .. }
+            | Self::WorkflowValidate { output, .. }
+            | Self::WorkflowReadiness { output, .. }
+            | Self::WorkflowObstructions { output, .. }
+            | Self::WorkflowCompletions { output, .. }
+            | Self::WorkflowEvidence { output, .. }
+            | Self::WorkflowProject { output, .. }
+            | Self::WorkflowCorrespond { output, .. }
+            | Self::WorkflowEvolution { output, .. } => output.as_ref(),
+            Self::CgWorkflowBridge(command) => command.output(),
         }
     }
 
@@ -266,7 +388,34 @@ impl Command {
                 input, projection, ..
             } => run_project(input, projection),
             Self::Compare { left, right, .. } => run_compare(left, right),
-            Self::WorkflowReason { input, .. } => run_workflow_reason(input),
+            Self::WorkflowReason { input, .. } => {
+                workflow_reason_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowValidate { input, .. } => {
+                workflow_validate_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowReadiness {
+                input, projection, ..
+            } => workflow_readiness_json(input, projection.as_deref()).map_err(CliError::from),
+            Self::WorkflowObstructions { input, .. } => {
+                workflow_obstructions_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowCompletions { input, .. } => {
+                workflow_completions_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowEvidence { input, .. } => {
+                workflow_evidence_json(input).map_err(CliError::from)
+            }
+            Self::WorkflowProject {
+                input, projection, ..
+            } => workflow_project_json(input, projection).map_err(CliError::from),
+            Self::WorkflowCorrespond { left, right, .. } => {
+                workflow_correspond_json(left, right).map_err(CliError::from)
+            }
+            Self::WorkflowEvolution { input, .. } => {
+                workflow_evolution_json(input).map_err(CliError::from)
+            }
+            Self::CgWorkflowBridge(command) => command.run_json().map_err(CliError::from),
         }
     }
 }
@@ -417,11 +566,6 @@ fn run_compare(left: &Path, right: &Path) -> Result<String, CliError> {
     ))
 }
 
-fn run_workflow_reason(input: &Path) -> Result<String, CliError> {
-    let graph = read_workflow_graph(input)?;
-    serialize(&workflow_report::reason_workflow(&graph))
-}
-
 fn serialize(report: &impl serde::Serialize) -> Result<String, CliError> {
     serde_json::to_string(report).map_err(CliError::from)
 }
@@ -431,6 +575,8 @@ pub enum CliError {
     Usage(String),
     Core(higher_graphen_core::CoreError),
     Store(crate::store::StoreError),
+    WorkflowCommand(WorkflowCommandError),
+    WorkflowBridge(WorkflowBridgeError),
     Json(serde_json::Error),
 }
 
@@ -452,6 +598,18 @@ impl From<crate::store::StoreError> for CliError {
     }
 }
 
+impl From<WorkflowCommandError> for CliError {
+    fn from(error: WorkflowCommandError) -> Self {
+        Self::WorkflowCommand(error)
+    }
+}
+
+impl From<WorkflowBridgeError> for CliError {
+    fn from(error: WorkflowBridgeError) -> Self {
+        Self::WorkflowBridge(error)
+    }
+}
+
 impl From<serde_json::Error> for CliError {
     fn from(error: serde_json::Error) -> Self {
         Self::Json(error)
@@ -464,6 +622,8 @@ impl fmt::Display for CliError {
             Self::Usage(message) => write!(formatter, "{message}\n{USAGE}"),
             Self::Core(error) => write!(formatter, "{error}"),
             Self::Store(error) => write!(formatter, "{error}"),
+            Self::WorkflowCommand(error) => write!(formatter, "{error}"),
+            Self::WorkflowBridge(error) => write!(formatter, "{error}"),
             Self::Json(error) => write!(formatter, "{error}"),
         }
     }

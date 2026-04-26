@@ -17,6 +17,8 @@ pub struct WorkflowCaseGraph {
     pub workflow_relations: Vec<WorkflowRelation>,
     pub readiness_rules: Vec<ReadinessRule>,
     pub evidence_records: Vec<EvidenceRecord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub completion_reviews: Vec<CompletionReviewRecord>,
     pub transition_records: Vec<TransitionRecord>,
     pub projection_profiles: Vec<ProjectionProfile>,
     pub correspondence_records: Vec<CorrespondenceRecord>,
@@ -171,6 +173,40 @@ pub enum EvidenceBoundary {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct CompletionReviewRecord {
+    pub id: Id,
+    pub candidate_id: Id,
+    pub action: CompletionReviewAction,
+    pub outcome_review_status: ReviewStatus,
+    pub reviewer_id: Id,
+    pub reason: String,
+    pub evidence_ids: Vec<Id>,
+    pub decision_ids: Vec<Id>,
+    pub source_ids: Vec<Id>,
+    pub candidate_snapshot: Value,
+    pub provenance: WorkflowProvenance,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionReviewAction {
+    Accept,
+    Reject,
+    Reopen,
+}
+
+impl CompletionReviewAction {
+    pub fn outcome_review_status(self) -> ReviewStatus {
+        match self {
+            Self::Accept => ReviewStatus::Accepted,
+            Self::Reject => ReviewStatus::Rejected,
+            Self::Reopen => ReviewStatus::Unreviewed,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TransitionRecord {
     pub id: Id,
     pub transition_type: TransitionType,
@@ -184,6 +220,8 @@ pub struct TransitionRecord {
     pub violated_invariant_ids: Vec<Id>,
     pub source_ids: Vec<Id>,
     pub provenance: WorkflowProvenance,
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub metadata: Map<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -321,6 +359,7 @@ mod tests {
         assert_eq!(graph.workflow_relations.len(), 3);
         assert_eq!(graph.readiness_rules.len(), 2);
         assert_eq!(graph.evidence_records.len(), 2);
+        assert!(graph.completion_reviews.is_empty());
         assert_eq!(graph.transition_records.len(), 1);
         assert_eq!(graph.projection_profiles.len(), 2);
         assert_eq!(graph.correspondence_records.len(), 1);
@@ -365,6 +404,15 @@ mod tests {
         let mut value: Value =
             serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example value");
         value["unexpected"] = Value::Bool(true);
+
+        assert!(serde_json::from_value::<WorkflowCaseGraph>(value).is_err());
+    }
+
+    #[test]
+    fn workflow_model_rejects_unknown_nested_fields() {
+        let mut value: Value =
+            serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example value");
+        value["work_items"][0]["ready"] = Value::Bool(true);
 
         assert!(serde_json::from_value::<WorkflowCaseGraph>(value).is_err());
     }

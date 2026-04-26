@@ -1,0 +1,12 @@
+case_id: casegraphen-complete-feature-surface
+title: Complete CaseGraphen feature surface
+description: Complete the CLI and skill-accessible CaseGraphen feature surface inside higher-graphen. Done means cg/casegraphen can manage, reason about, project, patch, persist, and verify workflow cases end-to-end using HigherGraphen concepts. MCP and direct rewrites of the external casegraphen reference workspace repository are out of scope.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T00:09:59.786Z
+updated_at: 2026-04-26T01:24:52.310Z
+case_revision:
+  current: 62
+  last_event_id: 01KQ3P7BYPFJPETZ2ZGZ5MSXHF

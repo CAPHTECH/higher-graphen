@@ -31,6 +31,9 @@ REQUIRED_METADATA_PATHS = [
     ("contract_references", "casegraphen_workflow_report_schema"),
     ("contract_references", "casegraphen_workflow_graph_fixture"),
     ("contract_references", "casegraphen_workflow_report_fixture"),
+    ("contract_references", "casegraphen_feature_completion_contract"),
+    ("contract_references", "casegraphen_reference_readme"),
+    ("contract_references", "casegraphen_source_skill"),
     ("contract_references", "contract_validator"),
     ("contract_references", "bundle_contract_reference"),
 ]
@@ -42,6 +45,73 @@ ARCHITECTURE_REVIEW_TERMS = [
     "review_status: \"unreviewed\"",
     "deterministic smoke coverage",
     "projection.information_loss",
+]
+
+CASEGRAPHEN_ENTRYPOINT_TERMS = [
+    "casegraphen workflow validate",
+    "casegraphen workflow readiness",
+    "casegraphen workflow obstructions",
+    "casegraphen workflow completions",
+    "casegraphen workflow evidence",
+    "casegraphen workflow project",
+    "casegraphen workflow correspond",
+    "casegraphen workflow evolution",
+    "casegraphen cg workflow import",
+    "casegraphen cg workflow completion accept|reject|reopen",
+    "casegraphen cg workflow completion patch",
+    "casegraphen cg workflow patch check",
+    "casegraphen cg workflow patch apply|reject",
+]
+
+CASEGRAPHEN_SKILL_TERMS = [
+    "Installed `cg`",
+    "Repo-Owned `casegraphen`",
+    "cg case show",
+    "cg frontier",
+    "cg blockers",
+    "cg evidence add",
+    "cg validate --case",
+    "casegraphen workflow validate",
+    "casegraphen workflow readiness",
+    "casegraphen workflow obstructions",
+    "casegraphen workflow completions",
+    "casegraphen workflow evidence",
+    "casegraphen workflow project",
+    "casegraphen workflow correspond",
+    "casegraphen workflow evolution",
+    "casegraphen cg workflow import",
+    "casegraphen cg workflow completion accept|reject|reopen",
+    "casegraphen cg workflow completion patch",
+    "casegraphen cg workflow patch check",
+    "casegraphen cg workflow patch apply|reject",
+    "projection.information_loss",
+    "Do not edit `.casegraphen` files directly.",
+]
+
+CASEGRAPHEN_CONTRACT_TERMS = [
+    "casegraphen workflow validate",
+    "casegraphen workflow readiness",
+    "casegraphen workflow obstructions",
+    "casegraphen workflow completions",
+    "casegraphen workflow evidence",
+    "casegraphen workflow project",
+    "casegraphen workflow correspond",
+    "casegraphen workflow evolution",
+    "casegraphen cg workflow import",
+    "casegraphen cg workflow completion accept|reject|reopen",
+    "casegraphen cg workflow patch check",
+    "casegraphen cg workflow patch apply|reject",
+    "cg validate --case",
+]
+
+CASEGRAPHEN_README_TERMS = [
+    "casegraphen workflow validate",
+    "casegraphen workflow readiness",
+    "casegraphen cg workflow import",
+    "casegraphen cg workflow completion accept|reject|reopen",
+    "casegraphen cg workflow patch check",
+    "casegraphen cg workflow patch apply|reject",
+    "cg validate --case",
 ]
 
 FORBIDDEN_MANIFEST_NAMES = {
@@ -129,6 +199,19 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
     return errors
 
 
+def check_casegraphen_entrypoints(metadata: dict[str, Any]) -> list[str]:
+    entrypoints = metadata.get("entrypoints")
+    if not isinstance(entrypoints, dict):
+        return ["entrypoints: expected object"]
+
+    haystack = "\n".join(flatten_strings(entrypoints))
+    return [
+        f"entrypoints: missing CaseGraphen command term {term!r}"
+        for term in CASEGRAPHEN_ENTRYPOINT_TERMS
+        if term not in haystack
+    ]
+
+
 def check_highergraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
     return check_byte_for_byte_skill_sync(metadata, "highergraphen")
 
@@ -163,6 +246,43 @@ def check_architecture_review_skill(metadata: dict[str, Any]) -> list[str]:
     ]
 
 
+def check_casegraphen_operator_surface(metadata: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+
+    skill = find_skill(metadata, "casegraphen")
+    if skill is None:
+        return ["casegraphen skill metadata is missing"]
+    skill_path = require_existing_path(skill, "source")
+    errors.extend(missing_terms(skill_path, CASEGRAPHEN_SKILL_TERMS))
+
+    references = metadata.get("contract_references", {})
+    if not isinstance(references, dict):
+        return errors + ["contract_references: expected object"]
+
+    contract_path = require_existing_path(
+        {"name": "casegraphen_feature_completion_contract", "source": references.get("casegraphen_feature_completion_contract")},
+        "source",
+    )
+    errors.extend(missing_terms(contract_path, CASEGRAPHEN_CONTRACT_TERMS))
+
+    reference_readme_path = require_existing_path(
+        {"name": "casegraphen_reference_readme", "source": references.get("casegraphen_reference_readme")},
+        "source",
+    )
+    errors.extend(missing_terms(reference_readme_path, CASEGRAPHEN_README_TERMS))
+
+    bundle_contract_path = require_existing_path(
+        {"name": "bundle_contract_reference", "source": references.get("bundle_contract_reference")},
+        "source",
+    )
+    errors.extend(missing_terms(bundle_contract_path, CASEGRAPHEN_CONTRACT_TERMS))
+
+    readme_path = BUNDLE_DIR / "README.md"
+    errors.extend(missing_terms(readme_path, CASEGRAPHEN_README_TERMS))
+
+    return errors
+
+
 def find_skill(metadata: dict[str, Any], name: str) -> dict[str, Any] | None:
     for item in metadata.get("skills", []):
         if isinstance(item, dict) and item.get("name") == name:
@@ -180,6 +300,31 @@ def require_existing_path(metadata: dict[str, Any], key: str) -> Path:
     return path
 
 
+def flatten_strings(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        strings: list[str] = []
+        for item in value:
+            strings.extend(flatten_strings(item))
+        return strings
+    if isinstance(value, dict):
+        strings = []
+        for item in value.values():
+            strings.extend(flatten_strings(item))
+        return strings
+    return []
+
+
+def missing_terms(path: Path, terms: list[str]) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    return [
+        f"{path.relative_to(ROOT)}: missing {term!r}"
+        for term in terms
+        if term not in text
+    ]
+
+
 def check_provider_specific_files() -> list[str]:
     errors: list[str] = []
     for path in BUNDLE_DIR.rglob("*"):
@@ -193,9 +338,11 @@ def main() -> int:
         metadata = load_metadata()
         errors = []
         errors.extend(check_metadata(metadata))
+        errors.extend(check_casegraphen_entrypoints(metadata))
         errors.extend(check_highergraphen_skill_sync(metadata))
         errors.extend(check_casegraphen_skill_sync(metadata))
         errors.extend(check_architecture_review_skill(metadata))
+        errors.extend(check_casegraphen_operator_surface(metadata))
         errors.extend(check_provider_specific_files())
     except BundleError as error:
         errors = [str(error)]

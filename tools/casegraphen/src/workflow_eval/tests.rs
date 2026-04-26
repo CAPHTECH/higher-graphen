@@ -1,4 +1,5 @@
 use super::*;
+use higher_graphen_core::Id;
 use serde_json::json;
 use std::collections::BTreeSet;
 
@@ -95,4 +96,116 @@ fn workflow_evaluation_is_machine_readable_json() {
     assert!(value["projection"]["information_loss"].is_array());
     assert!(value["correspondence"].is_array());
     assert!(value["evolution"]["transition_ids"].is_array());
+}
+
+#[test]
+fn workflow_validation_rejects_dangling_internal_relation_endpoints() {
+    let mut graph: WorkflowCaseGraph =
+        serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example");
+    graph.workflow_relations[0].from_id = id("task:missing-work-item");
+
+    let error = validate_workflow_graph(&graph).expect_err("dangling relation endpoint");
+
+    assert!(error.violations.iter().any(|violation| {
+        violation.code == WorkflowValidationCode::DanglingReference
+            && violation
+                .record_id
+                .as_ref()
+                .is_some_and(|id| id.as_str() == "relation:engine-depends-on-contract")
+            && violation.field == "from_id"
+    }));
+}
+
+#[test]
+fn workflow_validation_rejects_malformed_required_strings() {
+    let mut graph: WorkflowCaseGraph =
+        serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example");
+    graph.work_items[0].title = "   ".to_owned();
+
+    let error = validate_workflow_graph(&graph).expect_err("empty title");
+
+    assert!(error.violations.iter().any(|violation| {
+        violation.code == WorkflowValidationCode::EmptyRequiredField
+            && violation
+                .record_id
+                .as_ref()
+                .is_some_and(|id| id.as_str() == "task:define-workflow-reasoning-contract")
+            && violation.field == "title"
+    }));
+}
+
+#[test]
+fn workflow_checked_section_helpers_validate_before_deriving_sections() {
+    let graph: WorkflowCaseGraph =
+        serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example");
+
+    let readiness = evaluate_readiness(&graph).expect("readiness section");
+    let obstructions = evaluate_obstructions(&graph).expect("obstruction section");
+    let candidates = evaluate_completion_candidates(&graph).expect("completion candidate section");
+    let evidence = evaluate_evidence_findings(&graph).expect("evidence section");
+    let projection = evaluate_projection(&graph).expect("projection section");
+    let correspondence = evaluate_correspondence(&graph).expect("correspondence section");
+    let evolution = evaluate_evolution(&graph).expect("evolution section");
+
+    assert_eq!(
+        readiness.ready_item_ids,
+        evaluate_workflow(&graph).readiness.ready_item_ids
+    );
+    assert_eq!(
+        obstructions.len(),
+        evaluate_workflow(&graph).obstructions.len()
+    );
+    assert_eq!(
+        candidates.len(),
+        evaluate_workflow(&graph).completion_candidates.len()
+    );
+    assert_eq!(
+        evidence.inference_record_ids,
+        evaluate_workflow(&graph)
+            .evidence_findings
+            .inference_record_ids
+    );
+    assert_eq!(
+        projection.projection_profile_id.as_str(),
+        "projection:workflow-ai-review"
+    );
+    assert_eq!(correspondence.len(), 1);
+    assert_eq!(
+        evolution.transition_ids,
+        vec![id("transition:foundation-docs-to-workflow-contract")]
+    );
+}
+
+#[test]
+fn ai_inference_does_not_satisfy_evidence_requirements() {
+    let mut graph: WorkflowCaseGraph =
+        serde_json::from_str(WORKFLOW_EXAMPLE).expect("workflow graph example");
+    graph
+        .evidence_records
+        .iter_mut()
+        .find(|record| record.id.as_str() == "evidence:workflow-gap-inference")
+        .expect("inference record")
+        .supports_ids
+        .push(id("evidence:json-parse-check-output"));
+
+    let evaluation = evaluate_workflow_checked(&graph).expect("valid workflow");
+
+    assert!(evaluation
+        .obstructions
+        .iter()
+        .any(|record| record.obstruction_type == ObstructionType::MissingEvidence));
+    assert!(!evaluation
+        .evidence_findings
+        .accepted_evidence_ids
+        .iter()
+        .any(|id| id.as_str() == "evidence:workflow-gap-inference"));
+    assert!(evaluation
+        .evidence_findings
+        .inference_record_ids
+        .iter()
+        .any(|id| id.as_str() == "evidence:workflow-gap-inference"));
+}
+
+fn id(value: &str) -> Id {
+    Id::new(value).expect("test id")
 }

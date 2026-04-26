@@ -8,7 +8,8 @@ use crate::workflow_model::{
 };
 use higher_graphen_core::{Confidence, Id, ReviewStatus};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use serde_json::{json, Value};
+use std::{collections::BTreeSet, path::Path};
 
 pub const WORKFLOW_REASONING_REPORT_SCHEMA: &str = "highergraphen.case.workflow.report.v1";
 pub const WORKFLOW_REASONING_REPORT_TYPE: &str = "case_workflow_reasoning";
@@ -24,6 +25,18 @@ pub struct WorkflowReasoningReport {
     pub input: WorkflowReportInput,
     pub result: WorkflowEvaluation,
     pub projection: ProjectionBundle,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowOperationReport {
+    pub schema: String,
+    pub report_type: String,
+    pub report_version: u32,
+    pub metadata: WorkflowReportMetadata,
+    pub input: Value,
+    pub result: Value,
+    pub projection: Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -110,28 +123,104 @@ pub fn workflow_reasoning_report(
         schema: WORKFLOW_REASONING_REPORT_SCHEMA.to_owned(),
         report_type: WORKFLOW_REASONING_REPORT_TYPE.to_owned(),
         report_version: WORKFLOW_REASONING_REPORT_VERSION,
-        metadata: WorkflowReportMetadata {
-            command: command.to_owned(),
-            tool_package: "tools/casegraphen".to_owned(),
-            core_packages: vec![
-                "higher-graphen-core".to_owned(),
-                "higher-graphen-space".to_owned(),
-                "higher-graphen-projection".to_owned(),
-            ],
-        },
-        input: WorkflowReportInput {
-            workflow_graph_schema: WORKFLOW_GRAPH_SCHEMA.to_owned(),
-            workflow_graph_id: graph.workflow_graph_id.clone(),
-            case_graph_id: graph.case_graph_id.clone(),
-            space_id: graph.space_id.clone(),
-            projection_profile_ids: graph
-                .projection_profiles
-                .iter()
-                .map(|profile| profile.id.clone())
-                .collect(),
-        },
+        metadata: workflow_metadata(command),
+        input: workflow_report_input(graph),
         result,
         projection,
+    }
+}
+
+pub fn workflow_operation_report(
+    command: &str,
+    operation: &str,
+    input: Value,
+    result: Value,
+    projection: Value,
+) -> WorkflowOperationReport {
+    WorkflowOperationReport {
+        schema: format!("highergraphen.case.workflow.{operation}.report.v1"),
+        report_type: format!("case_workflow_{operation}"),
+        report_version: WORKFLOW_REASONING_REPORT_VERSION,
+        metadata: workflow_metadata(command),
+        input,
+        result,
+        projection,
+    }
+}
+
+pub fn workflow_input_with_paths(
+    graph: &WorkflowCaseGraph,
+    input_path: Option<&Path>,
+    projection_path: Option<&Path>,
+) -> Value {
+    let mut value =
+        serde_json::to_value(workflow_report_input(graph)).expect("workflow input serializes");
+    if let Value::Object(object) = &mut value {
+        if let Some(path) = input_path {
+            object.insert("path".to_owned(), json!(path.display().to_string()));
+        }
+        if let Some(path) = projection_path {
+            object.insert("projection".to_owned(), json!(path.display().to_string()));
+        }
+    }
+    value
+}
+
+pub fn validation_projection(valid: bool, violation_count: usize) -> Value {
+    json!({
+        "human_review": {
+            "summary": if valid { "Workflow graph validation passed." } else { "Workflow graph validation failed." },
+            "violation_count": violation_count
+        },
+        "ai_view": { "valid": valid, "violation_count": violation_count },
+        "audit_trace": {
+            "source_ids": [],
+            "information_loss": ["Validation reports schema and semantic violations without running workflow reasoning."]
+        }
+    })
+}
+
+pub fn focused_projection(graph: &WorkflowCaseGraph, operation: &str) -> Value {
+    json!({
+        "human_review": {
+            "summary": format!("Focused workflow {operation} report."),
+            "workflow_graph_id": graph.workflow_graph_id
+        },
+        "ai_view": {
+            "section": operation,
+            "workflow_graph_id": graph.workflow_graph_id,
+            "case_graph_id": graph.case_graph_id
+        },
+        "audit_trace": {
+            "source_ids": graph.projection_profiles.iter().flat_map(|profile| profile.source_ids.iter()).collect::<Vec<_>>(),
+            "information_loss": ["Focused report contains the requested section; use workflow reason for the aggregate projection."]
+        }
+    })
+}
+
+fn workflow_metadata(command: &str) -> WorkflowReportMetadata {
+    WorkflowReportMetadata {
+        command: command.to_owned(),
+        tool_package: "tools/casegraphen".to_owned(),
+        core_packages: vec![
+            "higher-graphen-core".to_owned(),
+            "higher-graphen-space".to_owned(),
+            "higher-graphen-projection".to_owned(),
+        ],
+    }
+}
+
+fn workflow_report_input(graph: &WorkflowCaseGraph) -> WorkflowReportInput {
+    WorkflowReportInput {
+        workflow_graph_schema: WORKFLOW_GRAPH_SCHEMA.to_owned(),
+        workflow_graph_id: graph.workflow_graph_id.clone(),
+        case_graph_id: graph.case_graph_id.clone(),
+        space_id: graph.space_id.clone(),
+        projection_profile_ids: graph
+            .projection_profiles
+            .iter()
+            .map(|profile| profile.id.clone())
+            .collect(),
     }
 }
 
