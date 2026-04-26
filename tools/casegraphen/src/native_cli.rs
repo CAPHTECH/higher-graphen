@@ -351,7 +351,8 @@ impl NativeCliCommand {
                 case_space_id: options.require_id("--case-space-id")?,
                 base_revision_id: options
                     .base_revision_id
-                    .or(options.revision_id)
+                    .clone()
+                    .or(options.revision_id.clone())
                     .ok_or_else(|| NativeCliError::usage("--base-revision-id <id> is required"))?,
                 validation_evidence_ids: options.validation_evidence_ids,
                 output: options.output,
@@ -399,10 +400,11 @@ impl NativeCliCommand {
                 morphism_id: options.require_id("--morphism-id")?,
                 base_revision_id: options
                     .base_revision_id
-                    .or(options.revision_id)
+                    .clone()
+                    .or(options.revision_id.clone())
                     .ok_or_else(|| NativeCliError::usage("--base-revision-id <id> is required"))?,
-                reviewer_id: options.reviewer_id,
-                reason: options.reason,
+                reviewer_id: Some(options.require_id("--reviewer-id")?),
+                reason: Some(options.require_string("--reason")?),
                 output: options.output,
             }),
             "reject" => Ok(Self::MorphismReject {

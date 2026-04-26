@@ -23,5 +23,10 @@ This directory contains the first file-based JSON contracts for the
 - `native.case.report.schema.json` validates
   `highergraphen.case.native.report.v1` package-level native report envelopes.
 
-The matching `*.example.json` files are used by package tests and can be passed
-directly to the `casegraphen` CLI.
+The matching `*.example.json` files are used by package tests. Input fixtures
+such as `case.graph.example.json`, `workflow.graph.example.json`,
+`projection.example.json`, `coverage.policy.example.json`, and
+`native.case.space.example.json` can be passed directly to the relevant
+`casegraphen` CLI commands. Report fixtures such as
+`workflow.report.example.json` and `native.case.report.example.json` are output
+contract examples, not CLI inputs.

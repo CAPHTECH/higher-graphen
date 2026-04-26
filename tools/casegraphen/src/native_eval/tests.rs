@@ -157,6 +157,52 @@ fn inferred_evidence_does_not_satisfy_requirement() {
 }
 
 #[test]
+fn review_promoted_evidence_requires_accepted_review() {
+    let mut space = fixture_space();
+    space.case_cells.push(cell(
+        "work:needs-promoted-evidence",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+    ));
+    let mut evidence = cell(
+        "evidence:pending-promotion",
+        CaseCellType::Evidence,
+        CaseCellLifecycle::Active,
+    );
+    evidence.provenance = provenance(SourceKind::Human, ReviewStatus::Unreviewed);
+    evidence.metadata.insert(
+        "evidence_boundary".to_owned(),
+        Value::String("review_promoted".to_owned()),
+    );
+    space.case_cells.push(evidence);
+    space.case_relations.push(relation(
+        "relation:needs-promoted-evidence",
+        CaseRelationType::RequiresEvidence,
+        "work:needs-promoted-evidence",
+        "evidence:pending-promotion",
+    ));
+    refresh_morphism(&mut space);
+
+    let pending = evaluate_native_case(&space).expect("pending evaluation");
+    assert!(pending
+        .readiness
+        .blocked_cell_ids
+        .contains(&id("work:needs-promoted-evidence")));
+
+    let promoted = space
+        .case_cells
+        .iter_mut()
+        .find(|cell| cell.id == id("evidence:pending-promotion"))
+        .expect("promoted evidence");
+    promoted.provenance = provenance(SourceKind::Human, ReviewStatus::Accepted);
+    let accepted = evaluate_native_case(&space).expect("accepted evaluation");
+    assert!(accepted
+        .readiness
+        .ready_cell_ids
+        .contains(&id("work:needs-promoted-evidence")));
+}
+
+#[test]
 fn projection_loss_and_evolution_summaries_are_reported() {
     let mut space = fixture_space();
     space.case_cells.push(cell(
@@ -189,6 +235,41 @@ fn projection_loss_and_evolution_summaries_are_reported() {
 
     assert_eq!(evaluation.projection_loss.len(), 1);
     assert_eq!(evaluation.evolution.invariant_breaks.len(), 1);
+}
+
+#[test]
+fn projection_revision_and_loss_references_are_validated() {
+    let mut space = fixture_space();
+    space.projections.push(Projection {
+        projection_id: id("projection:stale"),
+        audience: ProjectionAudience::AiAgent,
+        revision_id: id("revision:missing"),
+        represented_cell_ids: Vec::new(),
+        represented_relation_ids: Vec::new(),
+        omitted_cell_ids: Vec::new(),
+        omitted_relation_ids: Vec::new(),
+        information_loss: vec![crate::native_model::ProjectionLoss {
+            description: "Stale projection references missing loss ids.".to_owned(),
+            represented_ids: Vec::new(),
+            omitted_ids: vec![id("work:missing")],
+        }],
+        allowed_operations: Vec::new(),
+        source_ids: Vec::new(),
+        warnings: Vec::new(),
+        metadata: Map::new(),
+    });
+    refresh_morphism(&mut space);
+
+    let err = evaluate_native_case(&space).expect_err("invalid projection references");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::DanglingReference
+            && violation.field == "projection.revision_id"
+    }));
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::DanglingReference
+            && violation.field == "projection.information_loss.ids"
+    }));
 }
 
 #[test]
@@ -236,6 +317,56 @@ fn invalid_morphism_is_structured_error() {
         .violations
         .iter()
         .any(|violation| violation.code == NativeEvalViolationCode::InvalidMorphism));
+}
+
+#[test]
+fn empty_morphism_log_is_structured_error() {
+    let mut space = fixture_space();
+    space.morphism_log.clear();
+
+    let err = evaluate_native_case(&space).expect_err("empty morphism log");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::InvalidMorphismLog
+            && violation.field == "morphism_log"
+    }));
+}
+
+#[test]
+fn invalid_log_continuity_and_entry_version_are_structured_errors() {
+    let mut space = fixture_space();
+    space.morphism_log[0].schema_version = 2;
+    space.morphism_log[0].source_revision_id = Some(id("revision:unexpected-parent"));
+    space.morphism_log[0].morphism.source_revision_id = Some(id("revision:unexpected-parent"));
+
+    let err = evaluate_native_case(&space).expect_err("invalid log contract");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::UnsupportedSchemaVersion
+            && violation.field == "schema_version"
+    }));
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::InvalidMorphismLog
+            && violation.field == "source_revision_id"
+    }));
+}
+
+#[test]
+fn materialized_revision_must_match_latest_log_checksum_and_case_space() {
+    let mut space = fixture_space();
+    space.revision.case_space_id = id("case_space:other");
+    space.revision.checksum = "sha256:stale".to_owned();
+
+    let err = evaluate_native_case(&space).expect_err("invalid revision materialization");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::InvalidMorphismLog
+            && violation.field == "revision.case_space_id"
+    }));
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::InvalidMorphismLog
+            && violation.field == "revision.checksum"
+    }));
 }
 
 fn fixture_space() -> CaseSpace {

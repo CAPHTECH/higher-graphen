@@ -103,12 +103,7 @@ pub(super) fn case_close_check(
         NativeCloseCheckRequest {
             close_policy_id: None,
             base_revision_id: base_revision_id.clone(),
-            declared_projection_loss_ids: replay
-                .case_space
-                .projections
-                .iter()
-                .map(|projection| projection.projection_id.clone())
-                .collect(),
+            declared_projection_loss_ids: Vec::new(),
             validation_evidence_ids: validation_evidence_ids.to_vec(),
             source_ids: validation_evidence_ids.to_vec(),
         },
@@ -180,6 +175,9 @@ pub(super) fn morphism_apply(
             .insert("reviewer_id".to_owned(), json!(reviewer_id));
     }
     if let Some(reason) = reason {
+        if reason.trim().is_empty() {
+            return Err(NativeCliError::invalid("review reason must not be empty"));
+        }
         morphism
             .metadata
             .insert("review_reason".to_owned(), json!(reason.trim()));
@@ -227,6 +225,9 @@ fn new_case_space(
     title: &str,
     revision_id: &Id,
 ) -> Result<CaseSpace, NativeCliError> {
+    if title.trim().is_empty() {
+        return Err(NativeCliError::invalid("case title must not be empty"));
+    }
     let cell_id = Id::new("case:native-root".to_owned())?;
     let source_id = Id::new("source:native-cli".to_owned())?;
     let morphism_id = Id::new(format!("morphism:create:{}", path_segment(case_space_id)))?;
@@ -361,6 +362,9 @@ fn retarget_latest_revision(
     latest.target_revision_id = revision_id.clone();
     latest.morphism.target_revision_id = revision_id.clone();
     case_space.revision.revision_id = revision_id.clone();
+    for projection in &mut case_space.projections {
+        projection.revision_id = revision_id.clone();
+    }
     case_space.revision.checksum.clear();
     latest.replay_checksum.clear();
     let checksum = case_space_checksum(case_space)?;
@@ -442,6 +446,14 @@ fn review_morphism(
     reviewer_id: &Id,
     reason: &str,
 ) -> Result<CaseMorphism, NativeCliError> {
+    if target_revision_id == source_revision_id {
+        return Err(NativeCliError::invalid(
+            "review target_revision_id must advance the revision",
+        ));
+    }
+    if reason.trim().is_empty() {
+        return Err(NativeCliError::invalid("review reason must not be empty"));
+    }
     let morphism_id = Id::new(format!(
         "morphism:review-reject:{}:{}",
         path_segment(rejected_morphism_id),
@@ -513,6 +525,12 @@ fn read_proposal(
     if value["schema"] != json!(PROPOSAL_SCHEMA) {
         return Err(NativeCliError::invalid(format!(
             "{}: unsupported proposal schema",
+            path.display()
+        )));
+    }
+    if value["schema_version"] != json!(NATIVE_CASE_SPACE_SCHEMA_VERSION) {
+        return Err(NativeCliError::invalid(format!(
+            "{}: unsupported proposal schema version",
             path.display()
         )));
     }

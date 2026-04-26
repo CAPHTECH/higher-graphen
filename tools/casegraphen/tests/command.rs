@@ -1113,10 +1113,16 @@ fn native_case_commands_create_import_list_inspect_history_and_replay() {
     );
 
     let replay = run_native_case_store_command(&directory, "replay");
+    let replay_json = stdout_json(&replay);
     assert_eq!(
-        stdout_json(&replay)["result"]["replay"]["case_space"]["case_space_id"],
+        replay_json["result"]["replay"]["case_space"]["case_space_id"],
         json!("case_space:native-case-management-contract")
     );
+    assert!(replay_json["result"]["replay"]["case_space"]["projections"]
+        .as_array()
+        .expect("projections")
+        .iter()
+        .all(|projection| projection["revision_id"] == json!("revision:native-cli-imported")));
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
@@ -1181,6 +1187,15 @@ fn native_reasoning_commands_emit_domain_reports_and_output_file() {
     assert_eq!(
         stdout_json(&close_check)["result"]["close_check"]["case_space_id"],
         json!(native_case_space_id())
+    );
+    assert!(
+        stdout_json(&close_check)["result"]["close_check"]["invariant_results"]
+            .as_array()
+            .expect("close invariants")
+            .iter()
+            .any(|invariant| invariant["invariant_id"]
+                == json!("close:native-projection-loss-declared")
+                && invariant["passed"] == json!(false))
     );
 
     for command in ["obstructions", "completions", "evidence", "project"] {
@@ -1328,10 +1343,88 @@ fn native_morphism_propose_check_apply_and_reject_flow() {
 }
 
 #[test]
+fn native_morphism_check_rejects_unsupported_proposal_version() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    import_native_case_space(&directory, "revision:native-cli-imported");
+
+    let morphism_path = directory.join("versioned.case_morphism.json");
+    write_native_metadata_morphism(
+        &morphism_path,
+        "morphism:native-cli-versioned",
+        "revision:native-cli-imported",
+        "revision:native-cli-versioned",
+    );
+    let propose = run_cli(&[
+        "morphism",
+        "propose",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--input",
+        morphism_path.to_str().expect("morphism path"),
+        "--format",
+        "json",
+    ]);
+    assert!(propose.status.success(), "stderr: {}", stderr(&propose));
+
+    let proposal_path = directory.join(
+        stdout_json(&propose)["result"]["proposal_path"]
+            .as_str()
+            .expect("proposal path"),
+    );
+    let mut proposal = json_file(proposal_path.clone());
+    proposal["schema_version"] = json!(2);
+    fs::write(
+        &proposal_path,
+        serde_json::to_string_pretty(&proposal).expect("serialize proposal"),
+    )
+    .expect("write proposal");
+
+    let check = run_cli(&[
+        "morphism",
+        "check",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--morphism-id",
+        "morphism:native-cli-versioned",
+        "--format",
+        "json",
+    ]);
+    assert!(!check.status.success());
+    assert!(stdout(&check).is_empty());
+    assert!(stderr(&check).contains("unsupported proposal schema version"));
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
 fn native_cli_invalid_targets_exit_nonzero() {
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
     import_native_case_space(&directory, "revision:native-cli-imported");
+
+    let blank_title = run_cli(&[
+        "case",
+        "new",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        "case_space:blank-title",
+        "--space-id",
+        "space:blank-title",
+        "--title",
+        "   ",
+        "--revision-id",
+        "revision:blank-title",
+        "--format",
+        "json",
+    ]);
+    assert!(!blank_title.status.success());
+    assert!(stderr(&blank_title).contains("case title must not be empty"));
 
     let missing_case = run_cli(&[
         "case",
@@ -1384,6 +1477,94 @@ fn native_cli_invalid_targets_exit_nonzero() {
     ]);
     assert!(!stale.status.success());
     assert!(stderr(&stale).contains("does not match current revision"));
+
+    let apply_morphism_path = directory.join("missing-review.case_morphism.json");
+    write_native_metadata_morphism(
+        &apply_morphism_path,
+        "morphism:native-cli-missing-review",
+        "revision:native-cli-imported",
+        "revision:native-cli-missing-review",
+    );
+    let propose_apply = run_cli(&[
+        "morphism",
+        "propose",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--input",
+        apply_morphism_path.to_str().expect("morphism path"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        propose_apply.status.success(),
+        "stderr: {}",
+        stderr(&propose_apply)
+    );
+    let missing_apply_reason = run_cli(&[
+        "morphism",
+        "apply",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--morphism-id",
+        "morphism:native-cli-missing-review",
+        "--base-revision-id",
+        "revision:native-cli-imported",
+        "--reviewer-id",
+        "reviewer:native-cli",
+        "--format",
+        "json",
+    ]);
+    assert!(!missing_apply_reason.status.success());
+    assert!(stderr(&missing_apply_reason).contains("--reason <text> is required"));
+
+    let reject_morphism_path = directory.join("same-revision-reject.case_morphism.json");
+    write_native_metadata_morphism(
+        &reject_morphism_path,
+        "morphism:native-cli-same-revision-reject",
+        "revision:native-cli-imported",
+        "revision:native-cli-reject-target",
+    );
+    let propose_reject = run_cli(&[
+        "morphism",
+        "propose",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--input",
+        reject_morphism_path.to_str().expect("morphism path"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        propose_reject.status.success(),
+        "stderr: {}",
+        stderr(&propose_reject)
+    );
+    let same_revision_reject = run_cli(&[
+        "morphism",
+        "reject",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--morphism-id",
+        "morphism:native-cli-same-revision-reject",
+        "--reviewer-id",
+        "reviewer:native-cli",
+        "--reason",
+        "Reject without advancing revision",
+        "--revision-id",
+        "revision:native-cli-imported",
+        "--format",
+        "json",
+    ]);
+    assert!(!same_revision_reject.status.success());
+    assert!(stderr(&same_revision_reject).contains("must advance the revision"));
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }

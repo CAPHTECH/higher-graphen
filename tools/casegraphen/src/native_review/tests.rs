@@ -2,12 +2,14 @@ use super::*;
 use crate::{
     native_eval::{evaluate_native_case, NativeReviewGapType},
     native_model::{
-        CaseCellLifecycle, CaseMorphismType, CaseRelation, CaseRelationType, MorphismLogEntry,
-        Projection, ProjectionAudience, RelationStrength, Revision, NATIVE_CASE_SPACE_SCHEMA,
-        NATIVE_CASE_SPACE_SCHEMA_VERSION, NATIVE_MORPHISM_LOG_ENTRY_SCHEMA,
+        CaseCell, CaseCellLifecycle, CaseMorphismType, CaseRelation, CaseRelationType,
+        MorphismLogEntry, Projection, ProjectionAudience, RelationStrength, Revision,
+        NATIVE_CASE_SPACE_SCHEMA, NATIVE_CASE_SPACE_SCHEMA_VERSION,
+        NATIVE_MORPHISM_LOG_ENTRY_SCHEMA,
     },
 };
-use higher_graphen_core::{Confidence, Provenance, SourceRef};
+use higher_graphen_core::{Confidence, Provenance, ReviewStatus, SourceKind, SourceRef};
+use serde_json::{json, Map};
 
 #[test]
 fn builds_review_morphisms_for_all_explicit_outcomes() {
@@ -86,6 +88,63 @@ fn invalid_review_target_is_rejected() {
 }
 
 #[test]
+fn generated_completion_review_does_not_preserve_virtual_target_id() {
+    let mut space = fixture_space();
+    space.case_cells.push(cell(
+        "work:needs-generated-evidence",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+        SourceKind::Human,
+        ReviewStatus::Reviewed,
+    ));
+    space.case_cells.push(cell(
+        "evidence:generated-placeholder",
+        CaseCellType::Evidence,
+        CaseCellLifecycle::Proposed,
+        SourceKind::Human,
+        ReviewStatus::Reviewed,
+    ));
+    space
+        .case_cells
+        .last_mut()
+        .expect("placeholder evidence")
+        .source_ids
+        .clear();
+    space.case_relations.push(relation(
+        "relation:needs-generated-evidence",
+        CaseRelationType::RequiresEvidence,
+        "work:needs-generated-evidence",
+        "evidence:generated-placeholder",
+    ));
+    refresh_added_ids(&mut space);
+    let candidate_id = evaluate_native_case(&space)
+        .expect("evaluation")
+        .completion_candidates
+        .into_iter()
+        .find(|candidate| {
+            candidate
+                .target_ids
+                .contains(&id("work:needs-generated-evidence"))
+        })
+        .expect("generated completion")
+        .id;
+
+    let review = defer_review_morphism(
+        &space,
+        request(
+            NativeReviewTargetKind::Completion,
+            candidate_id.as_str(),
+            ReviewAction::Defer,
+            "revision:defer-generated-completion",
+        ),
+    )
+    .expect("review generated completion");
+
+    assert!(review.preserved_ids.is_empty());
+    assert_eq!(review.metadata["target_id"], json!(candidate_id));
+}
+
+#[test]
 fn inferred_evidence_cannot_satisfy_close_until_reviewed_or_waived() {
     let mut space = fixture_space();
     space.case_cells.push(cell(
@@ -141,6 +200,67 @@ fn inferred_evidence_cannot_satisfy_close_until_reviewed_or_waived() {
 }
 
 #[test]
+fn close_requires_validation_evidence_to_name_existing_evidence() {
+    let space = fixture_space();
+    let close = check_native_close(
+        &space,
+        NativeCloseCheckRequest {
+            validation_evidence_ids: vec![id("evidence:missing")],
+            ..close_request()
+        },
+    )
+    .expect("close check");
+
+    assert!(!close.closeable);
+    assert!(close.blocker_ids.contains(&id("evidence:missing")));
+}
+
+#[test]
+fn close_evidence_requirement_requires_evidence_cell() {
+    let mut space = fixture_space();
+    space.case_cells.push(cell(
+        "work:needs-non-evidence",
+        CaseCellType::Work,
+        CaseCellLifecycle::Active,
+        SourceKind::Human,
+        ReviewStatus::Reviewed,
+    ));
+    space.case_cells.push(cell(
+        "case:not-evidence",
+        CaseCellType::Case,
+        CaseCellLifecycle::Accepted,
+        SourceKind::Document,
+        ReviewStatus::Accepted,
+    ));
+    space.case_cells.push(cell(
+        "evidence:validation",
+        CaseCellType::Evidence,
+        CaseCellLifecycle::Accepted,
+        SourceKind::Document,
+        ReviewStatus::Accepted,
+    ));
+    space.case_relations.push(relation(
+        "relation:needs-non-evidence",
+        CaseRelationType::RequiresEvidence,
+        "work:needs-non-evidence",
+        "case:not-evidence",
+    ));
+    refresh_added_ids(&mut space);
+
+    let close = check_native_close(
+        &space,
+        NativeCloseCheckRequest {
+            validation_evidence_ids: vec![id("evidence:validation")],
+            ..close_request()
+        },
+    )
+    .expect("close check");
+
+    assert!(!close.closeable);
+    assert!(close.blocker_ids.contains(&id("case:not-evidence")));
+}
+
+#[test]
 fn close_blocks_before_review_and_closes_after_reviews_and_declarations() {
     let mut space = fixture_space_with_completion();
 
@@ -186,6 +306,82 @@ fn close_blocks_before_review_and_closes_after_reviews_and_declarations() {
     .expect("close check");
 
     assert!(close.closeable);
+}
+
+#[test]
+fn reopen_review_morphism_reopens_completion_for_close() {
+    let mut space = fixture_space_with_completion();
+    let completion_review = defer_review_morphism(
+        &space,
+        request(
+            NativeReviewTargetKind::Completion,
+            "completion:source-backed-evidence",
+            ReviewAction::Defer,
+            "revision:completion-deferred",
+        ),
+    )
+    .expect("defer completion");
+    append_review_for_test(&mut space, completion_review, "entry:completion-deferred");
+    let morphism_review = accept_review_morphism(
+        &space,
+        request_for_space(
+            &space,
+            NativeReviewTargetKind::Morphism,
+            "morphism:generated",
+            ReviewAction::Accept,
+            "revision:morphism-reviewed",
+        ),
+    )
+    .expect("accept generated morphism");
+    append_review_for_test(&mut space, morphism_review, "entry:morphism-reviewed");
+    let reopened = reopen_review_morphism(
+        &space,
+        request_for_space(
+            &space,
+            NativeReviewTargetKind::Completion,
+            "completion:source-backed-evidence",
+            ReviewAction::Reopen,
+            "revision:completion-reopened",
+        ),
+    )
+    .expect("reopen completion");
+    append_review_for_test(&mut space, reopened, "entry:completion-reopened");
+
+    let close = check_native_close(
+        &space,
+        NativeCloseCheckRequest {
+            declared_projection_loss_ids: vec![id("projection:lossy")],
+            ..close_request_for(&space)
+        },
+    )
+    .expect("close check");
+
+    assert!(!close.closeable);
+    assert!(close
+        .blocker_ids
+        .contains(&id("completion:source-backed-evidence")));
+}
+
+#[test]
+fn unreviewed_review_morphism_does_not_satisfy_close() {
+    let mut space = fixture_space_with_completion();
+    let mut projection_review = accept_review_morphism(
+        &space,
+        request(
+            NativeReviewTargetKind::Waiver,
+            "projection:lossy",
+            ReviewAction::Accept,
+            "revision:projection-unreviewed",
+        ),
+    )
+    .expect("accept projection loss");
+    projection_review.review_status = ReviewStatus::Unreviewed;
+    append_review_for_test(&mut space, projection_review, "entry:projection-unreviewed");
+
+    let close = check_native_close(&space, close_request_for(&space)).expect("close check");
+
+    assert!(!close.closeable);
+    assert!(close.blocker_ids.contains(&id("projection:lossy")));
 }
 
 #[test]
@@ -256,10 +452,14 @@ fn fixture_space_with_completion() -> CaseSpace {
     space.revision.revision_id = id("revision:generated");
     space.revision.parent_revision_id = Some(id("revision:fixture"));
     space.revision.applied_morphism_ids = vec![id("morphism:generated")];
+    space.revision.checksum = "fixture-generated".to_owned();
     space.morphism_log[1].target_revision_id = space.revision.revision_id.clone();
     space.morphism_log[1].morphism.target_revision_id = space.revision.revision_id.clone();
     space.morphism_log[1].source_revision_id = Some(id("revision:fixture"));
     space.morphism_log[1].morphism.source_revision_id = Some(id("revision:fixture"));
+    for projection in &mut space.projections {
+        projection.revision_id = space.revision.revision_id.clone();
+    }
     space
 }
 
@@ -378,6 +578,10 @@ fn append_review_for_test(space: &mut CaseSpace, morphism: CaseMorphism, entry_i
     });
     space.revision.revision_id = target_revision_id;
     space.revision.parent_revision_id = Some(previous_revision_id);
+    space.revision.checksum = "fixture-review".to_owned();
+    for projection in &mut space.projections {
+        projection.revision_id = space.revision.revision_id.clone();
+    }
 }
 
 fn refresh_added_ids(space: &mut CaseSpace) {
@@ -476,8 +680,15 @@ fn close_request() -> NativeCloseCheckRequest {
 }
 
 fn close_request_for(space: &CaseSpace) -> NativeCloseCheckRequest {
+    let validation_evidence_ids = space
+        .case_cells
+        .iter()
+        .find(|cell| cell.cell_type == CaseCellType::Evidence)
+        .map(|cell| vec![cell.id.clone()])
+        .unwrap_or_else(|| close_request().validation_evidence_ids);
     NativeCloseCheckRequest {
         base_revision_id: space.revision.revision_id.clone(),
+        validation_evidence_ids,
         ..close_request()
     }
 }

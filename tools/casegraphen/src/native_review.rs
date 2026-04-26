@@ -1,17 +1,16 @@
 use crate::{
     native_eval::{
-        evaluate_native_case, NativeCaseEvaluation, NativeCloseInvariantResult,
-        NativeCompletionCandidate, NativeEvalError, NativeObstruction, NativeReviewGapType,
+        evaluate_native_case, NativeCaseEvaluation, NativeCloseInvariantResult, NativeEvalError,
+        NativeReviewGapType,
     },
-    native_model::{
-        CaseCell, CaseCellType, CaseMorphism, CaseMorphismType, CaseRelationType, CaseSpace,
-        EvidenceBoundary, ReviewAction,
-    },
+    native_model::{CaseCellType, CaseMorphism, CaseSpace, ReviewAction},
 };
-use higher_graphen_core::{Id, ReviewStatus, Severity, SourceKind};
+use higher_graphen_core::{Id, ReviewStatus};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
+
+mod support;
+use support::*;
 
 const REVIEW_SCHEMA_VERSION: u32 = 1;
 
@@ -121,15 +120,7 @@ pub fn build_review_morphism(
     request.action = action;
     require_review_request(case_space, &request)?;
     let outcome_review_status = outcome_status(action);
-    let morphism_type = match (request.target_kind, action) {
-        (NativeReviewTargetKind::Completion, ReviewAction::Accept) => {
-            CaseMorphismType::CompletionAccept
-        }
-        (NativeReviewTargetKind::Completion, ReviewAction::Reject) => {
-            CaseMorphismType::CompletionReject
-        }
-        _ => CaseMorphismType::Review,
-    };
+    let morphism_type = morphism_type_for_review(request.target_kind, action);
     let mut source_ids = dedupe_ids(
         request
             .source_ids
@@ -158,7 +149,11 @@ pub fn build_review_morphism(
         added_ids: Vec::new(),
         updated_ids: Vec::new(),
         retired_ids: Vec::new(),
-        preserved_ids: vec![request.target_id.clone()],
+        preserved_ids: if has_known_id(case_space, &request.target_id) {
+            vec![request.target_id.clone()]
+        } else {
+            Vec::new()
+        },
         violated_invariant_ids: Vec::new(),
         review_status: ReviewStatus::Accepted,
         evidence_ids: request.evidence_ids.clone(),
@@ -324,13 +319,25 @@ fn validation_evidence_invariant(
     case_space: &CaseSpace,
     request: &NativeCloseCheckRequest,
 ) -> NativeCloseInvariantResult {
+    let evidence_ids = case_space
+        .case_cells
+        .iter()
+        .filter(|cell| cell.cell_type == CaseCellType::Evidence)
+        .map(|cell| cell.id.clone())
+        .collect::<BTreeSet<_>>();
+    let witness_ids = if request.validation_evidence_ids.is_empty() {
+        vec![case_space.revision.revision_id.clone()]
+    } else {
+        request
+            .validation_evidence_ids
+            .iter()
+            .filter(|id| !evidence_ids.contains(*id))
+            .cloned()
+            .collect()
+    };
     close_invariant(
         "close:native-validation-evidence-named",
-        if request.validation_evidence_ids.is_empty() {
-            vec![case_space.revision.revision_id.clone()]
-        } else {
-            Vec::new()
-        },
+        witness_ids,
         "Close checks must name validation evidence for the exact revision.",
     )
 }
@@ -437,302 +444,6 @@ fn require_cell_target(
         Ok(())
     } else {
         Err(error(format!("unknown {label} target {target_id}")))
-    }
-}
-
-fn review_metadata(
-    request: &NativeReviewRequest,
-    outcome_review_status: ReviewStatus,
-    morphism_id: &Id,
-) -> Map<String, Value> {
-    let mut metadata = Map::new();
-    metadata.insert(
-        "native_review_schema_version".to_owned(),
-        json!(REVIEW_SCHEMA_VERSION),
-    );
-    metadata.insert(
-        "review_id".to_owned(),
-        json!(generated_id("review", &[morphism_id.as_str()])),
-    );
-    metadata.insert("target_kind".to_owned(), json!(request.target_kind));
-    metadata.insert("target_id".to_owned(), json!(request.target_id));
-    metadata.insert("action".to_owned(), json!(request.action));
-    metadata.insert(
-        "outcome_review_status".to_owned(),
-        json!(outcome_review_status),
-    );
-    metadata.insert("reviewer_id".to_owned(), json!(request.reviewer_id));
-    metadata.insert("reviewed_at".to_owned(), json!(request.reviewed_at));
-    metadata.insert("reason".to_owned(), json!(request.reason.trim()));
-    metadata
-}
-
-fn explicit_reviews(case_space: &CaseSpace) -> BTreeMap<Id, Vec<ExplicitReview>> {
-    let mut reviews = BTreeMap::<Id, Vec<ExplicitReview>>::new();
-    for morphism in case_space.morphism_log.iter().map(|entry| &entry.morphism) {
-        let Some(target_id) = metadata_id(&morphism.metadata, "target_id") else {
-            continue;
-        };
-        let Some(action) = metadata_review_action(&morphism.metadata, "action") else {
-            continue;
-        };
-        let Some(_target_kind) = metadata_target_kind(&morphism.metadata, "target_kind") else {
-            continue;
-        };
-        reviews
-            .entry(target_id.clone())
-            .or_default()
-            .push(ExplicitReview {
-                target_id,
-                action,
-                outcome: metadata_review_status(&morphism.metadata, "outcome_review_status")
-                    .unwrap_or_else(|| outcome_status(action)),
-            });
-    }
-    reviews
-}
-
-#[derive(Clone, Debug)]
-struct ExplicitReview {
-    target_id: Id,
-    action: ReviewAction,
-    outcome: ReviewStatus,
-}
-
-fn unresolved_hard_obstruction(
-    obstruction: &NativeObstruction,
-    reviews: &BTreeMap<Id, Vec<ExplicitReview>>,
-) -> bool {
-    if !obstruction.blocking || !matches!(obstruction.severity, Severity::High | Severity::Critical)
-    {
-        return false;
-    }
-    !target_has_action(reviews, &obstruction.id, ReviewAction::Waive)
-        && !target_has_action(reviews, &obstruction.id, ReviewAction::Defer)
-}
-
-fn completion_reviewed_or_deferred(
-    candidate: &NativeCompletionCandidate,
-    reviews: &BTreeMap<Id, Vec<ExplicitReview>>,
-) -> bool {
-    candidate.review_status.has_review_action()
-        || target_has_terminal_review(reviews, &candidate.id)
-}
-
-fn evidence_requirement_blockers(
-    case_space: &CaseSpace,
-    reviews: &BTreeMap<Id, Vec<ExplicitReview>>,
-) -> Vec<Id> {
-    let cells = case_space
-        .case_cells
-        .iter()
-        .map(|cell| (cell.id.clone(), cell))
-        .collect::<BTreeMap<_, _>>();
-    let mut blockers = Vec::new();
-    for relation in case_space
-        .case_relations
-        .iter()
-        .filter(|relation| relation.relation_type == CaseRelationType::RequiresEvidence)
-    {
-        if target_has_action(reviews, &relation.id, ReviewAction::Waive)
-            || target_has_action(reviews, &relation.to_id, ReviewAction::Waive)
-        {
-            continue;
-        }
-        let acceptable = cells
-            .get(&relation.to_id)
-            .is_some_and(|cell| evidence_acceptable_for_close(cell, reviews));
-        if !acceptable {
-            blockers.push(relation.to_id.clone());
-        }
-    }
-    dedupe_ids(blockers)
-}
-
-fn evidence_acceptable_for_close(
-    cell: &CaseCell,
-    reviews: &BTreeMap<Id, Vec<ExplicitReview>>,
-) -> bool {
-    if cell.provenance.review_status == ReviewStatus::Rejected
-        || target_has_action(reviews, &cell.id, ReviewAction::Reject)
-    {
-        return false;
-    }
-    let boundary = cell
-        .metadata
-        .get("evidence_boundary")
-        .and_then(Value::as_str)
-        .map(evidence_boundary_value)
-        .unwrap_or_else(|| {
-            if cell.provenance.source.kind == SourceKind::Ai {
-                EvidenceBoundary::Inferred
-            } else {
-                EvidenceBoundary::SourceBacked
-            }
-        });
-    let review_promoted = target_has_action(reviews, &cell.id, ReviewAction::Accept);
-    let has_source = !cell.source_ids.is_empty();
-    let accepted = cell.provenance.review_status == ReviewStatus::Accepted;
-    match boundary {
-        EvidenceBoundary::SourceBacked => has_source,
-        EvidenceBoundary::ReviewPromoted => has_source && (accepted || review_promoted),
-        EvidenceBoundary::Inferred => has_source && review_promoted,
-        EvidenceBoundary::Rejected | EvidenceBoundary::Contradicting => false,
-    }
-}
-
-fn evidence_boundary_value(value: &str) -> EvidenceBoundary {
-    match value {
-        "source_backed" | "source_backed_evidence" => EvidenceBoundary::SourceBacked,
-        "review_promoted" | "review_promotion" => EvidenceBoundary::ReviewPromoted,
-        "rejected" => EvidenceBoundary::Rejected,
-        "contradicting" => EvidenceBoundary::Contradicting,
-        _ => EvidenceBoundary::Inferred,
-    }
-}
-
-fn target_has_terminal_review(reviews: &BTreeMap<Id, Vec<ExplicitReview>>, target_id: &Id) -> bool {
-    reviews.get(target_id).is_some_and(|reviews| {
-        reviews.iter().any(|review| {
-            matches!(
-                review.action,
-                ReviewAction::Accept | ReviewAction::Reject | ReviewAction::Defer
-            ) && review.outcome.has_review_action()
-        })
-    })
-}
-
-fn target_has_action(
-    reviews: &BTreeMap<Id, Vec<ExplicitReview>>,
-    target_id: &Id,
-    action: ReviewAction,
-) -> bool {
-    reviews.get(target_id).is_some_and(|reviews| {
-        reviews
-            .iter()
-            .any(|review| review.target_id == *target_id && review.action == action)
-    })
-}
-
-fn metadata_id(metadata: &Map<String, Value>, key: &str) -> Option<Id> {
-    metadata
-        .get(key)?
-        .as_str()
-        .and_then(|value| Id::new(value).ok())
-}
-
-fn metadata_review_action(metadata: &Map<String, Value>, key: &str) -> Option<ReviewAction> {
-    serde_json::from_value(metadata.get(key)?.clone()).ok()
-}
-
-fn metadata_target_kind(
-    metadata: &Map<String, Value>,
-    key: &str,
-) -> Option<NativeReviewTargetKind> {
-    serde_json::from_value(metadata.get(key)?.clone()).ok()
-}
-
-fn metadata_review_status(metadata: &Map<String, Value>, key: &str) -> Option<ReviewStatus> {
-    serde_json::from_value(metadata.get(key)?.clone()).ok()
-}
-
-fn close_invariant(
-    invariant_id: &str,
-    witness_ids: Vec<Id>,
-    message: &str,
-) -> NativeCloseInvariantResult {
-    NativeCloseInvariantResult {
-        invariant_id: id(invariant_id),
-        passed: witness_ids.is_empty(),
-        severity: Severity::High,
-        witness_ids,
-        message: Some(message.to_owned()),
-    }
-}
-
-fn outcome_status(action: ReviewAction) -> ReviewStatus {
-    match action {
-        ReviewAction::Accept | ReviewAction::Waive => ReviewStatus::Accepted,
-        ReviewAction::Reject => ReviewStatus::Rejected,
-        ReviewAction::Reopen => ReviewStatus::Unreviewed,
-        ReviewAction::Defer | ReviewAction::Supersede => ReviewStatus::Reviewed,
-    }
-}
-
-fn has_known_id(case_space: &CaseSpace, target_id: &Id) -> bool {
-    case_space
-        .case_cells
-        .iter()
-        .any(|cell| cell.id == *target_id)
-        || case_space
-            .case_relations
-            .iter()
-            .any(|relation| relation.id == *target_id)
-        || case_space
-            .projections
-            .iter()
-            .any(|projection| projection.projection_id == *target_id)
-        || case_space
-            .morphism_log
-            .iter()
-            .any(|entry| entry.entry_id == *target_id || entry.morphism_id == *target_id)
-        || case_space.revision.revision_id == *target_id
-}
-
-fn target_kind_stem(target_kind: NativeReviewTargetKind) -> &'static str {
-    match target_kind {
-        NativeReviewTargetKind::Completion => "completion",
-        NativeReviewTargetKind::Evidence => "evidence",
-        NativeReviewTargetKind::Morphism => "morphism",
-        NativeReviewTargetKind::ResidualRisk => "residual-risk",
-        NativeReviewTargetKind::Waiver => "waiver",
-    }
-}
-
-fn action_stem(action: ReviewAction) -> &'static str {
-    match action {
-        ReviewAction::Accept => "accept",
-        ReviewAction::Reject => "reject",
-        ReviewAction::Reopen => "reopen",
-        ReviewAction::Waive => "waive",
-        ReviewAction::Defer => "defer",
-        ReviewAction::Supersede => "supersede",
-    }
-}
-
-fn generated_id(prefix: &str, parts: &[&str]) -> Id {
-    let suffix = parts
-        .iter()
-        .map(|part| sanitize(part))
-        .collect::<Vec<_>>()
-        .join(":");
-    id(&format!("{prefix}:{suffix}"))
-}
-
-fn dedupe_ids(ids: Vec<Id>) -> Vec<Id> {
-    ids.into_iter()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
-fn id(value: &str) -> Id {
-    Id::new(value).expect("static or generated id")
-}
-
-fn sanitize(value: &str) -> String {
-    value
-        .chars()
-        .map(|character| match character {
-            'a'..='z' | 'A'..='Z' | '0'..='9' => character,
-            _ => '-',
-        })
-        .collect()
-}
-
-fn error(message: impl Into<String>) -> NativeReviewError {
-    NativeReviewError {
-        message: message.into(),
     }
 }
 

@@ -50,6 +50,10 @@ fn collect_declared_ids(
     for entry in &case_space.morphism_log {
         insert_id(&mut ids, violations, &entry.entry_id, "morphism_log_entry");
         insert_id(&mut ids, violations, &entry.morphism_id, "morphism");
+        ids.insert(entry.target_revision_id.clone());
+        if let Some(source_revision_id) = &entry.source_revision_id {
+            ids.insert(source_revision_id.clone());
+        }
     }
     ids
 }
@@ -102,6 +106,13 @@ fn validate_projection_references(
     violations: &mut Vec<NativeEvalViolation>,
 ) {
     for projection in &case_space.projections {
+        require_id(
+            ids,
+            violations,
+            &projection.projection_id,
+            "projection.revision_id",
+            &projection.revision_id,
+        );
         for cell_id in projection
             .represented_cell_ids
             .iter()
@@ -126,6 +137,19 @@ fn validate_projection_references(
                 &projection.projection_id,
                 "projection_relation_ids",
                 relation_id,
+            );
+        }
+        for loss_id in projection
+            .information_loss
+            .iter()
+            .flat_map(|loss| loss.represented_ids.iter().chain(&loss.omitted_ids))
+        {
+            require_id(
+                ids,
+                violations,
+                &projection.projection_id,
+                "projection.information_loss.ids",
+                loss_id,
             );
         }
     }
@@ -163,6 +187,15 @@ fn validate_morphism_log(
     ids: &BTreeSet<Id>,
     violations: &mut Vec<NativeEvalViolation>,
 ) {
+    if case_space.morphism_log.is_empty() {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::InvalidMorphismLog,
+            Some(&case_space.revision.revision_id),
+            "morphism_log",
+            "case space morphism_log must not be empty",
+        );
+    }
     let mut expected_sequence = 1;
     let mut previous_target_revision_id = None::<Id>;
     for entry in &case_space.morphism_log {
@@ -200,6 +233,18 @@ fn validate_log_entry_contract(
             Some(&entry.entry_id),
             "schema",
             "morphism log entry schema mismatch",
+        );
+    }
+    if entry.schema_version != NATIVE_CASE_SPACE_SCHEMA_VERSION {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::UnsupportedSchemaVersion,
+            Some(&entry.entry_id),
+            "schema_version",
+            format!(
+                "unsupported morphism log schema version {}; expected {}",
+                entry.schema_version, NATIVE_CASE_SPACE_SCHEMA_VERSION
+            ),
         );
     }
     if entry.case_space_id != case_space.case_space_id {
@@ -251,6 +296,15 @@ fn validate_morphism_contract(
         "entry target_revision_id must match nested morphism.target_revision_id",
         violations,
     );
+    if previous_target_revision_id.is_none() && entry.source_revision_id.is_some() {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::InvalidMorphismLog,
+            Some(&entry.entry_id),
+            "source_revision_id",
+            "first morphism log entry must not set source_revision_id",
+        );
+    }
     if previous_target_revision_id.is_some()
         && entry.source_revision_id.as_ref() != previous_target_revision_id
     {
@@ -295,6 +349,26 @@ fn validate_materialized_revision(
             "revision.revision_id",
             "materialized revision must match the latest morphism log target revision",
         );
+    }
+    if case_space.revision.case_space_id != case_space.case_space_id {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::InvalidMorphismLog,
+            Some(&case_space.revision.revision_id),
+            "revision.case_space_id",
+            "materialized revision must belong to the case space",
+        );
+    }
+    if let Some(latest) = case_space.morphism_log.last() {
+        if case_space.revision.checksum != latest.replay_checksum {
+            push_violation(
+                violations,
+                NativeEvalViolationCode::InvalidMorphismLog,
+                Some(&case_space.revision.revision_id),
+                "revision.checksum",
+                "materialized revision checksum must match the latest morphism replay checksum",
+            );
+        }
     }
 }
 

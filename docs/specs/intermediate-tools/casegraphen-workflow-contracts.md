@@ -890,22 +890,34 @@ casegraphen workflow readiness --input workflow.graph.json --format json [--proj
 casegraphen workflow obstructions --input workflow.graph.json --format json [--output report.json]
 casegraphen workflow completions --input workflow.graph.json --format json [--output report.json]
 casegraphen workflow evidence --input workflow.graph.json --format json [--output report.json]
-casegraphen workflow transition check --from before.workflow.json --to after.workflow.json --format json [--output report.json]
 casegraphen workflow project --input workflow.graph.json --projection projection.json --format json [--output report.json]
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json [--output report.json]
 casegraphen workflow evolution --input workflow.graph.json --format json [--output report.json]
 ```
 
-The first implemented workflow CLI surface is:
+There is no implemented standalone `casegraphen workflow transition check`
+command. Reviewable transition checks are handled by the repo-owned workflow
+bridge as `casegraphen cg workflow patch check`.
+
+The implemented file-based workflow CLI surface is:
 
 ```sh
 casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow validate --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow readiness --input <workflow.graph.json> --format json [--projection <projection.json>] [--output <path>]
+casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
+casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
+casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
 ```
 
-It reads `highergraphen.case.workflow.graph.v1` inputs with
+These commands read `highergraphen.case.workflow.graph.v1` inputs with
 `read_workflow_graph`, derives readiness, obstruction, completion, evidence
 boundary, projection, correspondence, and evolution results, and emits the
-`highergraphen.case.workflow.report.v1` report. The command is read-only:
+`highergraphen.case.workflow.report.v1` aggregate report or focused
+operation-specific report envelopes. The commands are read-only:
 domain findings such as blocked work, missing proof, unreviewed completion
 candidates, or projection loss remain successful JSON report results and do not
 mutate the workflow graph.

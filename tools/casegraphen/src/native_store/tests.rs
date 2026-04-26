@@ -106,6 +106,32 @@ fn import_rejects_unsupported_case_space_schema() {
 }
 
 #[test]
+fn import_rejects_multi_entry_materialized_log_without_partial_write() {
+    let root = temp_root("multi-entry-import");
+    let store = NativeCaseStore::new(root.clone());
+    let mut case_space = fixture_space();
+    let mut second_entry = case_space.morphism_log[0].clone();
+    second_entry.sequence = 2;
+    second_entry.entry_id = id("morphism_log_entry:second");
+    second_entry.morphism_id = id("morphism:second");
+    second_entry.source_revision_id = Some(case_space.revision.revision_id.clone());
+    second_entry.target_revision_id = id("revision:second");
+    second_entry.morphism.morphism_id = second_entry.morphism_id.clone();
+    second_entry.morphism.source_revision_id = second_entry.source_revision_id.clone();
+    second_entry.morphism.target_revision_id = second_entry.target_revision_id.clone();
+    case_space.morphism_log.push(second_entry);
+
+    let error = store
+        .import_case_space(&case_space)
+        .expect_err("multi-entry imports are not materializable without prior snapshots");
+
+    assert!(matches!(error, NativeStoreError::ReplayMismatch { .. }));
+    assert!(!store.log_path(&case_space.case_space_id).exists());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn history_rejects_malformed_log_sequence() {
     let root = temp_root("bad-history");
     let store = NativeCaseStore::new(root.clone());
@@ -155,6 +181,35 @@ fn append_rejects_unmaterialized_payload_changes() {
     let error = store
         .append_morphism(&case_space.case_space_id, entry)
         .expect_err("unsupported payload changes");
+    assert!(matches!(error, NativeStoreError::InvalidMorphism { .. }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn append_rejects_morphism_that_does_not_advance_revision() {
+    let root = temp_root("same-revision-append");
+    let store = NativeCaseStore::new(root.clone());
+    let case_space = fixture_space();
+    store
+        .import_case_space(&case_space)
+        .expect("import native case space");
+    let mut entry = case_space.morphism_log[0].clone();
+    entry.sequence = 2;
+    entry.entry_id = id("morphism_log_entry:same-revision");
+    entry.morphism_id = id("morphism:same-revision");
+    entry.source_revision_id = Some(case_space.revision.revision_id.clone());
+    entry.target_revision_id = case_space.revision.revision_id.clone();
+    entry.morphism.morphism_id = entry.morphism_id.clone();
+    entry.morphism.source_revision_id = entry.source_revision_id.clone();
+    entry.morphism.target_revision_id = entry.target_revision_id.clone();
+    entry.morphism.added_ids = Vec::new();
+    entry.morphism.updated_ids = Vec::new();
+    entry.morphism.retired_ids = Vec::new();
+
+    let error = store
+        .append_morphism(&case_space.case_space_id, entry)
+        .expect_err("same revision append");
     assert!(matches!(error, NativeStoreError::InvalidMorphism { .. }));
 
     let _ = fs::remove_dir_all(root);

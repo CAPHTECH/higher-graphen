@@ -480,7 +480,7 @@ Morphism commands:
 ```sh
 casegraphen morphism propose --store <dir> --case-space-id <id> --input <case_morphism.json> --format json
 casegraphen morphism check --store <dir> --case-space-id <id> --morphism-id <id> --format json
-casegraphen morphism apply --store <dir> --case-space-id <id> --morphism-id <id> --base-revision-id <id> --format json
+casegraphen morphism apply --store <dir> --case-space-id <id> --morphism-id <id> --base-revision-id <id> --reviewer-id <id> --reason <text> --format json
 casegraphen morphism reject --store <dir> --case-space-id <id> --morphism-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json
 ```
 
@@ -491,7 +491,7 @@ into a native proposal area under the supplied store root, checked against the
 current replayed case-space revision, then either appended through
 `morphism apply` or rejected by an explicit review morphism.
 
-Review commands:
+Planned review commands:
 
 ```sh
 casegraphen review list --store <dir> --case-space-id <id> --format json
@@ -500,6 +500,10 @@ casegraphen review reject --store <dir> --case-space-id <id> --target-id <id> --
 casegraphen review reopen --store <dir> --case-space-id <id> --target-id <id> --reviewer-id <id> --reason <text> --format json
 casegraphen review waive --store <dir> --case-space-id <id> --target-id <id> --reviewer-id <id> --reason <text> --format json
 ```
+
+These `review ...` commands are not implemented in the current CLI. Until that
+surface exists, review state is represented through native morphism
+proposal/check/apply/reject flows and metadata-only review morphisms.
 
 Package API targets:
 
@@ -529,10 +533,13 @@ and product runtime packages.
 
 ## Schema And Package Contract Notes
 
-The first native package contract is intentionally schema/API-only. It defines
-strict serde model boundaries in `tools/casegraphen/src/native_model.rs` and a
-stable report envelope in `tools/casegraphen/src/native_report.rs`; it does not
-implement stores, reducers, review commands, close workflows, or CLI routing.
+The native package contract defines strict serde model boundaries in
+`tools/casegraphen/src/native_model.rs`, a stable package-level report envelope
+in `tools/casegraphen/src/native_report.rs`, and the current file-backed native
+store, evaluator, close-check, and CLI routing in `tools/casegraphen/src/`.
+Review commands and arbitrary payload materialization remain planned; current
+mutation is intentionally bounded to metadata-only morphism append/reject
+flows.
 
 Versioned JSON contracts live in:
 
@@ -601,8 +608,9 @@ Migration sequence:
 5. Compare native reports against current workflow reports until parity is
    sufficient.
 6. Move operator docs from `casegraphen cg workflow ...` bridge commands to
-   native `casegraphen case ...`, `casegraphen morphism ...`, and
-   `casegraphen review ...` commands.
+   native `casegraphen case ...` and `casegraphen morphism ...` commands;
+   include `casegraphen review ...` only after that planned command surface is
+   implemented.
 
 ## Verification Strategy And Implementation Sequence
 
@@ -625,22 +633,25 @@ Verification layers:
 - CLI JSON report tests for every native command;
 - storage validation tests proving caches are replayable and non-authoritative.
 
-Recommended implementation sequence:
+Recommended implementation sequence and status:
 
 1. Add native schemas and Rust model records for `CaseSpace`, `CaseCell`,
    `CaseRelation`, `CaseMorphism`, `MorphismLogEntry`, `Revision`, and
-   projection requests.
+   projection requests. Implemented.
 2. Implement log replay, validation, and deterministic revision checksums.
+   Implemented.
 3. Implement derived readiness, obstruction, completion, evidence, projection,
-   and evolution evaluators over the replayed space.
-4. Implement native store operations and storage validation.
-5. Add read-only CLI commands: `case list`, `case inspect`, `case validate`,
-   `case readiness`, `case frontier`, `case blockers`, `case project`, and
-   `case evolution`.
-6. Add morphism proposal/check/replay/history commands.
-7. Add reviewed mutation commands for morphism apply/reject and review
-   accept/reject/reopen/waive.
-8. Add close-check and close commands.
+   and evolution evaluators over the replayed space. Implemented.
+4. Implement native store operations and storage validation. Implemented.
+5. Add read-only CLI commands: `case list`, `case inspect`, `case history`,
+   `case replay`, `case validate`, `case reason`, `case frontier`,
+   `case obstructions`, `case completions`, `case evidence`, and
+   `case project`. Implemented.
+6. Add morphism proposal/check/apply/reject commands with conservative
+   metadata-only materialization. Implemented.
+7. Add close-check. Implemented.
+8. Add full review commands, arbitrary typed morphism reducers, and native
+   `case close`. Planned.
 9. Add migration from current workflow graph stores and keep the bridge
    documented as transitional.
 10. Update skills, examples, and verification gates after command names are

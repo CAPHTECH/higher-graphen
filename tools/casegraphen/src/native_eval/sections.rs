@@ -510,18 +510,16 @@ pub(super) fn close_check_skeleton(
 pub(super) fn acceptable_evidence(cell: &CaseCell) -> bool {
     cell.cell_type == CaseCellType::Evidence
         && cell.provenance.review_status != ReviewStatus::Rejected
-        && !matches!(
-            evidence_boundary(cell),
-            EvidenceBoundary::Inferred
-                | EvidenceBoundary::Rejected
-                | EvidenceBoundary::Contradicting
-        )
-        && (cell.provenance.review_status == ReviewStatus::Accepted
-            || matches!(
-                evidence_boundary(cell),
-                EvidenceBoundary::SourceBacked | EvidenceBoundary::ReviewPromoted
-            ))
         && !cell.source_ids.is_empty()
+        && match evidence_boundary(cell) {
+            EvidenceBoundary::SourceBacked => true,
+            EvidenceBoundary::ReviewPromoted => {
+                cell.provenance.review_status == ReviewStatus::Accepted
+            }
+            EvidenceBoundary::Inferred
+            | EvidenceBoundary::Rejected
+            | EvidenceBoundary::Contradicting => false,
+        }
 }
 
 fn evidence_boundary(cell: &CaseCell) -> EvidenceBoundary {

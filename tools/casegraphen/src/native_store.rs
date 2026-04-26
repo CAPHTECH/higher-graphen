@@ -27,6 +27,7 @@ impl NativeCaseStore {
         case_space: &CaseSpace,
     ) -> NativeStoreResult<NativeCaseSpaceRecord> {
         require_case_space_contract(&self.root, case_space)?;
+        require_importable_materialized_log(&self.root, case_space)?;
         validate_materialized_log(&self.root, case_space)?;
 
         let case_dir = self.case_dir(&case_space.case_space_id);
@@ -325,6 +326,12 @@ fn validate_append(
             ),
         });
     }
+    if entry.target_revision_id == current.revision.revision_id {
+        return Err(invalid_morphism(
+            path,
+            "entry target_revision_id must advance the revision",
+        ));
+    }
     if existing_entries
         .iter()
         .any(|existing| existing.entry_id == entry.entry_id)
@@ -422,6 +429,38 @@ fn validate_log_entries(
         let snapshot = read_case_space(&snapshot_path)?;
         require_case_space_matches_entry(&snapshot_path, &snapshot, entry)?;
         previous_revision_id = Some(entry.target_revision_id.clone());
+    }
+    Ok(())
+}
+
+fn require_importable_materialized_log(
+    path: &Path,
+    case_space: &CaseSpace,
+) -> NativeStoreResult<()> {
+    if case_space.morphism_log.len() != 1 {
+        return Err(NativeStoreError::ReplayMismatch {
+            path: path.to_owned(),
+            reason: "native import requires a single materialized genesis log entry; append later morphisms through the native store".to_owned(),
+        });
+    }
+
+    let entry = &case_space.morphism_log[0];
+    require_log_entry_contract(path, entry)?;
+    require_entry_morphism_match(path, entry)?;
+    if entry.sequence != 1 {
+        return Err(NativeStoreError::ReplayMismatch {
+            path: path.to_owned(),
+            reason: format!(
+                "first morphism log entry has sequence {}, expected 1",
+                entry.sequence
+            ),
+        });
+    }
+    if entry.source_revision_id.is_some() {
+        return Err(NativeStoreError::ReplayMismatch {
+            path: path.to_owned(),
+            reason: "first morphism log entry must not set source_revision_id".to_owned(),
+        });
     }
     Ok(())
 }

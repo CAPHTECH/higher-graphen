@@ -36,7 +36,9 @@
     "casegraphen_native_case_commands": [
       "casegraphen case new --store casegraphen-native-store --case-space-id case_space:id --space-id space:id --title title --revision-id revision:id --format json",
       "casegraphen case import --store casegraphen-native-store --input native.case.space.json --revision-id revision:id --format json",
+      "casegraphen case list --store casegraphen-native-store --format json",
       "casegraphen case inspect --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case history --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case replay --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case validate --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case reason --store casegraphen-native-store --case-space-id case_space:id --format json",
