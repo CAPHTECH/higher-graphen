@@ -1,0 +1,12 @@
+case_id: hg_math_type_level_contracts
+title: Type-level structural contracts
+description: Strengthen type-theory-inspired invalid-state prevention across foundational records so construction and deserialization enforce the same invariants for IDs, dimensions, scopes, statuses, and result payloads.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.772Z
+updated_at: 2026-04-26T12:44:18.921Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4X3F39NG0W1K09N62THRAC

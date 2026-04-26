@@ -1,0 +1,12 @@
+case_id: hg_math_bayesian_confidence
+title: Bayesian confidence update model
+description: Add a Bayesian-inspired confidence update layer for structural claims while preserving the existing rule that confidence is not review acceptance.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:28.006Z
+updated_at: 2026-04-26T12:54:38.106Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4XPBRTY9R1V8HCTS40TDXN

@@ -5,6 +5,7 @@ use std::{
     fs,
     path::PathBuf,
     process::{Command, Output},
+    sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -14,6 +15,7 @@ const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn smoke_command_writes_one_json_report_to_stdout() {
@@ -408,8 +410,9 @@ fn unique_temp_dir() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock should be after epoch")
         .as_nanos();
+    let counter = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "highergraphen-cli-test-{}-{nanos}",
+        "highergraphen-cli-test-{}-{nanos}-{counter}",
         std::process::id()
     ))
 }

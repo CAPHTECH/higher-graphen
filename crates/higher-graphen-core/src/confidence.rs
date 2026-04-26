@@ -7,6 +7,15 @@ use std::fmt;
 pub struct Confidence(f64);
 
 impl Confidence {
+    /// Minimum valid confidence score.
+    pub const MIN: f64 = 0.0;
+    /// Maximum valid confidence score.
+    pub const MAX: f64 = 1.0;
+    /// Valid zero confidence.
+    pub const ZERO: Self = Self(Self::MIN);
+    /// Valid full confidence.
+    pub const ONE: Self = Self(Self::MAX);
+
     /// Creates a confidence score in the inclusive range `0.0..=1.0`.
     pub fn new(value: f64) -> Result<Self> {
         if !value.is_finite() {
@@ -16,7 +25,7 @@ impl Confidence {
             ));
         }
 
-        if !(0.0..=1.0).contains(&value) {
+        if !(Self::MIN..=Self::MAX).contains(&value) {
             return Err(CoreError::invalid_confidence(
                 value,
                 "confidence must be between 0.0 and 1.0 inclusive",
@@ -27,9 +36,24 @@ impl Confidence {
         Ok(Self(normalized))
     }
 
+    /// Returns true when the supplied value can be represented as a confidence score.
+    pub fn is_valid_value(value: f64) -> bool {
+        value.is_finite() && (Self::MIN..=Self::MAX).contains(&value)
+    }
+
     /// Returns the validated numeric confidence score.
     pub fn value(self) -> f64 {
         self.0
+    }
+
+    /// Returns true for exactly zero confidence.
+    pub fn is_zero(self) -> bool {
+        self.0.to_bits() == Self::MIN.to_bits()
+    }
+
+    /// Returns true for exactly full confidence.
+    pub fn is_certain(self) -> bool {
+        self.0.to_bits() == Self::MAX.to_bits()
     }
 }
 

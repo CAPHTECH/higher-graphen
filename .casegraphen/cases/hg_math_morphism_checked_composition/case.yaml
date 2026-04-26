@@ -1,0 +1,12 @@
+case_id: hg_math_morphism_checked_composition
+title: Checked morphism composition
+description: Add a strict morphism composition path that treats unmapped intermediate cells or relations as first-class failed composition findings instead of silently producing a partial composed mapping.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.591Z
+updated_at: 2026-04-26T12:43:57.344Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4X2T10YX791QJYGY3PAQJ2

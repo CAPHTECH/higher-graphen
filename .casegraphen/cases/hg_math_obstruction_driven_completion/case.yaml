@@ -1,0 +1,12 @@
+case_id: hg_math_obstruction_driven_completion
+title: Obstruction-driven completion
+description: Extend completion so missing structure can be proposed from structured obstructions such as MissingMorphism, FailedGluing, UncoveredRegion, and ProjectionLoss while remaining reviewable.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.713Z
+updated_at: 2026-04-26T12:47:44.969Z
+case_revision:
+  current: 30
+  last_event_id: 01KQ4X9RA9E754W0EYW8NGZWE3

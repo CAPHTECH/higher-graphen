@@ -1,0 +1,12 @@
+case_id: hg_math_model_checking_state
+title: Model checking and unsafe-state reachability
+description: Add a bounded model-checking substrate for finite state cells, transition incidences, forbidden states, witness paths, and unreachable frontier reports.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.829Z
+updated_at: 2026-04-26T12:52:59.554Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4XKBH2SMXNQP8G1NGEFZV8

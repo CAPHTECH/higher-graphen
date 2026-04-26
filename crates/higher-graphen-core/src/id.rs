@@ -20,7 +20,19 @@ impl Id {
             ));
         }
 
+        if normalized.chars().any(char::is_control) {
+            return Err(CoreError::invalid_id(
+                raw,
+                "identifier must not contain control characters",
+            ));
+        }
+
         Ok(Self(normalized))
+    }
+
+    /// Returns true when the supplied value can be normalized into a valid identifier.
+    pub fn is_valid_value(value: &str) -> bool {
+        Self::new(value).is_ok()
     }
 
     /// Returns the stable identifier string.

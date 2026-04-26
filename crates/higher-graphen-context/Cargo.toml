@@ -1,0 +1,21 @@
+[package]
+name = "higher-graphen-context"
+description = "Context, section, restriction, cover, and gluing checks for HigherGraphen."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+higher-graphen-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

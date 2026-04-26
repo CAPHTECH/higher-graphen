@@ -12,6 +12,7 @@ publish = false
 
 [dependencies]
 higher-graphen-core.workspace = true
+higher-graphen-obstruction.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

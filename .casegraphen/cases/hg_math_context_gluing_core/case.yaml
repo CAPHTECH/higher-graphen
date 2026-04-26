@@ -1,0 +1,12 @@
+case_id: hg_math_context_gluing_core
+title: Context, Section, and Gluing core
+description: Build higher-graphen-context as the reusable sheaf-inspired local-to-global substrate for Context, Section, Restriction, Cover, and GluingCheck. It should detect incompatible local assignments without requiring product users to know sheaf theory.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.464Z
+updated_at: 2026-04-26T12:43:56.525Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4X2S7D2MCK9PTEHFQKVHRY

@@ -1,0 +1,12 @@
+case_id: hg_math_invariant_evaluator_kernel
+title: Invariant evaluator kernel
+description: Build reusable invariant and constraint evaluator primitives for reachability safety, acyclicity, required path existence, context compatibility, morphism preservation, and projection loss declaration.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.647Z
+updated_at: 2026-04-26T12:45:49.111Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4X675Q675H1T2EFJ1J00P3

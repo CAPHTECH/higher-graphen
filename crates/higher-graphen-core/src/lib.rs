@@ -6,6 +6,7 @@ mod id;
 mod provenance;
 mod review;
 mod source;
+mod text;
 
 pub use confidence::Confidence;
 pub use error::{CoreError, Result};

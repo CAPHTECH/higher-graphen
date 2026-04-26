@@ -1,3 +1,4 @@
+use crate::text::{normalize_optional_text, normalize_optional_text_ref};
 use crate::{CoreError, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -128,22 +129,17 @@ impl fmt::Display for SourceKind {
 }
 
 /// Portable reference to source material.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceRef {
     /// Source category.
     pub kind: SourceKind,
     /// Optional stable URI for source material.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
     /// Optional human-readable source title.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Optional stable text capture time, such as RFC 3339.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub captured_at: Option<String>,
     /// Optional identifier meaningful within the source system.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_local_id: Option<String>,
 }
 
@@ -158,4 +154,94 @@ impl SourceRef {
             source_local_id: None,
         }
     }
+
+    /// Returns this source reference with a validated URI.
+    pub fn with_uri(mut self, uri: impl Into<String>) -> Result<Self> {
+        self.uri = normalize_optional_text("uri", Some(uri.into()))?;
+        Ok(self)
+    }
+
+    /// Returns this source reference with a validated title.
+    pub fn with_title(mut self, title: impl Into<String>) -> Result<Self> {
+        self.title = normalize_optional_text("title", Some(title.into()))?;
+        Ok(self)
+    }
+
+    /// Returns this source reference with a validated capture timestamp payload.
+    pub fn with_captured_at(mut self, captured_at: impl Into<String>) -> Result<Self> {
+        self.captured_at = normalize_optional_text("captured_at", Some(captured_at.into()))?;
+        Ok(self)
+    }
+
+    /// Returns this source reference with a validated source-local identifier.
+    pub fn with_source_local_id(mut self, source_local_id: impl Into<String>) -> Result<Self> {
+        self.source_local_id =
+            normalize_optional_text("source_local_id", Some(source_local_id.into()))?;
+        Ok(self)
+    }
+
+    /// Validates custom source kind and optional payload fields.
+    pub fn validate(&self) -> Result<()> {
+        self.to_wire().map(|_| ())
+    }
+
+    fn from_wire(wire: SourceRefWire) -> Result<Self> {
+        Ok(Self {
+            kind: wire.kind,
+            uri: normalize_optional_text("uri", wire.uri)?,
+            title: normalize_optional_text("title", wire.title)?,
+            captured_at: normalize_optional_text("captured_at", wire.captured_at)?,
+            source_local_id: normalize_optional_text("source_local_id", wire.source_local_id)?,
+        })
+    }
+
+    fn to_wire(&self) -> Result<SourceRefWire> {
+        self.kind.try_serialized_value()?;
+
+        Ok(SourceRefWire {
+            kind: self.kind.clone(),
+            uri: normalize_optional_text_ref("uri", self.uri.as_ref())?,
+            title: normalize_optional_text_ref("title", self.title.as_ref())?,
+            captured_at: normalize_optional_text_ref("captured_at", self.captured_at.as_ref())?,
+            source_local_id: normalize_optional_text_ref(
+                "source_local_id",
+                self.source_local_id.as_ref(),
+            )?,
+        })
+    }
+}
+
+impl Serialize for SourceRef {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_wire()
+            .map_err(serde::ser::Error::custom)?
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SourceRef {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = SourceRefWire::deserialize(deserializer)?;
+        Self::from_wire(wire).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SourceRefWire {
+    kind: SourceKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    captured_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_local_id: Option<String>,
 }

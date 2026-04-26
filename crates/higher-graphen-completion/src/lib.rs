@@ -4,6 +4,9 @@ use higher_graphen_core::{Confidence, CoreError, Id, Result, ReviewStatus};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeSet;
 
+const OBSTRUCTION_CANDIDATE_PREFIX: &str = "candidate.from_obstruction.";
+const OBSTRUCTION_STRUCTURE_PREFIX: &str = "suggested.from_obstruction.";
+
 /// Kind of missing structure a completion candidate proposes to fill.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -184,6 +187,9 @@ impl CompletionDetectionInput {
         self
     }
 }
+
+mod obstruction;
+pub use obstruction::{detect_obstruction_completion_candidates, ObstructionCompletionInput};
 
 /// Candidate detection output.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -380,6 +386,14 @@ impl SimpleCompletionEngine {
         input: CompletionDetectionInput,
     ) -> Result<CompletionDetectionResult> {
         detect_completion_candidates(input)
+    }
+
+    /// Detects missing structure by translating supported obstructions.
+    pub fn detect_obstruction_candidates(
+        &self,
+        input: ObstructionCompletionInput,
+    ) -> Result<CompletionDetectionResult> {
+        detect_obstruction_completion_candidates(input)
     }
 
     /// Accepts a completion candidate through the existing review helper.

@@ -1,0 +1,12 @@
+case_id: hg_math_persistent_topology
+title: Persistent topology and homology
+description: Add a staged topology kernel for connected components, holes, filtrations, and persistence summaries over HigherGraphen complexes, starting with deterministic finite fixtures.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:28.063Z
+updated_at: 2026-04-26T12:58:09.094Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4XWST6BYFSQET8286BACJC

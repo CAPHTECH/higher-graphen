@@ -1,0 +1,12 @@
+case_id: hg_math_complex_boundary_coverage
+title: Complex boundary and coverage operators
+description: Turn ComplexType labels into usable hypergraph, simplicial-complex, and cell-complex operations for closure, boundary, coboundary, star/link-style neighborhoods, covered regions, and uncovered regions.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:27.532Z
+updated_at: 2026-04-26T12:43:11.833Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4X1DJSWCVF3GYRTKQTA07A

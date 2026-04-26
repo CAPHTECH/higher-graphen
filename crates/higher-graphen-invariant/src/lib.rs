@@ -1,7 +1,14 @@
 //! Invariants, constraints, invariant checks, and constraint check results for HigherGraphen.
 
 use higher_graphen_core::{CoreError, Id, Provenance, Result, Severity};
+use higher_graphen_morphism::Morphism;
+use higher_graphen_obstruction::{
+    Obstruction, ObstructionExplanation, ObstructionType, RelatedMorphism,
+};
+use higher_graphen_projection::Projection;
+use higher_graphen_space::{GraphPath, InMemorySpaceStore, ReachabilityQuery, TraversalOptions};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Scope where an invariant must hold or be preserved.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -209,6 +216,18 @@ impl CheckInput {
         self
     }
 
+    /// Returns a deterministic copy with all selector lists sorted and deduplicated.
+    #[must_use]
+    pub fn normalized(&self) -> Self {
+        let mut input = self.clone();
+        normalize_ids(&mut input.invariant_ids);
+        normalize_ids(&mut input.constraint_ids);
+        normalize_ids(&mut input.changed_cell_ids);
+        normalize_ids(&mut input.context_ids);
+        normalize_ids(&mut input.related_morphism_ids);
+        input
+    }
+
     /// Returns true when evaluation is scoped to one or more changed cells.
     pub fn is_changed_cell_scoped(&self) -> bool {
         !self.changed_cell_ids.is_empty()
@@ -388,6 +407,54 @@ impl CheckResult {
         self.unsupported_reason.as_deref()
     }
 
+    /// Converts a violated result into an obstruction record.
+    ///
+    /// Satisfied and unsupported results do not represent concrete failures,
+    /// so they return `Ok(None)`.
+    pub fn to_obstruction(
+        &self,
+        obstruction_id: Id,
+        space_id: Id,
+        provenance: Provenance,
+    ) -> Result<Option<Obstruction>> {
+        if !self.is_violated() {
+            return Ok(None);
+        }
+
+        let violation = self.violation.as_ref().ok_or_else(|| {
+            malformed_field(
+                "violation",
+                "violated results must include violation details",
+            )
+        })?;
+        let explanation = ObstructionExplanation::new(violation.message.clone())?;
+        let obstruction_type = match self.target_kind {
+            CheckTargetKind::Invariant => ObstructionType::InvariantViolation,
+            CheckTargetKind::Constraint => ObstructionType::ConstraintUnsatisfied,
+        };
+        let mut obstruction = Obstruction::new(
+            obstruction_id,
+            space_id,
+            obstruction_type,
+            explanation,
+            violation.severity,
+            provenance,
+        );
+
+        for cell_id in &violation.location_cell_ids {
+            obstruction = obstruction.with_location_cell(cell_id.clone());
+        }
+        for context_id in &violation.location_context_ids {
+            obstruction = obstruction.with_location_context(context_id.clone());
+        }
+        for morphism_id in &violation.related_morphism_ids {
+            obstruction =
+                obstruction.with_related_morphism(RelatedMorphism::new(morphism_id.clone()));
+        }
+
+        Ok(Some(obstruction))
+    }
+
     /// Validates that the status-specific payload fields agree with `status`.
     pub fn validate(&self) -> Result<()> {
         match self.status {
@@ -449,6 +516,44 @@ impl<'de> Deserialize<'de> for CheckResult {
     }
 }
 
+mod evaluator;
+pub use evaluator::{
+    AcyclicityCheck, ContextCompatibilityCheck, EvaluationReport, EvaluatorCheck, EvaluatorContext,
+    EvaluatorKernel, EvaluatorRule, MorphismPreservationCheck, ProjectionLossDeclarationCheck,
+    ReachabilitySafetyCheck, RequiredPathCheck,
+};
+
+fn normalized_ids(ids: &[Id]) -> Vec<Id> {
+    let mut ids = ids.to_vec();
+    normalize_ids(&mut ids);
+    ids
+}
+
+fn normalize_ids(ids: &mut Vec<Id>) {
+    *ids = ids.drain(..).collect::<BTreeSet<_>>().into_iter().collect();
+}
+
+fn normalized_string_set(field: &'static str, values: &[String]) -> Result<BTreeSet<String>> {
+    values
+        .iter()
+        .map(|value| {
+            let normalized = value.trim().to_owned();
+            if normalized.is_empty() {
+                Err(malformed_field(
+                    field,
+                    "value must not be empty after trimming",
+                ))
+            } else {
+                Ok(normalized)
+            }
+        })
+        .collect()
+}
+
+fn join_ids(ids: &[Id]) -> String {
+    ids.iter().map(Id::as_str).collect::<Vec<_>>().join(", ")
+}
+
 fn ensure_absent(field: &'static str, is_absent: bool) -> Result<()> {
     if is_absent {
         Ok(())
@@ -471,155 +576,12 @@ fn ensure_non_empty(field: &'static str, value: &str) -> Result<()> {
     }
 }
 
-fn malformed_field(field: &'static str, reason: &'static str) -> CoreError {
+fn malformed_field(field: impl Into<String>, reason: impl Into<String>) -> CoreError {
     CoreError::MalformedField {
-        field: field.to_owned(),
-        reason: reason.to_owned(),
+        field: field.into(),
+        reason: reason.into(),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use higher_graphen_core::{Confidence, SourceKind, SourceRef};
-
-    fn id(value: &str) -> Id {
-        Id::new(value).expect("test id should be valid")
-    }
-
-    fn provenance() -> Provenance {
-        let source = SourceRef::new(SourceKind::Code);
-        let confidence = Confidence::new(1.0).expect("test confidence should be valid");
-        Provenance::new(source, confidence)
-    }
-
-    #[test]
-    fn constructs_invariant_and_constraint_definitions() {
-        let invariant = Invariant::new(
-            id("inv:acyclic"),
-            "Acyclic ownership",
-            InvariantScope::Space {
-                space_id: id("space:architecture"),
-            },
-            Severity::High,
-            provenance(),
-        );
-        let constraint = Constraint::new(
-            id("constraint:no-cross-context-db"),
-            "No cross-context database access",
-            ConstraintScope::Contexts {
-                space_id: id("space:architecture"),
-                context_ids: vec![id("context:billing")],
-            },
-            Severity::Critical,
-            provenance(),
-        );
-
-        assert_eq!(invariant.description, None);
-        assert_eq!(
-            constraint.scope,
-            ConstraintScope::Contexts {
-                space_id: id("space:architecture"),
-                context_ids: vec![id("context:billing")],
-            }
-        );
-    }
-
-    #[test]
-    fn builds_changed_cell_scoped_input() {
-        let input = CheckInput::changed_cells(
-            id("space:architecture"),
-            vec![id("cell:service-a"), id("cell:service-b")],
-        )
-        .with_invariants(vec![id("inv:ownership")])
-        .with_constraints(vec![id("constraint:dependency-direction")])
-        .with_contexts(vec![id("context:runtime")])
-        .with_related_morphisms(vec![id("morphism:migration")]);
-
-        assert!(input.is_changed_cell_scoped());
-        assert_eq!(input.changed_cell_ids.len(), 2);
-        assert_eq!(input.invariant_ids, vec![id("inv:ownership")]);
-        assert_eq!(input.related_morphism_ids, vec![id("morphism:migration")]);
-    }
-
-    #[test]
-    fn creates_satisfied_violated_and_unsupported_results() {
-        let satisfied = CheckResult::satisfied(CheckTargetKind::Invariant, id("inv:shape"));
-        let violation = Violation::new("context boundary crossed", Severity::High)
-            .with_location_cells(vec![id("cell:repository")])
-            .with_location_contexts(vec![id("context:billing")]);
-        let violated = CheckResult::violated(
-            CheckTargetKind::Constraint,
-            id("constraint:boundary"),
-            violation,
-        );
-        let unsupported = CheckResult::unsupported(
-            CheckTargetKind::Invariant,
-            id("inv:morphism-preservation"),
-            " morphism summary missing ",
-        );
-
-        assert!(satisfied.is_satisfied());
-        assert!(violated.is_violated());
-        assert_eq!(
-            violated.violation().map(|item| &item.message),
-            Some(&"context boundary crossed".to_owned())
-        );
-        assert!(unsupported.is_unsupported());
-        assert_eq!(
-            unsupported.unsupported_reason(),
-            Some("morphism summary missing")
-        );
-        assert!(satisfied.validate().is_ok());
-        assert!(violated.validate().is_ok());
-        assert!(unsupported.validate().is_ok());
-    }
-
-    #[test]
-    fn validates_status_specific_result_payloads() {
-        let satisfied_with_violation = CheckResult {
-            violation: Some(Violation::new("should not be present", Severity::Low)),
-            ..CheckResult::satisfied(CheckTargetKind::Invariant, id("inv:shape"))
-        };
-        let violated_without_violation = CheckResult {
-            violation: None,
-            ..CheckResult::violated(
-                CheckTargetKind::Constraint,
-                id("constraint:shape"),
-                Violation::new("missing", Severity::Medium),
-            )
-        };
-        let unsupported_without_reason = CheckResult {
-            unsupported_reason: None,
-            ..CheckResult::unsupported(CheckTargetKind::Invariant, id("inv:future"), "missing")
-        };
-        let unsupported_blank_reason =
-            CheckResult::unsupported(CheckTargetKind::Invariant, id("inv:future"), " ");
-
-        assert!(satisfied_with_violation.validate().is_err());
-        assert!(violated_without_violation.validate().is_err());
-        assert!(unsupported_without_reason.validate().is_err());
-        assert!(unsupported_blank_reason.validate().is_err());
-    }
-
-    #[test]
-    fn deserialization_rejects_status_specific_payload_mismatch() {
-        let satisfied_with_violation = serde_json::json!({
-            "target_kind": "invariant",
-            "target_id": "inv:shape",
-            "status": "satisfied",
-            "violation": {
-                "message": "should not be present",
-                "severity": "low"
-            }
-        });
-        let unsupported_without_reason = serde_json::json!({
-            "target_kind": "invariant",
-            "target_id": "inv:future",
-            "status": "unsupported"
-        });
-
-        assert!(serde_json::from_value::<CheckResult>(satisfied_with_violation).is_err());
-        assert!(serde_json::from_value::<CheckResult>(unsupported_without_reason).is_err());
-    }
-}
+mod tests;

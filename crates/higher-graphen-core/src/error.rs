@@ -87,6 +87,25 @@ impl CoreError {
             reason: reason.into(),
         }
     }
+
+    pub(crate) fn malformed_field(field: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::MalformedField {
+            field: field.into(),
+            reason: reason.into(),
+        }
+    }
+
+    pub(crate) fn parse_failure(
+        target: impl Into<String>,
+        value: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self::ParseFailure {
+            target: target.into(),
+            value: value.into(),
+            reason: reason.into(),
+        }
+    }
 }
 
 impl fmt::Display for CoreError {

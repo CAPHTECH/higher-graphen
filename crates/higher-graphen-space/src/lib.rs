@@ -4,7 +4,7 @@ pub mod traversal;
 
 use higher_graphen_core::{CoreError, Id, Provenance, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 pub use traversal::*;
 
@@ -268,6 +268,114 @@ impl ComplexType {
     }
 }
 
+/// Boundary closure of a complex's cells.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexClosure {
+    /// Complex whose closure was computed.
+    pub complex_id: Id,
+    /// Complex cells plus every recursively reachable boundary cell.
+    pub cell_ids: Vec<Id>,
+}
+
+/// A complex cell whose direct boundary is not fully included in the complex.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexClosureViolation {
+    /// Cell with a missing direct boundary member.
+    pub cell_id: Id,
+    /// Boundary cells referenced by `cell_id` but absent from the complex.
+    pub missing_boundary_cell_ids: Vec<Id>,
+}
+
+/// Result of checking whether a complex contains the full boundary closure of its cells.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexClosureValidation {
+    /// Complex whose closure was checked.
+    pub complex_id: Id,
+    /// Missing boundary cells across all checked cells.
+    pub missing_boundary_cell_ids: Vec<Id>,
+    /// Per-cell closure violations.
+    pub violations: Vec<ComplexClosureViolation>,
+}
+
+impl ComplexClosureValidation {
+    /// Returns true when every direct boundary reference is included in the complex.
+    #[must_use]
+    pub fn is_closed(&self) -> bool {
+        self.violations.is_empty()
+    }
+}
+
+/// Boundary cells directly referenced by cells in a complex.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexBoundary {
+    /// Complex whose boundary was computed.
+    pub complex_id: Id,
+    /// Boundary cells that are also included in the complex.
+    pub cell_ids: Vec<Id>,
+    /// Boundary cells that exist in the same space but are outside the complex.
+    pub external_cell_ids: Vec<Id>,
+}
+
+/// Coboundary cells that directly include cells from a complex.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexCoboundary {
+    /// Complex whose coboundary was computed.
+    pub complex_id: Id,
+    /// Coboundary cells that are also included in the complex.
+    pub cell_ids: Vec<Id>,
+    /// Coboundary cells that exist in the same space but are outside the complex.
+    pub external_cell_ids: Vec<Id>,
+}
+
+/// Star and link-style neighborhood around seed cells inside a complex.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComplexNeighborhood {
+    /// Complex that bounds the neighborhood.
+    pub complex_id: Id,
+    /// Unique seed cells used to compute the neighborhood.
+    pub seed_cell_ids: Vec<Id>,
+    /// Boundary closure of the seed cells.
+    pub seed_closure_cell_ids: Vec<Id>,
+    /// Complex cells whose closure contains at least one seed cell.
+    pub coface_cell_ids: Vec<Id>,
+    /// Closed star: coface cells plus their boundary closure, constrained to complex cells.
+    pub star_cell_ids: Vec<Id>,
+    /// Link-style shell: closed-star cells whose own closure does not intersect the seed closure.
+    pub link_cell_ids: Vec<Id>,
+}
+
+/// Coverage report for a finite set of cells over a complex.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegionCoverage {
+    /// Complex whose coverage was computed.
+    pub complex_id: Id,
+    /// Unique requested cover cells after duplicate removal.
+    pub requested_cell_ids: Vec<Id>,
+    /// Requested cover cells that were repeated.
+    pub duplicate_cell_ids: Vec<Id>,
+    /// Requested cells that exist in the same space but are outside the complex.
+    pub external_cell_ids: Vec<Id>,
+    /// Complex cells covered by requested cells and their boundary closure.
+    pub covered_cell_ids: Vec<Id>,
+    /// Complex cells not covered by requested cells and their boundary closure.
+    pub uncovered_cell_ids: Vec<Id>,
+}
+
+impl RegionCoverage {
+    /// Returns true when the requested region covers every complex cell and has no external cells.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.external_cell_ids.is_empty() && self.uncovered_cell_ids.is_empty()
+    }
+}
+
 /// Cell query selectors supported by the MVP in-memory store.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -346,282 +454,8 @@ impl CellQuery {
     }
 }
 
-/// In-memory MVP store for spaces, cells, incidences, complexes, and basic cell queries.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct InMemorySpaceStore {
-    spaces: BTreeMap<Id, Space>,
-    cells: BTreeMap<Id, Cell>,
-    incidences: BTreeMap<Id, Incidence>,
-    complexes: BTreeMap<Id, Complex>,
-}
-
-impl InMemorySpaceStore {
-    /// Creates an empty in-memory store.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Inserts a space and returns the normalized stored value.
-    pub fn insert_space(&mut self, space: Space) -> Result<Space> {
-        let mut space = space;
-        space.name = normalize_required("name", space.name)?;
-        ensure_empty("cell_ids", &space.cell_ids)?;
-        ensure_empty("incidence_ids", &space.incidence_ids)?;
-        ensure_empty("complex_ids", &space.complex_ids)?;
-        space.cell_ids = unique_ids(space.cell_ids);
-        space.incidence_ids = unique_ids(space.incidence_ids);
-        space.complex_ids = unique_ids(space.complex_ids);
-        space.context_ids = unique_ids(space.context_ids);
-        self.ensure_space_absent(&space.id)?;
-
-        self.spaces.insert(space.id.clone(), space.clone());
-        Ok(space)
-    }
-
-    /// Inserts a cell, registers it with its space, and updates boundary/coboundary inverses.
-    pub fn insert_cell(&mut self, cell: Cell) -> Result<Cell> {
-        let mut cell = cell;
-        cell.cell_type = normalize_required("cell_type", cell.cell_type)?;
-        cell.boundary = unique_ids(cell.boundary);
-        cell.coboundary = unique_ids(cell.coboundary);
-        cell.context_ids = unique_ids(cell.context_ids);
-        self.ensure_cell_absent(&cell.id)?;
-        self.validate_cell_references(&cell)?;
-
-        self.cells.insert(cell.id.clone(), cell.clone());
-        self.register_cell_in_space(&cell);
-        self.register_boundary_inverses(&cell);
-        Ok(cell)
-    }
-
-    /// Inserts an incidence after validating both endpoint cells are in the same space.
-    pub fn insert_incidence(&mut self, incidence: Incidence) -> Result<Incidence> {
-        let mut incidence = incidence;
-        incidence.relation_type = normalize_required("relation_type", incidence.relation_type)?;
-        self.ensure_incidence_absent(&incidence.id)?;
-        self.validate_incidence_references(&incidence)?;
-
-        self.incidences
-            .insert(incidence.id.clone(), incidence.clone());
-        let space = self
-            .spaces
-            .get_mut(&incidence.space_id)
-            .expect("validated incidence space should exist");
-        push_unique(&mut space.incidence_ids, incidence.id.clone());
-        Ok(incidence)
-    }
-
-    /// Inserts a complex after validating membership and recomputing max dimension.
-    pub fn insert_complex(&mut self, complex: Complex) -> Result<Complex> {
-        let mut complex = complex;
-        complex.name = normalize_required("name", complex.name)?;
-        complex.complex_type = normalize_complex_type(complex.complex_type)?;
-        complex.cell_ids = unique_ids(complex.cell_ids);
-        complex.incidence_ids = unique_ids(complex.incidence_ids);
-        self.ensure_complex_absent(&complex.id)?;
-        complex.max_dimension = self.validate_complex_references(&complex)?;
-
-        self.complexes.insert(complex.id.clone(), complex.clone());
-        let space = self
-            .spaces
-            .get_mut(&complex.space_id)
-            .expect("validated complex space should exist");
-        push_unique(&mut space.complex_ids, complex.id.clone());
-        Ok(complex)
-    }
-
-    /// Constructs, inserts, and returns a complex from existing cells and incidences.
-    pub fn construct_complex(
-        &mut self,
-        id: Id,
-        space_id: Id,
-        name: impl Into<String>,
-        complex_type: ComplexType,
-        cell_ids: impl IntoIterator<Item = Id>,
-        incidence_ids: impl IntoIterator<Item = Id>,
-    ) -> Result<Complex> {
-        let mut complex = Complex::new(id, space_id, name, complex_type);
-        complex.cell_ids = unique_ids(cell_ids);
-        complex.incidence_ids = unique_ids(incidence_ids);
-        self.insert_complex(complex)
-    }
-
-    /// Returns a space by identifier.
-    #[must_use]
-    pub fn space(&self, id: &Id) -> Option<&Space> {
-        self.spaces.get(id)
-    }
-
-    /// Returns a cell by identifier.
-    #[must_use]
-    pub fn cell(&self, id: &Id) -> Option<&Cell> {
-        self.cells.get(id)
-    }
-
-    /// Returns an incidence by identifier.
-    #[must_use]
-    pub fn incidence(&self, id: &Id) -> Option<&Incidence> {
-        self.incidences.get(id)
-    }
-
-    /// Returns a complex by identifier.
-    #[must_use]
-    pub fn complex(&self, id: &Id) -> Option<&Complex> {
-        self.complexes.get(id)
-    }
-
-    /// Returns cells matching all supplied query selectors.
-    #[must_use]
-    pub fn query_cells(&self, query: &CellQuery) -> Vec<Cell> {
-        self.cells
-            .values()
-            .filter(|cell| query.matches(cell))
-            .cloned()
-            .collect()
-    }
-
-    fn ensure_space_absent(&self, id: &Id) -> Result<()> {
-        ensure_absent(self.spaces.contains_key(id), "space_id", id)
-    }
-
-    fn ensure_cell_absent(&self, id: &Id) -> Result<()> {
-        ensure_absent(self.cells.contains_key(id), "cell_id", id)
-    }
-
-    fn ensure_incidence_absent(&self, id: &Id) -> Result<()> {
-        ensure_absent(self.incidences.contains_key(id), "incidence_id", id)
-    }
-
-    fn ensure_complex_absent(&self, id: &Id) -> Result<()> {
-        ensure_absent(self.complexes.contains_key(id), "complex_id", id)
-    }
-
-    fn validate_cell_references(&self, cell: &Cell) -> Result<()> {
-        self.ensure_space_exists(&cell.space_id)?;
-        for boundary_id in &cell.boundary {
-            let boundary = self.cell_in_space("boundary", boundary_id, &cell.space_id)?;
-            if boundary.dimension >= cell.dimension {
-                return Err(malformed(
-                    "boundary",
-                    "boundary cells must have lower dimension than the owning cell",
-                ));
-            }
-        }
-        for coboundary_id in &cell.coboundary {
-            let coboundary = self.cell_in_space("coboundary", coboundary_id, &cell.space_id)?;
-            if coboundary.dimension <= cell.dimension {
-                return Err(malformed(
-                    "coboundary",
-                    "coboundary cells must have higher dimension than the owning cell",
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_incidence_references(&self, incidence: &Incidence) -> Result<()> {
-        self.ensure_space_exists(&incidence.space_id)?;
-        self.cell_in_space("from_cell_id", &incidence.from_cell_id, &incidence.space_id)?;
-        self.cell_in_space("to_cell_id", &incidence.to_cell_id, &incidence.space_id)?;
-        if let Some(weight) = incidence.weight {
-            if !weight.is_finite() {
-                return Err(malformed("weight", "incidence weight must be finite"));
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_complex_references(&self, complex: &Complex) -> Result<Dimension> {
-        self.ensure_space_exists(&complex.space_id)?;
-        for incidence_id in &complex.incidence_ids {
-            let incidence = self.incidence_in_space(incidence_id, &complex.space_id)?;
-            if !complex.cell_ids.contains(&incidence.from_cell_id)
-                || !complex.cell_ids.contains(&incidence.to_cell_id)
-            {
-                return Err(malformed(
-                    "incidence_ids",
-                    format!(
-                        "incidence {incidence_id} endpoints must both be included in complex cell_ids"
-                    ),
-                ));
-            }
-        }
-
-        let mut max_dimension = 0;
-        for cell_id in &complex.cell_ids {
-            let cell = self.cell_in_space("cell_ids", cell_id, &complex.space_id)?;
-            max_dimension = max_dimension.max(cell.dimension);
-        }
-        Ok(max_dimension)
-    }
-
-    fn ensure_space_exists(&self, space_id: &Id) -> Result<()> {
-        if self.spaces.contains_key(space_id) {
-            Ok(())
-        } else {
-            Err(missing("space_id", space_id))
-        }
-    }
-
-    fn cell_in_space(&self, field: &str, cell_id: &Id, space_id: &Id) -> Result<&Cell> {
-        let cell = self
-            .cells
-            .get(cell_id)
-            .ok_or_else(|| missing(field, cell_id))?;
-        if &cell.space_id == space_id {
-            Ok(cell)
-        } else {
-            Err(wrong_space(field, cell_id, space_id, &cell.space_id))
-        }
-    }
-
-    fn incidence_in_space(&self, incidence_id: &Id, space_id: &Id) -> Result<&Incidence> {
-        let incidence = self
-            .incidences
-            .get(incidence_id)
-            .ok_or_else(|| missing("incidence_ids", incidence_id))?;
-        if &incidence.space_id == space_id {
-            Ok(incidence)
-        } else {
-            Err(wrong_space(
-                "incidence_ids",
-                incidence_id,
-                space_id,
-                &incidence.space_id,
-            ))
-        }
-    }
-
-    fn register_cell_in_space(&mut self, cell: &Cell) {
-        let space = self
-            .spaces
-            .get_mut(&cell.space_id)
-            .expect("validated cell space should exist");
-        push_unique(&mut space.cell_ids, cell.id.clone());
-        for context_id in &cell.context_ids {
-            push_unique(&mut space.context_ids, context_id.clone());
-        }
-    }
-
-    fn register_boundary_inverses(&mut self, cell: &Cell) {
-        for boundary_id in &cell.boundary {
-            let boundary = self
-                .cells
-                .get_mut(boundary_id)
-                .expect("validated boundary cell should exist");
-            push_unique(&mut boundary.coboundary, cell.id.clone());
-        }
-        for coboundary_id in &cell.coboundary {
-            let coboundary = self
-                .cells
-                .get_mut(coboundary_id)
-                .expect("validated coboundary cell should exist");
-            push_unique(&mut coboundary.boundary, cell.id.clone());
-        }
-    }
-}
+mod store;
+pub use store::InMemorySpaceStore;
 
 fn normalize_required(field: &str, value: String) -> Result<String> {
     let normalized = value.trim().to_owned();
@@ -638,6 +472,27 @@ fn unique_ids(ids: impl IntoIterator<Item = Id>) -> Vec<Id> {
         push_unique(&mut unique, id);
     }
     unique
+}
+
+fn id_set(ids: &[Id]) -> BTreeSet<Id> {
+    ids.iter().cloned().collect()
+}
+
+fn ids_from_set(ids: BTreeSet<Id>) -> Vec<Id> {
+    ids.into_iter().collect()
+}
+
+fn insert_by_membership(
+    id: &Id,
+    members: &BTreeSet<Id>,
+    included: &mut BTreeSet<Id>,
+    external: &mut BTreeSet<Id>,
+) {
+    if members.contains(id) {
+        included.insert(id.clone());
+    } else {
+        external.insert(id.clone());
+    }
 }
 
 fn push_unique(ids: &mut Vec<Id>, id: Id) {

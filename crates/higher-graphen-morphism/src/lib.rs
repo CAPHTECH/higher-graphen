@@ -133,6 +133,40 @@ impl CompositionCoverage {
     }
 }
 
+/// Stable obstruction type emitted by checked composition failures.
+///
+/// The value matches `ObstructionType::FailedComposition` without coupling this
+/// crate to the obstruction package.
+pub const FAILED_COMPOSITION_OBSTRUCTION_TYPE: &str = "failed_composition";
+
+/// Kind of explicit mapping gap that prevents checked composition.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailedCompositionFindingKind {
+    /// A cell produced by the first morphism is not accepted by the second.
+    UnmappedIntermediateCell,
+    /// A relation produced by the first morphism is not accepted by the second.
+    UnmappedIntermediateRelation,
+}
+
+/// First-class witness for a failed checked composition.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FailedCompositionFinding {
+    /// Stable obstruction type for downstream obstruction projection.
+    pub obstruction_type: String,
+    /// Specific mapping-gap category.
+    pub finding_type: FailedCompositionFindingKind,
+    /// Identifier of the first morphism in the attempted composition.
+    pub first_morphism_id: Id,
+    /// Identifier of the second morphism in the attempted composition.
+    pub second_morphism_id: Id,
+    /// Source cell or relation whose mapped intermediate cannot continue.
+    pub source_element_id: Id,
+    /// Intermediate cell or relation missing from the second morphism.
+    pub intermediate_element_id: Id,
+}
+
 /// Result of an explicit two-morphism composition attempt.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -152,6 +186,41 @@ pub enum CompositionResult {
         first_target_space_id: Id,
         /// Source space identifier from the second morphism.
         second_source_space_id: Id,
+    },
+}
+
+/// Result of a strict two-morphism composition attempt.
+///
+/// Unlike [`CompositionResult`], checked composition fails when compatible
+/// spaces still have explicit first-morphism cell or relation mappings that
+/// cannot continue through the second morphism.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum CheckedCompositionResult {
+    /// The two morphisms were compatible and all explicit mappings continued.
+    Composed {
+        /// The composed morphism from the first source space to the second target space.
+        morphism: Box<Morphism>,
+    },
+    /// The first target space did not match the second source space.
+    IncompatibleSpace {
+        /// Identifier of the first morphism in the attempted composition.
+        first_morphism_id: Id,
+        /// Identifier of the second morphism in the attempted composition.
+        second_morphism_id: Id,
+        /// Target space identifier from the first morphism.
+        first_target_space_id: Id,
+        /// Source space identifier from the second morphism.
+        second_source_space_id: Id,
+    },
+    /// Compatible spaces had explicit first-morphism mappings that could not continue.
+    FailedComposition {
+        /// Stable obstruction type matching `ObstructionType::FailedComposition`.
+        obstruction_type: String,
+        /// Coverage summary for the missing intermediate cells and relations.
+        coverage: CompositionCoverage,
+        /// Per-source witnesses for the missing intermediate cells and relations.
+        findings: Vec<FailedCompositionFinding>,
     },
 }
 
@@ -193,9 +262,30 @@ impl Morphism {
         compose_morphisms(self, second, composed_id, name, morphism_type, provenance)
     }
 
+    /// Strictly composes `self` followed by `second`.
+    ///
+    /// This preserves the space compatibility behavior of [`Self::compose_with`]
+    /// and additionally reports unmapped intermediate cells or relations as
+    /// failed-composition findings instead of returning a partial mapping.
+    pub fn compose_checked_with(
+        &self,
+        second: &Self,
+        composed_id: Id,
+        name: impl Into<String>,
+        morphism_type: MorphismType,
+        provenance: Provenance,
+    ) -> CheckedCompositionResult {
+        compose_morphisms_checked(self, second, composed_id, name, morphism_type, provenance)
+    }
+
     /// Reports explicit first-morphism mappings that cannot continue through `second`.
     pub fn composition_coverage_with(&self, second: &Self) -> CompositionCoverage {
         composition_coverage(self, second)
+    }
+
+    /// Reports strict-composition findings for explicit mappings that cannot continue.
+    pub fn failed_composition_findings_with(&self, second: &Self) -> Vec<FailedCompositionFinding> {
+        failed_composition_findings(self, second)
     }
 }
 
@@ -221,24 +311,78 @@ pub fn compose_morphisms(
         };
     }
 
+    let cell_mapping = compose_mapping_parts(&first.cell_mapping, &second.cell_mapping).mapping;
+    let relation_mapping =
+        compose_mapping_parts(&first.relation_mapping, &second.relation_mapping).mapping;
+
     CompositionResult::Composed {
-        morphism: Box::new(Morphism {
-            id: composed_id,
-            source_space_id: first.source_space_id.clone(),
-            target_space_id: second.target_space_id.clone(),
-            name: name.into(),
-            morphism_type,
-            cell_mapping: compose_mapping(&first.cell_mapping, &second.cell_mapping),
-            relation_mapping: compose_mapping(&first.relation_mapping, &second.relation_mapping),
-            preserved_invariant_ids: intersect_ids(
-                &first.preserved_invariant_ids,
-                &second.preserved_invariant_ids,
-            ),
-            lost_structure: concat_records(&first.lost_structure, &second.lost_structure),
-            distortion: concat_records(&first.distortion, &second.distortion),
-            composable_with: Vec::new(),
-            provenance,
-        }),
+        morphism: Box::new(composed_morphism(
+            first,
+            second,
+            ComposedMorphismSpec {
+                composed_id,
+                name: name.into(),
+                morphism_type,
+                provenance,
+                cell_mapping,
+                relation_mapping,
+            },
+        )),
+    }
+}
+
+/// Strictly attempts to compose `first` followed by `second`.
+///
+/// Compatible spaces are not sufficient for checked composition: every explicit
+/// `source -> intermediate` cell and relation mapping from `first` must have a
+/// matching `intermediate -> target` mapping in `second`. Missing continuations
+/// return [`CheckedCompositionResult::FailedComposition`] with structured
+/// findings and no partial composed morphism.
+pub fn compose_morphisms_checked(
+    first: &Morphism,
+    second: &Morphism,
+    composed_id: Id,
+    name: impl Into<String>,
+    morphism_type: MorphismType,
+    provenance: Provenance,
+) -> CheckedCompositionResult {
+    if first.target_space_id != second.source_space_id {
+        return CheckedCompositionResult::IncompatibleSpace {
+            first_morphism_id: first.id.clone(),
+            second_morphism_id: second.id.clone(),
+            first_target_space_id: first.target_space_id.clone(),
+            second_source_space_id: second.source_space_id.clone(),
+        };
+    }
+
+    let cell_composition = compose_mapping_parts(&first.cell_mapping, &second.cell_mapping);
+    let relation_composition =
+        compose_mapping_parts(&first.relation_mapping, &second.relation_mapping);
+    let coverage = coverage_from_mapping_compositions(&cell_composition, &relation_composition);
+    let findings =
+        findings_from_mapping_compositions(first, second, &cell_composition, &relation_composition);
+
+    if !findings.is_empty() {
+        return CheckedCompositionResult::FailedComposition {
+            obstruction_type: FAILED_COMPOSITION_OBSTRUCTION_TYPE.to_owned(),
+            coverage,
+            findings,
+        };
+    }
+
+    CheckedCompositionResult::Composed {
+        morphism: Box::new(composed_morphism(
+            first,
+            second,
+            ComposedMorphismSpec {
+                composed_id,
+                name: name.into(),
+                morphism_type,
+                provenance,
+                cell_mapping: cell_composition.mapping,
+                relation_mapping: relation_composition.mapping,
+            },
+        )),
     }
 }
 
@@ -248,34 +392,153 @@ pub fn compose_morphisms(
 /// before or after [`compose_morphisms`] to explain which intermediate IDs
 /// prevented complete mapping composition.
 pub fn composition_coverage(first: &Morphism, second: &Morphism) -> CompositionCoverage {
-    CompositionCoverage {
-        unmapped_cell_intermediate_ids: mapping_gaps(&first.cell_mapping, &second.cell_mapping),
-        unmapped_relation_intermediate_ids: mapping_gaps(
-            &first.relation_mapping,
-            &second.relation_mapping,
+    let cell_composition = compose_mapping_parts(&first.cell_mapping, &second.cell_mapping);
+    let relation_composition =
+        compose_mapping_parts(&first.relation_mapping, &second.relation_mapping);
+
+    coverage_from_mapping_compositions(&cell_composition, &relation_composition)
+}
+
+/// Reports strict-composition findings for explicit mappings that would fail composition.
+///
+/// Space compatibility is intentionally not checked here, matching
+/// [`composition_coverage`]. Use [`compose_morphisms_checked`] when both space
+/// compatibility and mapping completeness should be enforced together.
+pub fn failed_composition_findings(
+    first: &Morphism,
+    second: &Morphism,
+) -> Vec<FailedCompositionFinding> {
+    let cell_composition = compose_mapping_parts(&first.cell_mapping, &second.cell_mapping);
+    let relation_composition =
+        compose_mapping_parts(&first.relation_mapping, &second.relation_mapping);
+
+    findings_from_mapping_compositions(first, second, &cell_composition, &relation_composition)
+}
+
+struct ComposedMorphismSpec {
+    composed_id: Id,
+    name: String,
+    morphism_type: MorphismType,
+    provenance: Provenance,
+    cell_mapping: CellMapping,
+    relation_mapping: RelationMapping,
+}
+
+fn composed_morphism(first: &Morphism, second: &Morphism, spec: ComposedMorphismSpec) -> Morphism {
+    Morphism {
+        id: spec.composed_id,
+        source_space_id: first.source_space_id.clone(),
+        target_space_id: second.target_space_id.clone(),
+        name: spec.name,
+        morphism_type: spec.morphism_type,
+        cell_mapping: spec.cell_mapping,
+        relation_mapping: spec.relation_mapping,
+        preserved_invariant_ids: intersect_ids(
+            &first.preserved_invariant_ids,
+            &second.preserved_invariant_ids,
         ),
+        lost_structure: concat_records(&first.lost_structure, &second.lost_structure),
+        distortion: concat_records(&first.distortion, &second.distortion),
+        composable_with: Vec::new(),
+        provenance: spec.provenance,
     }
 }
 
-fn compose_mapping(first: &BTreeMap<Id, Id>, second: &BTreeMap<Id, Id>) -> BTreeMap<Id, Id> {
-    first
+fn coverage_from_mapping_compositions(
+    cell_composition: &MappingComposition,
+    relation_composition: &MappingComposition,
+) -> CompositionCoverage {
+    CompositionCoverage {
+        unmapped_cell_intermediate_ids: unmapped_intermediate_ids(cell_composition),
+        unmapped_relation_intermediate_ids: unmapped_intermediate_ids(relation_composition),
+    }
+}
+
+fn findings_from_mapping_compositions(
+    first: &Morphism,
+    second: &Morphism,
+    cell_composition: &MappingComposition,
+    relation_composition: &MappingComposition,
+) -> Vec<FailedCompositionFinding> {
+    cell_composition
+        .unmapped
         .iter()
-        .filter_map(|(source_id, intermediate_id)| {
-            second
-                .get(intermediate_id)
-                .map(|target_id| (source_id.clone(), target_id.clone()))
+        .map(|gap| {
+            failed_composition_finding(
+                first,
+                second,
+                FailedCompositionFindingKind::UnmappedIntermediateCell,
+                gap,
+            )
         })
+        .chain(relation_composition.unmapped.iter().map(|gap| {
+            failed_composition_finding(
+                first,
+                second,
+                FailedCompositionFindingKind::UnmappedIntermediateRelation,
+                gap,
+            )
+        }))
         .collect()
 }
 
-fn mapping_gaps(first: &BTreeMap<Id, Id>, second: &BTreeMap<Id, Id>) -> Vec<Id> {
-    first
-        .values()
-        .filter(|intermediate_id| !second.contains_key(*intermediate_id))
-        .cloned()
+fn failed_composition_finding(
+    first: &Morphism,
+    second: &Morphism,
+    finding_type: FailedCompositionFindingKind,
+    gap: &MappingGap,
+) -> FailedCompositionFinding {
+    FailedCompositionFinding {
+        obstruction_type: FAILED_COMPOSITION_OBSTRUCTION_TYPE.to_owned(),
+        finding_type,
+        first_morphism_id: first.id.clone(),
+        second_morphism_id: second.id.clone(),
+        source_element_id: gap.source_element_id.clone(),
+        intermediate_element_id: gap.intermediate_element_id.clone(),
+    }
+}
+
+fn unmapped_intermediate_ids(composition: &MappingComposition) -> Vec<Id> {
+    composition
+        .unmapped
+        .iter()
+        .map(|gap| gap.intermediate_element_id.clone())
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
+}
+
+fn compose_mapping_parts(
+    first: &BTreeMap<Id, Id>,
+    second: &BTreeMap<Id, Id>,
+) -> MappingComposition {
+    let mut mapping = BTreeMap::new();
+    let mut unmapped = Vec::new();
+
+    for (source_id, intermediate_id) in first {
+        if let Some(target_id) = second.get(intermediate_id) {
+            mapping.insert(source_id.clone(), target_id.clone());
+        } else {
+            unmapped.push(MappingGap {
+                source_element_id: source_id.clone(),
+                intermediate_element_id: intermediate_id.clone(),
+            });
+        }
+    }
+
+    MappingComposition { mapping, unmapped }
+}
+
+#[derive(Debug)]
+struct MappingComposition {
+    mapping: BTreeMap<Id, Id>,
+    unmapped: Vec<MappingGap>,
+}
+
+#[derive(Debug)]
+struct MappingGap {
+    source_element_id: Id,
+    intermediate_element_id: Id,
 }
 
 fn intersect_ids(first: &[Id], second: &[Id]) -> Vec<Id> {
@@ -299,252 +562,4 @@ fn partition_by_membership(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use higher_graphen_core::{Confidence, ReviewStatus, SourceKind, SourceRef};
-    use serde_json::json;
-
-    #[test]
-    fn composition_succeeds_for_compatible_spaces() {
-        let first = fixture_morphism(
-            "first",
-            "space/a",
-            "space/b",
-            [("cell/a1", "cell/b1")],
-            [("rel/a1", "rel/b1")],
-            ["invariant/a", "invariant/shared"],
-        );
-        let second = fixture_morphism(
-            "second",
-            "space/b",
-            "space/c",
-            [("cell/b1", "cell/c1")],
-            [("rel/b1", "rel/c1")],
-            ["invariant/shared", "invariant/c"],
-        );
-
-        let result = compose_morphisms(
-            &first,
-            &second,
-            id("first-then-second"),
-            "first then second",
-            MorphismType::Translation,
-            provenance(),
-        );
-
-        let CompositionResult::Composed { morphism } = result else {
-            panic!("expected compatible morphisms to compose");
-        };
-
-        assert_eq!(morphism.source_space_id, id("space/a"));
-        assert_eq!(morphism.target_space_id, id("space/c"));
-        assert_eq!(morphism.cell_mapping[&id("cell/a1")], id("cell/c1"));
-        assert_eq!(morphism.relation_mapping[&id("rel/a1")], id("rel/c1"));
-        assert_eq!(
-            morphism.preserved_invariant_ids,
-            vec![id("invariant/shared")]
-        );
-        assert_eq!(morphism.lost_structure.len(), 2);
-        assert_eq!(morphism.distortion.len(), 2);
-    }
-
-    #[test]
-    fn composition_rejects_incompatible_spaces() {
-        let first = fixture_morphism(
-            "first",
-            "space/a",
-            "space/b",
-            [("cell/a1", "cell/b1")],
-            [("rel/a1", "rel/b1")],
-            ["invariant/a"],
-        );
-        let second = fixture_morphism(
-            "second",
-            "space/x",
-            "space/c",
-            [("cell/x1", "cell/c1")],
-            [("rel/x1", "rel/c1")],
-            ["invariant/x"],
-        );
-
-        let result = first.compose_with(
-            &second,
-            id("invalid"),
-            "invalid composition",
-            MorphismType::Translation,
-            provenance(),
-        );
-
-        assert_eq!(
-            result,
-            CompositionResult::IncompatibleSpace {
-                first_morphism_id: id("first"),
-                second_morphism_id: id("second"),
-                first_target_space_id: id("space/b"),
-                second_source_space_id: id("space/x"),
-            }
-        );
-    }
-
-    #[test]
-    fn composition_does_not_infer_unmatched_intermediate_mappings() {
-        let first = fixture_morphism(
-            "first",
-            "space/a",
-            "space/b",
-            [("cell/a1", "cell/b1"), ("cell/a2", "cell/b2")],
-            [("rel/a1", "rel/b1"), ("rel/a2", "rel/b2")],
-            ["invariant/shared"],
-        );
-        let second = fixture_morphism(
-            "second",
-            "space/b",
-            "space/c",
-            [("cell/b1", "cell/c1")],
-            [("rel/b1", "rel/c1")],
-            ["invariant/shared"],
-        );
-
-        let CompositionResult::Composed { morphism } = compose_morphisms(
-            &first,
-            &second,
-            id("composed"),
-            "composed",
-            MorphismType::Projection,
-            provenance(),
-        ) else {
-            panic!("expected compatible morphisms to compose");
-        };
-
-        assert_eq!(morphism.cell_mapping.len(), 1);
-        assert_eq!(morphism.relation_mapping.len(), 1);
-        assert!(!morphism.cell_mapping.contains_key(&id("cell/a2")));
-        assert!(!morphism.relation_mapping.contains_key(&id("rel/a2")));
-    }
-
-    #[test]
-    fn composition_coverage_reports_unmatched_intermediate_mappings() {
-        let first = fixture_morphism(
-            "first",
-            "space/a",
-            "space/b",
-            [("cell/a1", "cell/b1"), ("cell/a2", "cell/b2")],
-            [("rel/a1", "rel/b1"), ("rel/a2", "rel/b2")],
-            ["invariant/shared"],
-        );
-        let second = fixture_morphism(
-            "second",
-            "space/b",
-            "space/c",
-            [("cell/b1", "cell/c1")],
-            [("rel/b1", "rel/c1")],
-            ["invariant/shared"],
-        );
-
-        let coverage = first.composition_coverage_with(&second);
-
-        assert!(!coverage.is_complete());
-        assert_eq!(coverage.unmapped_cell_intermediate_ids, vec![id("cell/b2")]);
-        assert_eq!(
-            coverage.unmapped_relation_intermediate_ids,
-            vec![id("rel/b2")]
-        );
-    }
-
-    #[test]
-    fn serde_defaults_empty_morphism_collections() {
-        let value = json!({
-            "id": "morphism/minimal",
-            "source_space_id": "space/a",
-            "target_space_id": "space/b",
-            "name": "minimal",
-            "morphism_type": "translation",
-            "provenance": provenance()
-        });
-
-        let morphism: Morphism = serde_json::from_value(value).expect("deserialize morphism");
-
-        assert!(morphism.cell_mapping.is_empty());
-        assert!(morphism.relation_mapping.is_empty());
-        assert!(morphism.preserved_invariant_ids.is_empty());
-        assert!(morphism.lost_structure.is_empty());
-        assert!(morphism.distortion.is_empty());
-        assert!(morphism.composable_with.is_empty());
-    }
-
-    #[test]
-    fn preservation_check_sorts_and_deduplicates_selected_invariants() {
-        let morphism = fixture_morphism(
-            "morphism",
-            "space/a",
-            "space/b",
-            [("cell/a1", "cell/b1")],
-            [("rel/a1", "rel/b1")],
-            ["invariant/b", "invariant/a"],
-        );
-
-        let report = morphism.check_preservation([
-            id("invariant/c"),
-            id("invariant/a"),
-            id("invariant/a"),
-            id("invariant/b"),
-        ]);
-
-        assert_eq!(report.preserved, vec![id("invariant/a"), id("invariant/b")]);
-        assert_eq!(report.violated, vec![id("invariant/c")]);
-        assert_eq!(report.lost_structure, morphism.lost_structure);
-        assert_eq!(report.distortion, morphism.distortion);
-    }
-
-    fn fixture_morphism<const C: usize, const R: usize, const I: usize>(
-        morphism_id: &str,
-        source_space_id: &str,
-        target_space_id: &str,
-        cell_pairs: [(&str, &str); C],
-        relation_pairs: [(&str, &str); R],
-        invariant_ids: [&str; I],
-    ) -> Morphism {
-        Morphism {
-            id: id(morphism_id),
-            source_space_id: id(source_space_id),
-            target_space_id: id(target_space_id),
-            name: morphism_id.to_owned(),
-            morphism_type: MorphismType::Translation,
-            cell_mapping: mapping(cell_pairs),
-            relation_mapping: mapping(relation_pairs),
-            preserved_invariant_ids: invariant_ids.into_iter().map(id).collect(),
-            lost_structure: vec![LostStructure {
-                source_element_id: id(format!("{morphism_id}/lost")),
-                reason: "fixture loss".to_owned(),
-                severity: Severity::Low,
-            }],
-            distortion: vec![Distortion {
-                source_element_id: id(format!("{morphism_id}/source")),
-                target_element_id: id(format!("{morphism_id}/target")),
-                description: "fixture distortion".to_owned(),
-                severity: Severity::Medium,
-            }],
-            composable_with: Vec::new(),
-            provenance: provenance(),
-        }
-    }
-
-    fn mapping<const N: usize>(pairs: [(&str, &str); N]) -> BTreeMap<Id, Id> {
-        pairs
-            .into_iter()
-            .map(|(source_id, target_id)| (id(source_id), id(target_id)))
-            .collect()
-    }
-
-    fn provenance() -> Provenance {
-        Provenance::new(
-            SourceRef::new(SourceKind::custom("morphism-test").expect("valid custom source kind")),
-            Confidence::new(1.0).expect("valid confidence"),
-        )
-        .with_review_status(ReviewStatus::Accepted)
-    }
-
-    fn id(value: impl AsRef<str>) -> Id {
-        Id::new(value.as_ref()).expect("valid id")
-    }
-}
+mod tests;

@@ -1,0 +1,12 @@
+case_id: hg_math_theorem_proving_bridge
+title: Constraint and theorem proving bridge
+description: Create a conservative bridge for SAT/SMT or theorem-proving style checks that can report satisfiable, unsatisfiable, unknown, and unsupported without requiring a full prover in core.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-26T10:43:28.119Z
+updated_at: 2026-04-26T12:59:46.978Z
+case_revision:
+  current: 27
+  last_event_id: 01KQ4XZSD2FV8G7Q8Z77XFT4ZE

@@ -259,6 +259,179 @@ fn custom_complex_type_is_normalized_and_rejects_empty_extension() {
 }
 
 #[test]
+fn complex_boundary_coboundary_and_closure_report_external_cells() {
+    let mut store = seeded_store();
+    store
+        .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
+        .expect("insert point a");
+    store
+        .insert_cell(Cell::new(id("point-b"), id("space-a"), 0, "point"))
+        .expect("insert point b");
+    store
+        .insert_cell(
+            Cell::new(id("edge-ab"), id("space-a"), 1, "edge")
+                .with_boundary_cell(id("point-a"))
+                .with_boundary_cell(id("point-b")),
+        )
+        .expect("insert edge");
+    store
+        .insert_cell(
+            Cell::new(id("face-alpha"), id("space-a"), 2, "face").with_boundary_cell(id("edge-ab")),
+        )
+        .expect("insert face");
+
+    let complex = store
+        .construct_complex(
+            id("complex-a"),
+            id("space-a"),
+            "Partial cell complex",
+            ComplexType::CellComplex,
+            [id("point-a"), id("edge-ab")],
+            [],
+        )
+        .expect("construct partial complex");
+
+    let closure = store.complex_closure(&complex.id).expect("compute closure");
+    assert_eq!(
+        closure.cell_ids,
+        vec![id("edge-ab"), id("point-a"), id("point-b")]
+    );
+
+    let validation = store
+        .validate_complex_closure(&complex.id)
+        .expect("validate closure");
+    assert!(!validation.is_closed());
+    assert_eq!(validation.missing_boundary_cell_ids, vec![id("point-b")]);
+    assert_eq!(
+        validation.violations,
+        vec![ComplexClosureViolation {
+            cell_id: id("edge-ab"),
+            missing_boundary_cell_ids: vec![id("point-b")]
+        }]
+    );
+
+    let boundary = store
+        .complex_boundary(&complex.id)
+        .expect("compute boundary");
+    assert_eq!(boundary.cell_ids, vec![id("point-a")]);
+    assert_eq!(boundary.external_cell_ids, vec![id("point-b")]);
+
+    let coboundary = store
+        .complex_coboundary(&complex.id)
+        .expect("compute coboundary");
+    assert_eq!(coboundary.cell_ids, vec![id("edge-ab")]);
+    assert_eq!(coboundary.external_cell_ids, vec![id("face-alpha")]);
+}
+
+#[test]
+fn complex_neighborhood_returns_closed_star_and_link_shell() {
+    let (store, complex_id) = triangle_complex_store();
+
+    let neighborhood = store
+        .complex_neighborhood(&complex_id, [id("point-a")])
+        .expect("compute neighborhood");
+
+    assert_eq!(neighborhood.seed_cell_ids, vec![id("point-a")]);
+    assert_eq!(neighborhood.seed_closure_cell_ids, vec![id("point-a")]);
+    assert_eq!(
+        neighborhood.coface_cell_ids,
+        vec![id("edge-ab"), id("edge-ca"), id("face-abc"), id("point-a")]
+    );
+    assert_eq!(
+        neighborhood.star_cell_ids,
+        vec![
+            id("edge-ab"),
+            id("edge-bc"),
+            id("edge-ca"),
+            id("face-abc"),
+            id("point-a"),
+            id("point-b"),
+            id("point-c")
+        ]
+    );
+    assert_eq!(
+        neighborhood.link_cell_ids,
+        vec![id("edge-bc"), id("point-b"), id("point-c")]
+    );
+}
+
+#[test]
+fn covered_region_expands_cells_to_boundary_closure_and_reports_gaps() {
+    let (mut store, complex_id) = triangle_complex_store();
+    store
+        .insert_cell(Cell::new(id("point-d"), id("space-a"), 0, "point"))
+        .expect("insert external point");
+    store
+        .insert_cell(
+            Cell::new(id("edge-outside"), id("space-a"), 1, "edge")
+                .with_boundary_cell(id("point-d")),
+        )
+        .expect("insert external edge");
+
+    let complete = store
+        .covered_region(&complex_id, [id("face-abc")])
+        .expect("compute complete coverage");
+    assert!(complete.is_complete());
+    assert_eq!(
+        complete.covered_cell_ids,
+        vec![
+            id("edge-ab"),
+            id("edge-bc"),
+            id("edge-ca"),
+            id("face-abc"),
+            id("point-a"),
+            id("point-b"),
+            id("point-c")
+        ]
+    );
+    assert!(complete.uncovered_cell_ids.is_empty());
+
+    let partial = store
+        .covered_region(
+            &complex_id,
+            [id("edge-ab"), id("edge-ab"), id("edge-outside")],
+        )
+        .expect("compute partial coverage");
+    assert!(!partial.is_complete());
+    assert_eq!(
+        partial.requested_cell_ids,
+        vec![id("edge-ab"), id("edge-outside")]
+    );
+    assert_eq!(partial.duplicate_cell_ids, vec![id("edge-ab")]);
+    assert_eq!(partial.external_cell_ids, vec![id("edge-outside")]);
+    assert_eq!(
+        partial.covered_cell_ids,
+        vec![id("edge-ab"), id("point-a"), id("point-b")]
+    );
+    assert_eq!(
+        partial.uncovered_cell_ids,
+        vec![id("edge-bc"), id("edge-ca"), id("face-abc"), id("point-c")]
+    );
+    assert_eq!(
+        store
+            .uncovered_region(&complex_id, [id("edge-ab")])
+            .expect("compute uncovered region"),
+        partial.uncovered_cell_ids
+    );
+}
+
+#[test]
+fn cell_insertion_rejects_non_lower_dimensional_boundary() {
+    let mut store = seeded_store();
+    store
+        .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
+        .expect("insert point");
+
+    let error = store
+        .insert_cell(
+            Cell::new(id("point-b"), id("space-a"), 0, "point").with_boundary_cell(id("point-a")),
+        )
+        .expect_err("same-dimension boundary should fail");
+
+    assert_eq!(error.code(), "malformed_field");
+}
+
+#[test]
 fn reachability_finds_shortest_directed_path_with_witness() {
     let mut store = layered_store();
     insert_edge(&mut store, "incidence-ab", "cell-a", "cell-b", "depends_on");
@@ -379,6 +552,68 @@ fn layered_store() -> InMemorySpaceStore {
     insert_cell(&mut store, "cell-c", "layer.implementation");
     insert_cell(&mut store, "cell-d", "layer.test");
     store
+}
+
+fn triangle_complex_store() -> (InMemorySpaceStore, Id) {
+    let mut store = seeded_store();
+    store
+        .insert_cell(Cell::new(id("point-a"), id("space-a"), 0, "point"))
+        .expect("insert point a");
+    store
+        .insert_cell(Cell::new(id("point-b"), id("space-a"), 0, "point"))
+        .expect("insert point b");
+    store
+        .insert_cell(Cell::new(id("point-c"), id("space-a"), 0, "point"))
+        .expect("insert point c");
+    store
+        .insert_cell(
+            Cell::new(id("edge-ab"), id("space-a"), 1, "edge")
+                .with_boundary_cell(id("point-a"))
+                .with_boundary_cell(id("point-b")),
+        )
+        .expect("insert edge ab");
+    store
+        .insert_cell(
+            Cell::new(id("edge-bc"), id("space-a"), 1, "edge")
+                .with_boundary_cell(id("point-b"))
+                .with_boundary_cell(id("point-c")),
+        )
+        .expect("insert edge bc");
+    store
+        .insert_cell(
+            Cell::new(id("edge-ca"), id("space-a"), 1, "edge")
+                .with_boundary_cell(id("point-c"))
+                .with_boundary_cell(id("point-a")),
+        )
+        .expect("insert edge ca");
+    store
+        .insert_cell(
+            Cell::new(id("face-abc"), id("space-a"), 2, "face")
+                .with_boundary_cell(id("edge-ab"))
+                .with_boundary_cell(id("edge-bc"))
+                .with_boundary_cell(id("edge-ca")),
+        )
+        .expect("insert face");
+    let complex = store
+        .construct_complex(
+            id("complex-triangle"),
+            id("space-a"),
+            "Triangle",
+            ComplexType::SimplicialComplex,
+            [
+                id("point-a"),
+                id("point-b"),
+                id("point-c"),
+                id("edge-ab"),
+                id("edge-bc"),
+                id("edge-ca"),
+                id("face-abc"),
+            ],
+            [],
+        )
+        .expect("construct triangle complex");
+
+    (store, complex.id)
 }
 
 fn insert_cell(store: &mut InMemorySpaceStore, cell_id: &str, cell_type: &str) {

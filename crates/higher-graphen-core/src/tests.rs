@@ -32,6 +32,13 @@ fn id_can_be_used_as_a_downstream_json_map_key() {
 #[test]
 fn validation_failures_return_structured_core_errors() {
     assert_eq!(Id::new("   ").expect_err("empty id").code(), "invalid_id");
+    assert_eq!(
+        Id::new("structure\n001")
+            .expect_err("control character id")
+            .code(),
+        "invalid_id"
+    );
+    assert!(!Id::is_valid_value("structure\t001"));
 
     for value in [f64::NAN, f64::INFINITY, -0.01, 1.01] {
         assert_eq!(
@@ -60,6 +67,10 @@ fn confidence_roundtrips_and_rejects_invalid_deserialized_values() {
     let zero = Confidence::new(-0.0).expect("negative zero is in range");
     assert_eq!(zero.value().to_bits(), 0.0_f64.to_bits());
     assert_eq!(serde_json::to_string(&zero).expect("serialize zero"), "0.0");
+    assert!(Confidence::ZERO.is_zero());
+    assert!(Confidence::ONE.is_certain());
+    assert!(Confidence::is_valid_value(1.0));
+    assert!(!Confidence::is_valid_value(f64::NAN));
 }
 
 #[test]
@@ -115,17 +126,45 @@ fn source_kind_rejects_unknown_values_with_core_code() {
 
 #[test]
 fn source_ref_roundtrips_portable_fields() {
-    let source = SourceRef {
-        kind: SourceKind::Document,
-        uri: Some("urn:higher-graphen:source:1".to_owned()),
-        title: Some("Abstract source".to_owned()),
-        captured_at: Some("2026-04-25T00:00:00Z".to_owned()),
-        source_local_id: Some("section-1".to_owned()),
-    };
+    let source = SourceRef::new(SourceKind::Document)
+        .with_uri("  urn:higher-graphen:source:1  ")
+        .expect("valid uri")
+        .with_title("Abstract source")
+        .expect("valid title")
+        .with_captured_at("2026-04-25T00:00:00Z")
+        .expect("valid captured_at")
+        .with_source_local_id("section-1")
+        .expect("valid source local id");
 
     let json = serde_json::to_string(&source).expect("serialize source");
+    assert_eq!(source.uri.as_deref(), Some("urn:higher-graphen:source:1"));
     let roundtrip: SourceRef = serde_json::from_str(&json).expect("deserialize source");
     assert_eq!(roundtrip, source);
+}
+
+#[test]
+fn source_ref_rejects_blank_payloads_at_serde_boundaries() {
+    assert_eq!(
+        SourceRef::new(SourceKind::Document)
+            .with_uri("   ")
+            .expect_err("empty source uri")
+            .code(),
+        "malformed_field"
+    );
+
+    let direct_invalid = SourceRef {
+        kind: SourceKind::Document,
+        uri: Some("   ".to_owned()),
+        title: None,
+        captured_at: None,
+        source_local_id: None,
+    };
+    let error = serde_json::to_string(&direct_invalid).expect_err("invalid source serialization");
+    assert!(error.to_string().contains("malformed_field"));
+
+    let malformed = r#"{"kind":"document","title":"   "}"#;
+    let error = serde_json::from_str::<SourceRef>(malformed).expect_err("invalid source input");
+    assert!(error.to_string().contains("malformed_field"));
 }
 
 #[test]
@@ -133,36 +172,85 @@ fn severity_and_review_status_have_stable_values_and_order() {
     assert!(Severity::Low < Severity::Medium);
     assert!(Severity::Medium < Severity::High);
     assert!(Severity::High < Severity::Critical);
+    assert!(Severity::Critical.is_at_least(Severity::High));
+    assert_eq!(Severity::try_from("critical").unwrap(), Severity::Critical);
+    assert_eq!(Severity::Critical.as_str(), "critical");
+    assert_eq!(Severity::Critical.to_string(), "critical");
     assert_eq!(
         serde_json::to_string(&Severity::Critical).unwrap(),
         "\"critical\""
     );
 
     assert_eq!(ReviewStatus::default(), ReviewStatus::Unreviewed);
+    assert_eq!(
+        ReviewStatus::try_from("accepted").unwrap(),
+        ReviewStatus::Accepted
+    );
+    assert_eq!(ReviewStatus::Accepted.as_str(), "accepted");
+    assert_eq!(ReviewStatus::Accepted.to_string(), "accepted");
     assert!(ReviewStatus::Accepted.is_accepted());
     assert!(ReviewStatus::Rejected.is_rejected());
     assert!(ReviewStatus::Reviewed.has_review_action());
     assert!(serde_json::from_str::<Severity>("\"urgent\"").is_err());
     assert!(serde_json::from_str::<ReviewStatus>("\"approved\"").is_err());
+    assert_eq!(
+        Severity::try_from("urgent")
+            .expect_err("invalid severity")
+            .code(),
+        "parse_failure"
+    );
 }
 
 #[test]
 fn provenance_roundtrips_and_requires_review_status_on_input() {
     let source = SourceRef::new(SourceKind::custom("fixture").expect("custom source"));
-    let mut provenance = Provenance::new(source, Confidence::new(0.8).expect("confidence"))
-        .with_review_status(ReviewStatus::Unreviewed);
-    provenance.extraction_method = Some("manual_fixture".to_owned());
-    provenance.extractor_id = Some("extractor-1".to_owned());
-    provenance.notes = Some("keeps review status separate from confidence".to_owned());
+    let provenance = Provenance::new(source, Confidence::new(0.8).expect("confidence"))
+        .with_review_status(ReviewStatus::Unreviewed)
+        .with_extraction_method("  manual_fixture  ")
+        .expect("valid extraction method")
+        .with_extractor_id("extractor-1")
+        .expect("valid extractor id")
+        .with_notes("keeps review status separate from confidence")
+        .expect("valid notes");
 
     let value = serde_json::to_value(&provenance).expect("serialize provenance");
     assert_eq!(value["review_status"], json!("unreviewed"));
+    assert_eq!(value["extraction_method"], json!("manual_fixture"));
 
     let roundtrip: Provenance = serde_json::from_value(value).expect("deserialize provenance");
     assert_eq!(roundtrip, provenance);
 
     let malformed = r#"{"source":{"kind":"document"},"confidence":0.8}"#;
     assert!(serde_json::from_str::<Provenance>(malformed).is_err());
+}
+
+#[test]
+fn provenance_rejects_blank_optional_payloads_at_serde_boundaries() {
+    assert_eq!(
+        Provenance::new(
+            SourceRef::new(SourceKind::Document),
+            Confidence::new(0.8).expect("confidence"),
+        )
+        .with_reviewer_id("   ")
+        .expect_err("empty reviewer id")
+        .code(),
+        "malformed_field"
+    );
+
+    let mut direct_invalid = Provenance::new(
+        SourceRef::new(SourceKind::Document),
+        Confidence::new(0.8).expect("confidence"),
+    )
+    .with_review_status(ReviewStatus::Reviewed);
+    direct_invalid.reviewed_at = Some("   ".to_owned());
+    let error =
+        serde_json::to_string(&direct_invalid).expect_err("invalid provenance serialization");
+    assert!(error.to_string().contains("malformed_field"));
+
+    let malformed = r#"{"source":{"kind":"document"},"confidence":0.8,"review_status":"reviewed","notes":"   "}"#;
+    let error =
+        serde_json::from_str::<Provenance>(malformed).expect_err("invalid provenance input");
+    assert!(error.to_string().contains("malformed_field"));
 }
 
 #[test]

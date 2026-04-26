@@ -1,4 +1,9 @@
 use super::*;
+use higher_graphen_core::{Provenance, Severity, SourceKind, SourceRef};
+use higher_graphen_obstruction::{
+    Counterexample, Obstruction, ObstructionExplanation, ObstructionType, RelatedMorphism,
+    RequiredResolution,
+};
 
 fn id(value: &str) -> Id {
     Id::new(value).expect("valid id")
@@ -6,6 +11,10 @@ fn id(value: &str) -> Id {
 
 fn confidence(value: f64) -> Confidence {
     Confidence::new(value).expect("valid confidence")
+}
+
+fn provenance(value: f64) -> Provenance {
+    Provenance::new(SourceRef::new(SourceKind::Ai), confidence(value))
 }
 
 fn candidate() -> CompletionCandidate {
@@ -45,6 +54,24 @@ fn rule() -> CompletionRule {
     .with_inferred_from(vec![id("cell.api")])
 }
 
+fn obstruction(
+    obstruction_id: &str,
+    space_id: &str,
+    obstruction_type: ObstructionType,
+) -> Obstruction {
+    Obstruction::new(
+        id(obstruction_id),
+        id(space_id),
+        obstruction_type,
+        ObstructionExplanation::new(format!("{} requires completion", obstruction_id))
+            .expect("valid explanation")
+            .with_details("The obstruction identifies missing mathematical structure.")
+            .expect("valid details"),
+        Severity::High,
+        provenance(0.74),
+    )
+}
+
 #[test]
 fn new_candidate_defaults_to_unreviewed() {
     let candidate = candidate();
@@ -54,6 +81,215 @@ fn new_candidate_defaults_to_unreviewed() {
         candidate.rationale,
         "The API has behavior but no contract cell."
     );
+}
+
+fn supported_obstruction_result() -> CompletionDetectionResult {
+    let missing_morphism = obstruction(
+        "obstruction.missing_morphism",
+        "space.math",
+        ObstructionType::MissingMorphism,
+    )
+    .with_related_morphism(
+        RelatedMorphism::new(id("morphism.required"))
+            .with_role("required")
+            .expect("valid role"),
+    );
+    let failed_gluing = obstruction(
+        "obstruction.failed_gluing",
+        "space.math",
+        ObstructionType::FailedGluing,
+    )
+    .with_location_cell(id("cell.local_a"))
+    .with_location_cell(id("cell.local_b"))
+    .with_required_resolution(
+        RequiredResolution::new("Supply a global section")
+            .expect("valid resolution")
+            .with_target_cell(id("cell.global")),
+    );
+    let uncovered_region = obstruction(
+        "obstruction.uncovered_region",
+        "space.math",
+        ObstructionType::UncoveredRegion,
+    )
+    .with_counterexample(
+        Counterexample::new("Region has no covering cell")
+            .expect("valid counterexample")
+            .with_path_cell(id("cell.boundary"))
+            .with_context(id("context.region")),
+    );
+    let projection_loss = obstruction(
+        "obstruction.projection_loss",
+        "space.math",
+        ObstructionType::ProjectionLoss,
+    )
+    .with_location_context(id("context.projection"));
+    let context_mismatch = obstruction(
+        "obstruction.context_mismatch",
+        "space.math",
+        ObstructionType::ContextMismatch,
+    )
+    .with_location_context(id("context.source"))
+    .with_required_resolution(
+        RequiredResolution::new("Align target context")
+            .expect("valid resolution")
+            .with_target_context(id("context.target")),
+    );
+
+    let input = ObstructionCompletionInput::new(
+        id("space.math"),
+        vec![
+            missing_morphism,
+            failed_gluing,
+            uncovered_region,
+            projection_loss,
+            context_mismatch,
+        ],
+    )
+    .with_context_ids(vec![id("context.review")]);
+
+    detect_obstruction_completion_candidates(input).expect("obstruction detection succeeds")
+}
+
+#[test]
+fn obstruction_detection_materializes_supported_obstructions_as_unreviewed_candidates() {
+    let result = supported_obstruction_result();
+
+    assert_eq!(result.space_id(), &id("space.math"));
+    assert_eq!(result.context_ids(), &[id("context.review")]);
+    assert_eq!(result.candidates().len(), 5);
+
+    let expected = [
+        (MissingType::Morphism, "morphism"),
+        (MissingType::Section, "gluing_section"),
+        (MissingType::Cell, "covering_cell"),
+        (MissingType::Projection, "lossless_projection"),
+        (MissingType::Context, "context_alignment"),
+    ];
+
+    for (candidate, (missing_type, structure_type)) in result.candidates().iter().zip(expected) {
+        assert_eq!(candidate.missing_type, missing_type);
+        assert_eq!(candidate.suggested_structure.structure_type, structure_type);
+        assert_eq!(candidate.review_status, ReviewStatus::Unreviewed);
+        assert_eq!(candidate.confidence.value(), 0.74);
+    }
+
+    let missing = result
+        .candidates()
+        .iter()
+        .find(|candidate| {
+            candidate.id == id("candidate.from_obstruction.obstruction.missing_morphism")
+        })
+        .expect("missing morphism candidate");
+    assert_eq!(
+        missing.suggested_structure.structure_id,
+        Some(id(
+            "suggested.from_obstruction.obstruction.missing_morphism"
+        ))
+    );
+    assert!(missing
+        .inferred_from
+        .contains(&id("obstruction.missing_morphism")));
+    assert!(missing.inferred_from.contains(&id("morphism.required")));
+
+    let gluing = result
+        .candidates()
+        .iter()
+        .find(|candidate| candidate.missing_type == MissingType::Section)
+        .expect("gluing section candidate");
+    assert_eq!(
+        gluing.suggested_structure.summary,
+        "Add a gluing section to resolve obstruction.failed_gluing: Supply a global section"
+    );
+    assert!(gluing
+        .suggested_structure
+        .related_ids
+        .contains(&id("cell.global")));
+}
+
+#[test]
+fn obstruction_detection_skips_unsupported_obstruction_types() {
+    let unsupported = obstruction(
+        "obstruction.invariant",
+        "space.math",
+        ObstructionType::InvariantViolation,
+    );
+    let supported = obstruction(
+        "obstruction.context_mismatch",
+        "space.math",
+        ObstructionType::ContextMismatch,
+    );
+
+    let result = detect_obstruction_completion_candidates(ObstructionCompletionInput::new(
+        id("space.math"),
+        vec![unsupported, supported],
+    ))
+    .expect("unsupported obstructions are ignored");
+
+    assert_eq!(result.candidates().len(), 1);
+    assert_eq!(result.candidates()[0].missing_type, MissingType::Context);
+}
+
+#[test]
+fn obstruction_detection_rejects_obstructions_from_other_spaces() {
+    let obstruction = obstruction(
+        "obstruction.context_mismatch",
+        "space.other",
+        ObstructionType::ContextMismatch,
+    );
+
+    let error = detect_obstruction_completion_candidates(ObstructionCompletionInput::new(
+        id("space.math"),
+        vec![obstruction],
+    ))
+    .expect_err("mismatched obstruction space is rejected");
+
+    assert_eq!(error.code(), "malformed_field");
+}
+
+#[test]
+fn obstruction_detection_rejects_duplicate_derived_candidate_ids() {
+    let first = obstruction(
+        "obstruction.duplicate",
+        "space.math",
+        ObstructionType::MissingMorphism,
+    );
+    let second = obstruction(
+        "obstruction.duplicate",
+        "space.math",
+        ObstructionType::ProjectionLoss,
+    );
+
+    let error = detect_obstruction_completion_candidates(ObstructionCompletionInput::new(
+        id("space.math"),
+        vec![first, second],
+    ))
+    .expect_err("duplicate candidate ids are rejected");
+
+    assert_eq!(error.code(), "malformed_field");
+}
+
+#[test]
+fn obstruction_candidates_use_existing_review_workflow_without_mutation() {
+    let engine = SimpleCompletionEngine;
+    let result = engine
+        .detect_obstruction_candidates(ObstructionCompletionInput::new(
+            id("space.math"),
+            vec![obstruction(
+                "obstruction.missing_morphism",
+                "space.math",
+                ObstructionType::MissingMorphism,
+            )],
+        ))
+        .expect("obstruction detection succeeds");
+    let candidate = &result.candidates()[0];
+
+    let accepted = engine
+        .accept_candidate(candidate, id("reviewer.math"), "Validated completion")
+        .expect("candidate can be accepted");
+
+    assert_eq!(candidate.review_status, ReviewStatus::Unreviewed);
+    assert_eq!(accepted.review_status, ReviewStatus::Accepted);
+    assert_eq!(accepted.candidate_id, candidate.id);
 }
 
 #[test]
