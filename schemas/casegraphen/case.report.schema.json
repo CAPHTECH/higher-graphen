@@ -53,7 +53,13 @@
       "type": "object"
     },
     "result": {
-      "type": "object"
+      "type": "object",
+      "description": "Operation-specific result payload. The shared envelope intentionally leaves most result fields broad; topology reports validate the optional result.higher_order fragment when present.",
+      "properties": {
+        "higher_order": {
+          "$ref": "#/$defs/higher_order_topology"
+        }
+      }
     },
     "projection": {
       "type": "object",
@@ -71,6 +77,176 @@
         },
         "audit_trace": {
           "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "higher_order_topology": {
+      "type": "object",
+      "description": "Optional higher-order topology diagnostics emitted only when --higher-order is supplied to history topology commands.",
+      "required": [
+        "options",
+        "cell_count",
+        "stage_count"
+      ],
+      "properties": {
+        "options": {
+          "type": "object",
+          "required": [
+            "include_higher_order",
+            "min_persistence_stages"
+          ],
+          "properties": {
+            "include_higher_order": {
+              "const": true
+            },
+            "max_dimension": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_persistence_stages": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "cell_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stage_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "persistence": {
+          "$ref": "#/$defs/persistence_summary"
+        },
+        "omitted_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "persistence_summary": {
+      "type": "object",
+      "required": [
+        "complex_id",
+        "options",
+        "stages",
+        "intervals",
+        "persistent_intervals",
+        "open_component_count",
+        "open_hole_count"
+      ],
+      "properties": {
+        "complex_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "object",
+          "required": [
+            "min_lifetime_stages"
+          ],
+          "properties": {
+            "min_lifetime_stages": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/filtration_stage_summary"
+          }
+        },
+        "intervals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/persistence_interval"
+          }
+        },
+        "persistent_intervals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/persistence_interval"
+          }
+        },
+        "open_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_hole_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "filtration_stage_summary": {
+      "type": "object",
+      "required": [
+        "stage_id",
+        "stage_index",
+        "cell_ids",
+        "topology"
+      ],
+      "properties": {
+        "stage_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cell_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "topology": {
+          "type": "object"
+        }
+      }
+    },
+    "persistence_interval": {
+      "type": "object",
+      "required": [
+        "dimension",
+        "birth_stage_id",
+        "birth_stage_index",
+        "generator_cell_ids"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "birth_stage_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "birth_stage_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "death_stage_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "death_stage_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generator_cell_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }

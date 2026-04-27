@@ -121,6 +121,8 @@ casegraphen missing --input case.graph.json --coverage coverage.policy.json --fo
 casegraphen conflicts --input case.graph.json --format json [--output <path>]
 casegraphen project --input case.graph.json --projection projection.json --format json [--output <path>]
 casegraphen compare --left case.graph.json --right case.graph.json --format json
+casegraphen history topology --input case.graph.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen history topology diff --left left.case.graph.json --right right.case.graph.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
 ```
 
 All CLI commands must accept `--format json`. Human-readable text output may be
@@ -375,6 +377,28 @@ Operation-specific result fields:
 | `conflicts` | `result.conflicts`, each with case IDs, scenario IDs, conflict type, evidence IDs, severity, explanation, and provenance. |
 | `project` | `result.projection_result`, selected source IDs, omitted source IDs, and declared information loss. |
 | `compare` | Added, removed, changed, equivalent, conflicting, and not-comparable case records. |
+| `history topology` | `result.topology`, `result.source_mapping`, and, only when `--higher-order` is supplied, `result.higher_order`. |
+| `history topology diff` | `result.scalar_deltas`, `result.source_mapping_delta`, and, only when both sides include higher-order summaries, `result.higher_order`. |
+
+`history topology` is read-only diagnostics over a deterministic lift of the
+case graph into a finite complex. Baseline output omits `result.higher_order`.
+When `--higher-order` is supplied, `result.higher_order.options` records
+`include_higher_order: true`, optional `max_dimension`, and
+`min_persistence_stages`; `cell_count` and `stage_count` summarize the selected
+filtration; `filtration_source` identifies deterministic cell order, workflow
+revision history, or native morphism log ordering; `stage_sources` maps
+generated stages back to revision/morphism records when available;
+`persistence` contains `stages`, `intervals`,
+`persistent_intervals`, `open_component_count`, and `open_hole_count` when at
+least one cell is selected. `--min-persistence` and
+`--min-persistence-stages` are aliases for the same stage-lifetime threshold.
+Higher-order topology findings are diagnostic signals and must not be treated
+as coverage, completion, or blocker decisions by themselves.
+
+`history topology diff` compares two lifted topology reports. It reports scalar
+topology deltas, added/removed source node and relation IDs, and optional
+higher-order summary deltas when `--higher-order` is supplied. It is not a full
+JSON patch and does not mutate either input graph.
 
 `projection` must include:
 

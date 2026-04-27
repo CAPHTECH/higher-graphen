@@ -48,6 +48,10 @@ services, or the external CaseGraphen repository.
 | `casegraphen conflicts` | Emits `ConflictingCase` findings from `contradicts` relations and expected-vs-observed outcome mismatches. | Existing obstruction-like finding surface, but not typed as an obstruction report. |
 | `casegraphen project` | Reads a projection definition and emits selected source IDs, omitted source IDs, information loss, and the standard projections. | Existing projection-loss boundary. The current definition is mostly validated rather than used to tailor output. |
 | `casegraphen compare` | Reports equivalent, added, removed, changed, conflicting, and not-comparable case IDs. | Seed for correspondence, but currently limited to case-level equality and diffing. |
+| `casegraphen history topology` | Emits lifted first-order topology diagnostics for a case graph. `--higher-order` adds optional persistence diagnostics with `--max-dimension` and `--min-persistence` / `--min-persistence-stages`. | Provides a read-only structural signal over the graph. Higher-order persistence is opt-in and diagnostic; baseline output omits `result.higher_order`. |
+| `casegraphen history topology diff` | Compares two lifted topology reports and emits scalar topology deltas plus source-mapping added/removed IDs. `--higher-order` adds summary deltas when both sides include higher-order summaries. | Provides topology-specific pairwise change detection without overloading raw case `compare` or workflow correspondence. |
+| `casegraphen cg workflow history topology` | Replays a stored workflow graph and, with `--higher-order`, orders filtration stages from workflow revision history. | Store-backed topology can expose `filtration_source: workflow_history` and `stage_sources` for revision-aware diagnostics. |
+| `casegraphen case history topology diff` | Replays two native case spaces and compares their topology reports. | Native topology diff uses morphism-log-aware topology reports and emits `result.topology_diff` without mutating either store. |
 
 All commands require `--format json`. `--output` writes pretty JSON to a file
 and suppresses stdout. Domain findings such as missing cases, conflicts, and
@@ -62,7 +66,7 @@ failures are CLI failures.
 | `schemas/casegraphen/case.graph.schema.json` | Strict `highergraphen.case.graph.v1` input with top-level `case_graph_id`, `space_id`, cases, scenarios, coverage goals, relations, review records, and metadata. |
 | `schemas/casegraphen/coverage.policy.schema.json` | `highergraphen.case.coverage_policy.v1` with selected coverage goal IDs, explicit-relation mode, and metadata. |
 | `schemas/casegraphen/projection.schema.json` | `highergraphen.case.projection.v1` with audience, source inclusion flag, and metadata. |
-| `schemas/casegraphen/case.report.schema.json` | Shared report envelope for `highergraphen.case.*.report.v1` commands. |
+| `schemas/casegraphen/case.report.schema.json` | Shared report envelope for `highergraphen.case.*.report.v1` commands. The schema intentionally keeps operation result payloads broad, but validates the optional `result.higher_order` fragment used by topology reports when present. |
 | `schemas/casegraphen/*.example.json` | Minimal graph, coverage policy, and projection fixtures used by command tests. |
 | `examples/architecture/reference/casegraphen-reference.*.json` | Reference workflow graph, policy, projection request, and generated reports. |
 

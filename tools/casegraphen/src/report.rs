@@ -4,6 +4,7 @@ use crate::eval::{
     ProjectionResult, ValidationResult,
 };
 use crate::model::{id_text, CaseGraph, ConflictingCase, CoveragePolicy, MissingCase};
+use crate::topology::TopologyReportOptions;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -106,8 +107,13 @@ pub fn validate_report(
     }
 }
 
-pub fn topology_report(command: &str, input: &Path, graph: &CaseGraph) -> OperationReport<Value> {
-    let topology = crate::topology::case_graph_topology(graph);
+pub fn topology_report(
+    command: &str,
+    input: &Path,
+    graph: &CaseGraph,
+    options: TopologyReportOptions,
+) -> OperationReport<Value> {
+    let topology = crate::topology::case_graph_topology_with_options(graph, options);
     let result = topology_result_value(topology);
     OperationReport {
         schema: schema("topology"),
@@ -116,6 +122,33 @@ pub fn topology_report(command: &str, input: &Path, graph: &CaseGraph) -> Operat
         metadata: metadata(command),
         input: path_input(input),
         projection: topology_projection(graph, result.clone()),
+        result,
+    }
+}
+
+pub fn topology_diff_report(
+    command: &str,
+    left: &Path,
+    right: &Path,
+    left_graph: &CaseGraph,
+    right_graph: &CaseGraph,
+    options: TopologyReportOptions,
+) -> OperationReport<Value> {
+    let result = topology_diff_result_value(
+        crate::topology::case_graph_topology_with_options(left_graph, options),
+        crate::topology::case_graph_topology_with_options(right_graph, options),
+    );
+    OperationReport {
+        schema: schema("topology_diff"),
+        report_type: "case_topology_diff".to_owned(),
+        report_version: 1,
+        metadata: metadata(command),
+        input: json!({
+            "left": path_display(left),
+            "right": path_display(right),
+            "topology_options": options
+        }),
+        projection: topology_diff_projection(left_graph, right_graph, result.clone()),
         result,
     }
 }
@@ -318,12 +351,49 @@ fn topology_projection(graph: &CaseGraph, topology: Value) -> Value {
     })
 }
 
+fn topology_diff_projection(left_graph: &CaseGraph, right_graph: &CaseGraph, diff: Value) -> Value {
+    json!({
+        "human_review": {
+            "recommended_review_actions": ["review topology count and source mapping deltas before accepting shape changes"]
+        },
+        "ai_view": {
+            "left_case_graph_id": left_graph.case_graph_id,
+            "right_case_graph_id": right_graph.case_graph_id,
+            "topology_diff": diff
+        },
+        "audit_trace": {
+            "left_source_ids": source_ids(left_graph),
+            "right_source_ids": source_ids(right_graph),
+            "topology_diff": diff,
+            "information_loss": ["topology diff compares lifted topology summaries and source mappings, not a full JSON patch"]
+        }
+    })
+}
+
 fn topology_result_value(
     result: Result<crate::topology::CaseTopologyReport, crate::topology::TopologyReportError>,
 ) -> Value {
     match result {
         Ok(report) => serde_json::to_value(report).expect("topology report serializes"),
         Err(error) => json!({
+            "error": {
+                "code": error.code(),
+                "message": error.to_string()
+            }
+        }),
+    }
+}
+
+fn topology_diff_result_value(
+    left: Result<crate::topology::CaseTopologyReport, crate::topology::TopologyReportError>,
+    right: Result<crate::topology::CaseTopologyReport, crate::topology::TopologyReportError>,
+) -> Value {
+    match (left, right) {
+        (Ok(left), Ok(right)) => {
+            serde_json::to_value(crate::topology::topology_diff(&left, &right))
+                .expect("topology diff report serializes")
+        }
+        (Err(error), _) | (_, Err(error)) => json!({
             "error": {
                 "code": error.code(),
                 "message": error.to_string()

@@ -47,7 +47,8 @@ casegraphen workflow readiness --input workflow.graph.json --format json [--proj
 casegraphen workflow obstructions --input workflow.graph.json --format json
 casegraphen workflow completions --input workflow.graph.json --format json
 casegraphen workflow evidence --input workflow.graph.json --format json
-casegraphen workflow history topology --input workflow.graph.json --format json
+casegraphen workflow history topology --input workflow.graph.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen workflow history topology diff --left left.workflow.json --right right.workflow.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen workflow project --input workflow.graph.json --projection projection.json --format json
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json
 casegraphen workflow evolution --input workflow.graph.json --format json
@@ -70,6 +71,7 @@ casegraphen cg workflow import \
 casegraphen cg workflow list --store casegraphen-workflow-store --format json
 casegraphen cg workflow inspect --store casegraphen-workflow-store --workflow-graph-id <id> --format json
 casegraphen cg workflow history --store casegraphen-workflow-store --workflow-graph-id <id> --format json
+casegraphen cg workflow history topology --store casegraphen-workflow-store --workflow-graph-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen cg workflow replay --store casegraphen-workflow-store --workflow-graph-id <id> --format json
 casegraphen cg workflow validate --store casegraphen-workflow-store --workflow-graph-id <id> --format json
 casegraphen cg workflow readiness --store casegraphen-workflow-store --workflow-graph-id <id> --format json
@@ -146,7 +148,8 @@ casegraphen case import --store casegraphen-native-store --input native.case.spa
 casegraphen case validate --store casegraphen-native-store --case-space-id <id> --format json
 casegraphen case reason --store casegraphen-native-store --case-space-id <id> --format json
 casegraphen case frontier --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case history topology --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen case history topology --store casegraphen-native-store --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen case close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
 casegraphen morphism propose --store casegraphen-native-store --case-space-id <id> --input case_morphism.json --format json
 casegraphen morphism check --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --format json
@@ -210,6 +213,13 @@ casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_
 - CaseGraphen workflow reasoning treats blocked work, obstructions, missing
   proof, completion candidates, and projection loss as successful JSON report
   findings.
+- Higher-order topology is opt-in with `--higher-order`. File-based topology
+  uses deterministic cell-order filtration; store-backed workflow topology uses
+  `workflow_history`; native topology uses `native_morphism_log`. The
+  `filtration_source` and `stage_sources` fields are diagnostics, not state
+  transitions.
+- Topology diff commands compare lifted topology summaries and source mappings;
+  they do not apply patches, accept completion candidates, or close work.
 - Focused workflow commands are read-only. They may narrow the report to
   validation, readiness, obstructions, completions, evidence, projection,
   correspondence, or evolution, but they do not accept candidates, promote

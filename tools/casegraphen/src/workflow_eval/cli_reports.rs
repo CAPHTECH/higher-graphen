@@ -6,6 +6,7 @@ use super::{
 use crate::{
     model::ProjectionDefinition,
     store::{read_projection, read_workflow_graph, StoreError},
+    topology::TopologyReportOptions,
     workflow_model::WorkflowCaseGraph,
     workflow_report,
 };
@@ -81,18 +82,50 @@ pub fn workflow_evidence_json(input: &Path) -> WorkflowCommandResult<String> {
     )
 }
 
-pub fn workflow_topology_json(input: &Path) -> WorkflowCommandResult<String> {
+pub fn workflow_topology_json(
+    input: &Path,
+    topology_options: TopologyReportOptions,
+) -> WorkflowCommandResult<String> {
     workflow_section_json(
         input,
         None,
         "casegraphen workflow history topology",
         "topology",
         |graph| {
-            Ok(serde_json::to_value(crate::topology::workflow_topology(
-                graph,
-            )?)?)
+            Ok(serde_json::to_value(
+                crate::topology::workflow_topology_with_options(graph, topology_options)?,
+            )?)
         },
     )
+}
+
+pub fn workflow_topology_diff_json(
+    left: &Path,
+    right: &Path,
+    topology_options: TopologyReportOptions,
+) -> WorkflowCommandResult<String> {
+    let left_graph = read_workflow_graph(left)?;
+    let right_graph = read_workflow_graph(right)?;
+    let left_topology =
+        crate::topology::workflow_topology_with_options(&left_graph, topology_options)?;
+    let right_topology =
+        crate::topology::workflow_topology_with_options(&right_graph, topology_options)?;
+    let result = serde_json::to_value(crate::topology::topology_diff(
+        &left_topology,
+        &right_topology,
+    ))?;
+
+    serialize(&workflow_report::workflow_operation_report(
+        "casegraphen workflow history topology diff",
+        "topology_diff",
+        serde_json::json!({
+            "left": workflow_report::workflow_input_with_paths(&left_graph, Some(left), None),
+            "right": workflow_report::workflow_input_with_paths(&right_graph, Some(right), None),
+            "topology_options": topology_options
+        }),
+        result,
+        workflow_report::focused_projection(&right_graph, "topology_diff"),
+    ))
 }
 
 pub fn workflow_project_json(input: &Path, projection: &Path) -> WorkflowCommandResult<String> {

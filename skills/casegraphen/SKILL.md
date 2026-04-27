@@ -89,7 +89,8 @@ casegraphen case import --store <dir> --input native.case.space.json --revision-
 casegraphen case list --store <dir> --format json
 casegraphen case inspect --store <dir> --case-space-id <id> --format json
 casegraphen case history --store <dir> --case-space-id <id> --format json
-casegraphen case history topology --store <dir> --case-space-id <id> --format json
+casegraphen case history topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen case replay --store <dir> --case-space-id <id> --format json
 casegraphen case validate --store <dir> --case-space-id <id> --format json
 ```
@@ -181,7 +182,8 @@ casegraphen workflow readiness --input workflow.graph.json --format json [--proj
 casegraphen workflow obstructions --input workflow.graph.json --format json
 casegraphen workflow completions --input workflow.graph.json --format json
 casegraphen workflow evidence --input workflow.graph.json --format json
-casegraphen workflow history topology --input workflow.graph.json --format json
+casegraphen workflow history topology --input workflow.graph.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen workflow history topology diff --left left.workflow.json --right right.workflow.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen workflow project --input workflow.graph.json --projection projection.json --format json
 casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json
 casegraphen workflow evolution --input workflow.graph.json --format json
@@ -207,6 +209,7 @@ casegraphen cg workflow import --store <dir> --input workflow.graph.json --revis
 casegraphen cg workflow list --store <dir> --format json
 casegraphen cg workflow inspect --store <dir> --workflow-graph-id <id> --format json
 casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format json
+casegraphen cg workflow history topology --store <dir> --workflow-graph-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json
 casegraphen cg workflow validate --store <dir> --workflow-graph-id <id> --format json
 casegraphen cg workflow readiness --store <dir> --workflow-graph-id <id> --format json [--projection projection.json]
@@ -216,6 +219,27 @@ casegraphen cg workflow readiness --input workflow.graph.json --format json [--p
 The bridge writes workflow graph snapshots and JSONL history through
 `WorkflowWorkspaceStore` at the explicit `--store <dir>`. It does not append
 native `.casegraphen` events.
+
+## Topology Diagnostics
+
+Use `--higher-order` when the task asks for persistent homology, higher-order
+topology, or shape changes across history. Baseline topology reports omit
+`higher_order`; higher-order reports include `filtration_source`,
+`stage_sources`, compact `summary`, and raw `persistence`.
+
+- File-based `history topology` and `workflow history topology` use
+  `filtration_source: "deterministic_cell_order"` because the input is a
+  snapshot without durable revision history.
+- Store-backed `casegraphen cg workflow history topology` uses
+  `filtration_source: "workflow_history"` and maps stages to workflow
+  revisions.
+- Native `casegraphen case history topology` uses
+  `filtration_source: "native_morphism_log"` and maps stages to morphism log
+  entries.
+- `history topology diff`, `workflow history topology diff`, and native
+  `case history topology diff` compare lifted topology summaries and
+  source-mapping deltas. They are diagnostic comparison reports, not JSON
+  patches and not blockers by themselves.
 
 ## Completion Review And Patch Flow
 
@@ -318,6 +342,8 @@ casegraphen missing --input <case.graph.json> --coverage <coverage.policy.json> 
 casegraphen conflicts --input <case.graph.json> --format json
 casegraphen project --input <case.graph.json> --projection <projection.json> --format json
 casegraphen compare --left <case.graph.json> --right <case.graph.json> --format json
+casegraphen history topology --input <case.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen history topology diff --left <left.case.graph.json> --right <right.case.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 ```
 
 ## Evidence And Projection Boundaries

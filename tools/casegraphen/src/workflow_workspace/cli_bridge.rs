@@ -3,13 +3,15 @@ use super::{
     WorkflowPatchReviewRequest,
 };
 use crate::{
-    store::StoreError, workflow_eval::WorkflowValidationError,
+    store::StoreError, topology::TopologyReportOptions, workflow_eval::WorkflowValidationError,
     workflow_model::CompletionReviewAction,
 };
 use higher_graphen_core::Id;
+use higher_graphen_space::Dimension;
 use reports::{
     completion_patch_json, completion_review_json, history_json, import_json, inspect_json,
-    list_json, patch_check_json, patch_review_json, readiness_json, replay_json, validate_json,
+    list_json, patch_check_json, patch_review_json, readiness_json, replay_json, topology_json,
+    validate_json,
 };
 use std::{ffi::OsString, fmt, path::PathBuf};
 
@@ -20,6 +22,7 @@ const BRIDGE_USAGE: &str = "usage:
   casegraphen cg workflow list --store <dir> --format json [--output <path>]
   casegraphen cg workflow inspect --store <dir> --workflow-graph-id <id> --format json [--output <path>]
   casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format json [--output <path>]
+  casegraphen cg workflow history topology --store <dir> --workflow-graph-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]] [--output <path>]
   casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json [--output <path>]
   casegraphen cg workflow validate --store <dir> --workflow-graph-id <id> --format json [--output <path>]
   casegraphen cg workflow readiness (--input <workflow.graph.json> | --store <dir> --workflow-graph-id <id>) --format json [--projection <projection.json>] [--output <path>]
@@ -48,6 +51,12 @@ pub enum CgWorkflowBridgeCommand {
     History {
         store: PathBuf,
         workflow_graph_id: String,
+        output: Option<PathBuf>,
+    },
+    HistoryTopology {
+        store: PathBuf,
+        workflow_graph_id: String,
+        topology_options: TopologyReportOptions,
         output: Option<PathBuf>,
     },
     Replay {
@@ -117,6 +126,7 @@ impl CgWorkflowBridgeCommand {
             | Self::List { output, .. }
             | Self::Inspect { output, .. }
             | Self::History { output, .. }
+            | Self::HistoryTopology { output, .. }
             | Self::Replay { output, .. }
             | Self::Validate { output, .. }
             | Self::Readiness { output, .. }
@@ -146,6 +156,12 @@ impl CgWorkflowBridgeCommand {
                 workflow_graph_id,
                 ..
             } => history_json(store, workflow_graph_id),
+            Self::HistoryTopology {
+                store,
+                workflow_graph_id,
+                topology_options,
+                ..
+            } => topology_json(store, workflow_graph_id, *topology_options),
             Self::Replay {
                 store,
                 workflow_graph_id,
@@ -200,13 +216,7 @@ impl CgWorkflowBridgeCommand {
                     output,
                 })
             }
-            Some("history") => {
-                Self::parse_store_id(args, |store, workflow_graph_id, output| Self::History {
-                    store,
-                    workflow_graph_id,
-                    output,
-                })
-            }
+            Some("history") => Self::parse_history(args),
             Some("replay") => {
                 Self::parse_store_id(args, |store, workflow_graph_id, output| Self::Replay {
                     store,
@@ -226,6 +236,31 @@ impl CgWorkflowBridgeCommand {
             Some("patch") => Self::parse_patch(args),
             Some(_) | None => Err(usage("unsupported cg workflow bridge operation")),
         }
+    }
+
+    fn parse_history(args: impl Iterator<Item = OsString>) -> Result<Self, String> {
+        let mut args = args.collect::<Vec<_>>();
+        let history_topology = args
+            .first()
+            .and_then(|argument| argument.to_str())
+            .is_some_and(|argument| argument == "topology");
+        if history_topology {
+            args.remove(0);
+            let options = BridgeOptions::parse(args.into_iter())?;
+            return Ok(Self::HistoryTopology {
+                store: options.require_store()?,
+                workflow_graph_id: options.require_workflow_graph_id()?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            });
+        }
+
+        let options = BridgeOptions::parse(args.into_iter())?;
+        Ok(Self::History {
+            store: options.require_store()?,
+            workflow_graph_id: options.require_workflow_graph_id()?,
+            output: options.output,
+        })
     }
 
     fn parse_import(args: impl Iterator<Item = OsString>) -> Result<Self, String> {
@@ -371,6 +406,9 @@ struct BridgeOptions {
     transition_id: Option<String>,
     evidence_ids: Vec<String>,
     decision_ids: Vec<String>,
+    higher_order: bool,
+    max_dimension: Option<Dimension>,
+    min_persistence_stages: usize,
 }
 
 impl BridgeOptions {
@@ -421,6 +459,15 @@ impl BridgeOptions {
                     options
                         .decision_ids
                         .push(require_string(&mut args, "--decision-id")?);
+                }
+                Some("--higher-order") => {
+                    options.higher_order = true;
+                }
+                Some("--max-dimension") => {
+                    options.max_dimension = Some(require_dimension(&mut args, "--max-dimension")?);
+                }
+                Some("--min-persistence") | Some("--min-persistence-stages") => {
+                    options.min_persistence_stages = require_usize(&mut args, "--min-persistence")?;
                 }
                 Some(_) | None => return Err(usage(format!("unsupported argument {arg:?}"))),
             }
@@ -494,6 +541,14 @@ impl BridgeOptions {
             )),
         }
     }
+
+    fn topology_options(&self) -> TopologyReportOptions {
+        if self.higher_order {
+            TopologyReportOptions::higher_order(self.max_dimension, self.min_persistence_stages)
+        } else {
+            TopologyReportOptions::baseline()
+        }
+    }
 }
 
 fn id_from_string(value: String) -> Result<Id, String> {
@@ -552,6 +607,24 @@ fn require_string(
         Some(_) => Err(usage(format!("empty value for {option}"))),
         None => Err(usage(format!("missing value for {option}"))),
     }
+}
+
+fn require_dimension(
+    args: &mut impl Iterator<Item = OsString>,
+    option: &'static str,
+) -> Result<Dimension, String> {
+    require_string(args, option)?
+        .parse::<Dimension>()
+        .map_err(|_| usage(format!("invalid integer for {option}")))
+}
+
+fn require_usize(
+    args: &mut impl Iterator<Item = OsString>,
+    option: &'static str,
+) -> Result<usize, String> {
+    require_string(args, option)?
+        .parse::<usize>()
+        .map_err(|_| usage(format!("invalid integer for {option}")))
 }
 
 fn usage(message: impl Into<String>) -> String {

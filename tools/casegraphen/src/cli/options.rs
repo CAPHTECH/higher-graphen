@@ -1,4 +1,6 @@
 use super::CliError;
+use crate::topology::TopologyReportOptions;
+use higher_graphen_space::Dimension;
 use std::{ffi::OsString, path::PathBuf};
 
 #[derive(Default)]
@@ -12,6 +14,9 @@ pub(super) struct Options {
     pub(super) output: Option<PathBuf>,
     pub(super) case_graph_id: Option<String>,
     pub(super) space_id: Option<String>,
+    pub(super) higher_order: bool,
+    pub(super) max_dimension: Option<Dimension>,
+    pub(super) min_persistence_stages: usize,
 }
 
 impl Options {
@@ -42,6 +47,15 @@ impl Options {
                 Some("--space-id") => {
                     options.space_id = Some(require_string(&mut args, "--space-id")?)
                 }
+                Some("--higher-order") => {
+                    options.higher_order = true;
+                }
+                Some("--max-dimension") => {
+                    options.max_dimension = Some(require_dimension(&mut args, "--max-dimension")?)
+                }
+                Some("--min-persistence") | Some("--min-persistence-stages") => {
+                    options.min_persistence_stages = require_usize(&mut args, "--min-persistence")?;
+                }
                 Some(_) | None => {
                     return Err(CliError::usage(format!("unsupported argument {arg:?}")));
                 }
@@ -49,6 +63,14 @@ impl Options {
         }
         require_format_seen(format_seen)?;
         Ok(options)
+    }
+
+    pub(super) fn topology_options(&self) -> TopologyReportOptions {
+        if self.higher_order {
+            TopologyReportOptions::higher_order(self.max_dimension, self.min_persistence_stages)
+        } else {
+            TopologyReportOptions::baseline()
+        }
     }
 }
 
@@ -92,4 +114,22 @@ fn require_string(
         Some(_) => Err(CliError::usage(format!("empty value for {option}"))),
         None => Err(CliError::usage(format!("missing value for {option}"))),
     }
+}
+
+fn require_dimension(
+    args: &mut impl Iterator<Item = OsString>,
+    option: &'static str,
+) -> Result<Dimension, CliError> {
+    require_string(args, option)?
+        .parse::<Dimension>()
+        .map_err(|_| CliError::usage(format!("invalid integer for {option}")))
+}
+
+fn require_usize(
+    args: &mut impl Iterator<Item = OsString>,
+    option: &'static str,
+) -> Result<usize, CliError> {
+    require_string(args, option)?
+        .parse::<usize>()
+        .map_err(|_| CliError::usage(format!("invalid integer for {option}")))
 }

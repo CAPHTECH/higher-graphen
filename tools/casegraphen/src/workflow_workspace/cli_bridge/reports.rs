@@ -1,6 +1,7 @@
 use super::{BridgeResult, BridgeWorkflowSource, WorkflowBridgeError};
 use crate::{
     store::{read_projection, read_workflow_graph},
+    topology::TopologyReportOptions,
     workflow_eval::evaluate_readiness,
     workflow_model::CompletionReviewAction,
     workflow_report,
@@ -68,6 +69,30 @@ pub(super) fn history_json(store_root: &Path, workflow_graph_id: &str) -> Bridge
             "history_entry_count": entry_count,
             "entries": entries
         }),
+    )
+}
+
+pub(super) fn topology_json(
+    store_root: &Path,
+    workflow_graph_id: &str,
+    topology_options: TopologyReportOptions,
+) -> BridgeResult<String> {
+    let replay = WorkflowWorkspaceStore::new(store_root.to_owned())
+        .replay_current_graph(&id(workflow_graph_id)?)?;
+    let topology = crate::topology::workflow_topology_with_history(
+        &replay.graph,
+        &replay.history,
+        topology_options,
+    )?;
+    report_json(
+        "casegraphen cg workflow history topology",
+        "workspace_history_topology",
+        json!({
+            "store": store_root.display().to_string(),
+            "workflow_graph_id": workflow_graph_id,
+            "topology_options": topology_options
+        }),
+        json!({ "topology": topology }),
     )
 }
 

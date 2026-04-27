@@ -17,6 +17,7 @@
       "casegraphen workflow completions --input workflow.graph.json --format json",
       "casegraphen workflow evidence --input workflow.graph.json --format json",
       "casegraphen workflow history topology --input workflow.graph.json --format json",
+      "casegraphen workflow history topology diff --left left.workflow.json --right right.workflow.json --format json",
       "casegraphen workflow project --input workflow.graph.json --projection projection.json --format json",
       "casegraphen workflow correspond --left left.workflow.json --right right.workflow.json --format json",
       "casegraphen workflow evolution --input workflow.graph.json --format json"
@@ -26,6 +27,7 @@
       "casegraphen cg workflow list --store casegraphen-workflow-store --format json",
       "casegraphen cg workflow inspect --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
       "casegraphen cg workflow history --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
+      "casegraphen cg workflow history topology --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
       "casegraphen cg workflow replay --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
       "casegraphen cg workflow validate --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
       "casegraphen cg workflow readiness --store casegraphen-workflow-store --workflow-graph-id workflow_graph:id --format json",
@@ -44,6 +46,7 @@
       "casegraphen case inspect --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case history --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case history topology --store casegraphen-native-store --case-space-id case_space:id --format json",
+      "casegraphen case history topology diff --left-store casegraphen-native-left --left-case-space-id case_space:id --right-store casegraphen-native-right --right-case-space-id case_space:id --format json",
       "casegraphen case replay --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case validate --store casegraphen-native-store --case-space-id case_space:id --format json",
       "casegraphen case reason --store casegraphen-native-store --case-space-id case_space:id --format json",

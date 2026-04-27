@@ -465,7 +465,8 @@ casegraphen case list --store <dir> --format json
 casegraphen case inspect --store <dir> --case-space-id <id> --format json
 casegraphen case validate --store <dir> --case-space-id <id> --format json
 casegraphen case history --store <dir> --case-space-id <id> --format json
-casegraphen case history topology --store <dir> --case-space-id <id> --format json
+casegraphen case history topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
 casegraphen case replay --store <dir> --case-space-id <id> --format json
 casegraphen case reason --store <dir> --case-space-id <id> --format json
 casegraphen case frontier --store <dir> --case-space-id <id> --format json
@@ -505,6 +506,28 @@ casegraphen review waive --store <dir> --case-space-id <id> --target-id <id> --r
 These `review ...` commands are not implemented in the current CLI. Until that
 surface exists, review state is represented through native morphism
 proposal/check/apply/reject flows and metadata-only review morphisms.
+
+`case history topology` emits a native CLI operation report with topology
+diagnostics under `result.topology`. Baseline output omits
+`result.topology.higher_order`. When `--higher-order` is supplied, output
+includes `result.topology.higher_order` with the options used
+(`include_higher_order`, optional `max_dimension`, and
+`min_persistence_stages`), selected `cell_count`, cumulative `stage_count`, and
+an optional `persistence` summary. Native topology uses
+`filtration_source: native_morphism_log` when replay history is available and
+emits `stage_sources` for morphism log entries plus any deterministic remainder
+needed to close the final complex. The persistence summary includes per-stage
+topology, all intervals, thresholded `persistent_intervals`,
+`open_component_count`, and `open_hole_count`. `--min-persistence` and
+`--min-persistence-stages` are aliases for the same stage-lifetime threshold.
+Higher-order topology remains a read-only diagnostic and does not mutate the
+case space or change frontier, obstruction, completion, evidence, close-check,
+or morphism semantics.
+
+`case history topology diff` replays two native case spaces from their stores,
+builds the same topology reports, and emits `result.topology_diff` with scalar
+topology deltas, source-mapping additions/removals, and optional higher-order
+summary deltas. It is a comparison surface only; it does not append morphisms.
 
 Package API targets:
 

@@ -908,7 +908,9 @@ casegraphen workflow readiness --input <workflow.graph.json> --format json [--pr
 casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
 casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
-casegraphen workflow history topology --input <workflow.graph.json> --format json [--output <path>]
+casegraphen workflow history topology --input <workflow.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen workflow history topology diff --left <left.workflow.graph.json> --right <right.workflow.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen cg workflow history topology --store <dir> --workflow-graph-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
 casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
 casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
 casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
@@ -922,6 +924,30 @@ operation-specific report envelopes. The commands are read-only:
 domain findings such as blocked work, missing proof, unreviewed completion
 candidates, or projection loss remain successful JSON report results and do not
 mutate the workflow graph.
+
+`workflow history topology` is a read-only operation-specific report with
+schema `highergraphen.case.workflow.topology.report.v1`. Baseline output emits
+`result.topology` and `result.source_mapping` and omits `result.higher_order`.
+When `--higher-order` is supplied, output includes `result.higher_order` with
+the options used (`include_higher_order`, optional `max_dimension`, and
+`min_persistence_stages`), selected `cell_count`, cumulative `stage_count`, and
+an optional `persistence` summary. File-based workflow topology uses
+`filtration_source: deterministic_cell_order`; store-backed
+`cg workflow history topology` uses `filtration_source: workflow_history` and
+adds `stage_sources` that point back to revision IDs plus changed source IDs.
+The persistence summary includes per-stage topology, all intervals, thresholded
+`persistent_intervals`,
+`open_component_count`, and `open_hole_count`. `--min-persistence` and
+`--min-persistence-stages` are aliases for the same stage-lifetime threshold.
+These diagnostics do not change readiness, obstruction, evidence, completion,
+or transition semantics.
+
+`workflow history topology diff` compares two file-based workflow topology
+reports. It emits schema `highergraphen.case.workflow.topology_diff.report.v1`
+with scalar topology deltas, added/removed source node and relation IDs, and
+optional higher-order summary deltas when `--higher-order` is supplied. It does
+not replace `workflow correspond`, which remains the semantic correspondence
+surface.
 
 All workflow commands must support `--format json`. `--output` should write the
 same JSON report that would otherwise be printed to stdout.
