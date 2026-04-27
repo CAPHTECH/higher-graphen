@@ -320,6 +320,21 @@ fn pr_review_input_from_git_emits_bounded_snapshot() {
     assert!(signal_ids.contains(&json!("signal:external-effect-surface-change")));
     assert!(signal_ids.contains(&json!("signal:test-assertion-weakened")));
     assert!(signal_ids.contains(&json!("signal:ai-review-boundary-change")));
+    let public_api_signal = value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .find(|signal| signal["id"] == json!("signal:public-api-surface-change"))
+        .expect("public API signal");
+    let public_api_source_ids = public_api_signal["source_ids"]
+        .as_array()
+        .expect("public API source ids");
+    assert!(public_api_source_ids.contains(&json!(
+        "file:crates-higher-graphen-runtime-src-workflows-pr-review-target-lift-rs"
+    )));
+    assert!(public_api_source_ids.contains(&json!(
+        "file:tools-highergraphen-cli-src-path-with-space-rs"
+    )));
     let large_signal = value["signals"]
         .as_array()
         .expect("signals")
@@ -772,6 +787,16 @@ fn write_git_fixture() -> PathBuf {
         &repository,
         "tools/highergraphen-cli/src/pr_review_git.rs",
         "use std::process::Command as ProcessCommand;\nfn run_git() {\n    let _ = ProcessCommand::new(\"git\");\n}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/path with space.rs",
+        "pub(super) fn spaced_api() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/workflows/pr_review_target_lift.rs",
+        "pub(super) struct LiftedPrReviewTarget {}\n",
     );
     write_repo_file(
         &repository,

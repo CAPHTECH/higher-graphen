@@ -145,7 +145,13 @@ fn parse_diff_files(diff: &str) -> Vec<GitDiffFile> {
         let Some(file) = current.as_mut() else {
             continue;
         };
-        if line.starts_with("+++") || line.starts_with("---") {
+        if let Some(path) = line.strip_prefix("+++ ") {
+            if let Some(path) = diff_file_header_path(path) {
+                file.path = path;
+            }
+            continue;
+        }
+        if line.starts_with("---") {
             continue;
         }
         if let Some(added) = line.strip_prefix('+') {
@@ -163,11 +169,26 @@ fn parse_diff_files(diff: &str) -> Vec<GitDiffFile> {
 }
 
 fn diff_path(path: &str) -> String {
-    path.split_whitespace()
-        .nth(1)
-        .and_then(|value| value.strip_prefix("b/"))
+    path.rsplit_once(" b/")
+        .map(|(_, value)| value)
+        .or_else(|| path.split_whitespace().nth(1)?.strip_prefix("b/"))
+        .map(unquote_git_path)
         .unwrap_or_default()
-        .to_owned()
+}
+
+fn diff_file_header_path(path: &str) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed == "/dev/null" {
+        return None;
+    }
+    trimmed
+        .strip_prefix("b/")
+        .or_else(|| trimmed.strip_prefix("\"b/"))
+        .map(unquote_git_path)
+}
+
+fn unquote_git_path(path: &str) -> String {
+    path.trim_end_matches('"').to_owned()
 }
 
 fn parse_name_status(
@@ -517,6 +538,11 @@ fn is_public_api_line(path: &str, line: &str) -> bool {
         "pub(crate) fn ",
         "pub(crate) struct ",
         "pub(crate) enum ",
+        "pub(super) fn ",
+        "pub(super) struct ",
+        "pub(super) enum ",
+        "pub(super) type ",
+        "pub(super) const ",
     ];
     PREFIXES.iter().any(|prefix| trimmed.starts_with(prefix))
 }
