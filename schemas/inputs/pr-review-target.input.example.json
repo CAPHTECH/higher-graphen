@@ -1,0 +1,193 @@
+{
+  "schema": "highergraphen.pr_review_target.input.v1",
+  "source": {
+    "kind": "document",
+    "uri": "schemas/inputs/pr-review-target.input.example.json",
+    "title": "PR review target recommender smoke fixture",
+    "captured_at": "2026-04-27T00:00:00Z",
+    "confidence": 1.0
+  },
+  "repository": {
+    "id": "repo:higher-graphen",
+    "name": "higher-graphen",
+    "uri": "https://example.test/higher-graphen",
+    "default_branch": "main"
+  },
+  "pull_request": {
+    "id": "pr:higher-graphen:42",
+    "number": 42,
+    "title": "Add architecture lift reuse path",
+    "source_branch": "feature/reuse-architecture-lift",
+    "target_branch": "main",
+    "author_id": "user:contributor",
+    "uri": "https://example.test/higher-graphen/pull/42"
+  },
+  "changed_files": [
+    {
+      "id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+      "path": "crates/runtime/src/workflows/architecture_input_lift.rs",
+      "change_type": "modified",
+      "language": "rust",
+      "additions": 84,
+      "deletions": 16,
+      "symbol_ids": [
+        "symbol:architecture-input-lift:lift_input"
+      ],
+      "owner_ids": [
+        "owner:runtime-team"
+      ],
+      "context_ids": [
+        "context:pr:higher-graphen:42",
+        "context:runtime-workflow"
+      ],
+      "source_ids": [
+        "pr:higher-graphen:42"
+      ]
+    },
+    {
+      "id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+      "path": "schemas/inputs/architecture-lift.reuse.input.example.json",
+      "change_type": "added",
+      "language": "json",
+      "additions": 74,
+      "deletions": 0,
+      "owner_ids": [
+        "owner:runtime-team"
+      ],
+      "context_ids": [
+        "context:pr:higher-graphen:42",
+        "context:schema-contract"
+      ],
+      "source_ids": [
+        "pr:higher-graphen:42"
+      ]
+    }
+  ],
+  "symbols": [
+    {
+      "id": "symbol:architecture-input-lift:lift_input",
+      "file_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+      "name": "lift_input",
+      "kind": "function",
+      "path": "crates/runtime/src/workflows/architecture_input_lift.rs",
+      "line_start": 41,
+      "line_end": 129,
+      "owner_ids": [
+        "owner:runtime-team"
+      ],
+      "context_ids": [
+        "context:runtime-workflow"
+      ]
+    }
+  ],
+  "owners": [
+    {
+      "id": "owner:runtime-team",
+      "owner_type": "team",
+      "name": "Runtime Team",
+      "source_ids": [
+        "evidence:runtime-ownership"
+      ]
+    }
+  ],
+  "contexts": [
+    {
+      "id": "context:pr:higher-graphen:42",
+      "name": "PR 42",
+      "context_type": "pull_request",
+      "source_ids": [
+        "pr:higher-graphen:42"
+      ]
+    },
+    {
+      "id": "context:runtime-workflow",
+      "name": "Runtime Workflow",
+      "context_type": "review_focus",
+      "source_ids": [
+        "file:crates/runtime/src/workflows/architecture_input_lift.rs"
+      ]
+    },
+    {
+      "id": "context:schema-contract",
+      "name": "Schema Contract",
+      "context_type": "review_focus",
+      "source_ids": [
+        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "test:architecture-input-lift-reuse-fixture",
+      "name": "architecture input lift reuse fixture validation",
+      "test_type": "smoke",
+      "file_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+      "context_ids": [
+        "context:schema-contract"
+      ],
+      "source_ids": [
+        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+      ]
+    }
+  ],
+  "dependency_edges": [
+    {
+      "id": "dependency:lift-input-reads-reuse-fixture",
+      "from_id": "symbol:architecture-input-lift:lift_input",
+      "to_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+      "relation_type": "depends_on",
+      "orientation": "directed",
+      "source_ids": [
+        "evidence:dependency-scan"
+      ],
+      "confidence": 0.68
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:runtime-ownership",
+      "evidence_type": "ownership_metadata",
+      "summary": "Ownership metadata maps runtime workflow files and schema fixtures to the Runtime Team.",
+      "source_ids": [
+        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "evidence:dependency-scan",
+      "evidence_type": "dependency_scan",
+      "summary": "Dependency scan links the lift function to the reuse fixture contract.",
+      "source_ids": [
+        "symbol:architecture-input-lift:lift_input",
+        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+      ],
+      "confidence": 0.68
+    }
+  ],
+  "signals": [
+    {
+      "id": "signal:architecture-lift-test-gap",
+      "signal_type": "test_gap",
+      "summary": "The runtime lift path changed while only one reuse fixture was added.",
+      "source_ids": [
+        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+      ],
+      "severity": "high",
+      "confidence": 0.76
+    }
+  ],
+  "reviewer_context": {
+    "required_expertise": [
+      "runtime workflow contracts",
+      "json schema compatibility"
+    ],
+    "declared_focus": [
+      "review target recommendations only"
+    ],
+    "excluded_paths": [
+      "target/"
+    ]
+  }
+}

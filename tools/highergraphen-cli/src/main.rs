@@ -1,11 +1,14 @@
 //! Command-line entry point for HigherGraphen workflows.
 
+mod pr_review_git;
+
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
     run_architecture_direct_db_access_smoke, run_architecture_input_lift, run_completion_review,
-    run_feed_reader, ArchitectureInputLiftDocument, CompletionReviewDecision,
-    CompletionReviewRequest, CompletionReviewSnapshot, CompletionReviewSourceReport,
-    FeedReaderInputDocument, RuntimeError,
+    run_feed_reader, run_pr_review_target_recommend, ArchitectureInputLiftDocument,
+    CompletionReviewDecision, CompletionReviewRequest, CompletionReviewSnapshot,
+    CompletionReviewSourceReport, FeedReaderInputDocument, PrReviewTargetInputDocument,
+    RuntimeError,
 };
 use serde_json::Value;
 use std::{
@@ -20,6 +23,8 @@ const USAGE: &str = "usage:
   highergraphen architecture smoke direct-db-access --format json [--output <path>]
   highergraphen architecture input lift --input <path> --format json [--output <path>]
   highergraphen feed reader run --input <path> --format json [--output <path>]
+  highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
+  highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
 
@@ -60,6 +65,16 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    PrReviewInputFromGit {
+        repo: PathBuf,
+        base: String,
+        head: String,
+        output: Option<PathBuf>,
+    },
+    PrReviewTargetsRecommend {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
     CompletionReview {
         decision: CompletionReviewDecision,
         input: PathBuf,
@@ -79,6 +94,7 @@ impl Command {
         match root.to_str() {
             Some("architecture") => Self::parse_architecture(args),
             Some("feed") => Self::parse_feed(args),
+            Some("pr-review") => Self::parse_pr_review(args),
             Some("completion") => Self::parse_completion(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
         }
@@ -126,6 +142,42 @@ impl Command {
         })
     }
 
+    fn parse_pr_review(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "pr-review command")?;
+        match segment.to_str() {
+            Some("input") => Self::parse_pr_review_input(args),
+            Some("targets") => Self::parse_pr_review_targets(args),
+            Some(_) | None => Err(CliError::usage("unsupported pr-review command segment")),
+        }
+    }
+
+    fn parse_pr_review_input(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "from-git")?;
+        let options = GitInputOptions::parse(args)?;
+        Ok(Self::PrReviewInputFromGit {
+            repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
+            base: options
+                .base
+                .ok_or_else(|| CliError::usage("--base <ref> is required"))?,
+            head: options
+                .head
+                .ok_or_else(|| CliError::usage("--head <ref> is required"))?,
+            output: options.output,
+        })
+    }
+
+    fn parse_pr_review_targets(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "recommend")?;
+        let options = ReportOptions::parse(args, true)?;
+        let input = options
+            .input
+            .ok_or_else(|| CliError::usage("--input <path> is required"))?;
+        Ok(Self::PrReviewTargetsRecommend {
+            input,
+            output: options.output,
+        })
+    }
+
     fn parse_completion(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         require_token(&mut args, "review")?;
         let decision = match required_segment(&mut args, "completion review action")?.to_str() {
@@ -159,6 +211,8 @@ impl Command {
             Self::ArchitectureSmokeDirectDbAccess { output }
             | Self::ArchitectureInputLift { output, .. }
             | Self::FeedReaderRun { output, .. }
+            | Self::PrReviewInputFromGit { output, .. }
+            | Self::PrReviewTargetsRecommend { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
     }
@@ -179,6 +233,24 @@ impl Command {
             Self::FeedReaderRun { input, .. } => {
                 let document = read_feed_reader_input_document(input)?;
                 let report = run_feed_reader(document)?;
+                serde_json::to_string(&report)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::PrReviewInputFromGit {
+                repo, base, head, ..
+            } => {
+                let document = pr_review_git::input_from_git(pr_review_git::GitInputRequest {
+                    repo: repo.clone(),
+                    base: base.clone(),
+                    head: head.clone(),
+                })
+                .map_err(CliError::GitInput)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::PrReviewTargetsRecommend { input, .. } => {
+                let document = read_pr_review_target_input_document(input)?;
+                let report = run_pr_review_target_recommend(document)?;
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -206,6 +278,45 @@ impl Command {
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
         }
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct GitInputOptions {
+    repo: Option<PathBuf>,
+    base: Option<String>,
+    head: Option<String>,
+    output: Option<PathBuf>,
+}
+
+impl GitInputOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--repo" {
+                options.repo = Some(require_path(&mut args, "--repo")?);
+            } else if arg == "--base" {
+                options.base = Some(require_string(&mut args, "--base")?);
+            } else if arg == "--head" {
+                options.head = Some(require_string(&mut args, "--head")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
     }
 }
 
@@ -303,6 +414,7 @@ enum CliError {
         path: PathBuf,
         reason: String,
     },
+    GitInput(String),
     Output(std::io::Error),
 }
 
@@ -350,6 +462,7 @@ impl fmt::Display for CliError {
             Self::InputContract { path, reason } => {
                 write!(formatter, "invalid input {}: {reason}", path.display())
             }
+            Self::GitInput(message) => write!(formatter, "failed to build git input: {message}"),
             Self::Output(error) => write!(formatter, "failed to write output: {error}"),
         }
     }
@@ -427,6 +540,19 @@ fn read_input_document(path: &Path) -> Result<ArchitectureInputLiftDocument, Cli
 }
 
 fn read_feed_reader_input_document(path: &Path) -> Result<FeedReaderInputDocument, CliError> {
+    let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    serde_json::from_str(&text).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn read_pr_review_target_input_document(
+    path: &Path,
+) -> Result<PrReviewTargetInputDocument, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
         source,

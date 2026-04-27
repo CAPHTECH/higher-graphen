@@ -1,0 +1,12 @@
+case_id: hg_pr_review_git_input_adapter
+title: PR review git input adapter
+description: Implement a deterministic git-range adapter that converts commit history and diff metadata into highergraphen.pr_review_target.input.v1 JSON. Done means highergraphen can generate a bounded PR review target input document from local git refs without LLM inference, and the generated input can feed the existing pr-review targets recommend workflow.
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-27T12:53:01.776Z
+updated_at: 2026-04-27T13:01:24.360Z
+case_revision:
+  current: 15
+  last_event_id: 01KQ7GFFG8ZMZWDP27A4EP4N7G

@@ -3,8 +3,9 @@
 The `highergraphen` command is the operational CLI for HigherGraphen runtime
 workflows. It exposes the deterministic Architecture Product direct database
 access smoke workflow, the bounded architecture input lift workflow, the
-bounded Feed Product reader workflow, and the explicit completion review
-workflow as stable JSON reports.
+bounded Feed Product reader workflow, the bounded PR review target
+recommendation workflow, and the explicit completion review workflow as stable
+JSON reports.
 
 For the underlying implementation contract, see
 [`runtime-cli-scope.md`](../specs/runtime-cli-scope.md) and
@@ -63,6 +64,33 @@ topic digest, and audit views. It does not fetch network feeds, parse raw RSS or
 Atom XML, schedule refreshes, persist read state, or render a UI.
 
 ```sh
+highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
+```
+
+This command deterministically converts a local git commit range into a bounded
+`highergraphen.pr_review_target.input.v1` snapshot. It shells out to local git
+for changed files, numstat, and commit summaries, then applies fixed path rules
+for owners, contexts, tests, dependency edges, evidence, and risk signals. It
+does not use LLM inference, GitHub API payloads, or working-tree heuristics.
+Use the generated input with `highergraphen pr-review targets recommend`.
+
+```sh
+highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
+```
+
+This command reads a bounded PR review target JSON v1 snapshot and emits a
+review-targeting report. The checked-in fixture is
+`schemas/inputs/pr-review-target.input.example.json`, and compatible inputs
+must use `schema: "highergraphen.pr_review_target.input.v1"`. The workflow
+lifts supplied PR change facts as accepted input observations, then presents
+AI-created review targets, obstructions, and completion candidates as
+suggestions with `review_status: "unreviewed"`. It does not approve PRs,
+record review decisions, post provider comments, or promote recommendations
+into accepted review coverage. Humans should inspect the recommended targets
+and record explicit accept/reject/waive decisions in a separate review system
+or later explicit workflow.
+
+```sh
 highergraphen completion review accept \
   --input <path> \
   --candidate <id> \
@@ -95,6 +123,10 @@ the source report and do not promote the candidate into accepted facts.
 | `--format json` | Yes | Emits the stable JSON report. No human text format is supported yet. |
 | `--input <path>` | For `architecture input lift` | Reads the bounded architecture JSON input document. |
 | `--input <path>` | For `feed reader run` | Reads the bounded Feed Product JSON input fixture. |
+| `--base <ref>` | For `pr-review input from-git` | Git base ref for the deterministic diff range. |
+| `--head <ref>` | For `pr-review input from-git` | Git head ref for the deterministic diff range. |
+| `--repo <path>` | No | Repository path for `pr-review input from-git`; defaults to the current directory. |
+| `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
 | `--reviewer <id>` | For `completion review` | Records the explicit reviewer or workflow identifier. |
@@ -141,6 +173,24 @@ Run the checked-in Feed Product reader fixture:
   --format json
 ```
 
+Run the checked-in PR review target fixture:
+
+```sh
+./target/debug/highergraphen pr-review targets recommend \
+  --input schemas/inputs/pr-review-target.input.example.json \
+  --format json
+```
+
+Generate a PR review target input from a local git range:
+
+```sh
+./target/debug/highergraphen pr-review input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output pr-review.input.json
+```
+
 Write the report to a file:
 
 ```sh
@@ -165,6 +215,21 @@ Write a Feed Product reader report to a file:
   --input schemas/inputs/feed-lift.input.example.json \
   --format json \
   --output feed-reader.report.json
+```
+
+Write a PR review target report to a file:
+
+```sh
+./target/debug/highergraphen pr-review input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output pr-review.input.json
+
+./target/debug/highergraphen pr-review targets recommend \
+  --input pr-review.input.json \
+  --format json \
+  --output pr-review-target.report.json
 ```
 
 Accept a completion candidate from a generated report:
@@ -192,11 +257,28 @@ python3 scripts/validate-cli-report-contract.py \
   --report architecture-direct-db-access-smoke.report.json
 ```
 
+Validate all checked-in JSON schemas and fixtures, including the PR review
+target input and report contracts:
+
+```sh
+python3 scripts/validate-json-contracts.py
+```
+
+Run the focused PR review target runtime and CLI coverage:
+
+```sh
+cargo test -p higher-graphen-runtime --test pr_review_target
+cargo test -p highergraphen-cli pr_review_input_from_git
+cargo test -p highergraphen-cli pr_review_targets_recommend
+```
+
 ## Exit Behavior
 
 Exit code `0` means the workflow ran and emitted a report. The current workflow
 is expected to detect a direct database access architecture violation, and that
-domain finding is still a successful CLI result.
+domain finding is still a successful CLI result. For PR review targeting,
+`result.status` values such as `"targets_recommended"` and `"no_targets"` are
+also successful domain results.
 
 Nonzero exits are reserved for command usage errors, runtime construction
 failures, report serialization failures, or file output failures.
@@ -265,6 +347,39 @@ IDs, inferred topic/event IDs, correspondences, completion candidates, and
 obstructions, then projects them into `timeline`, `topic_digest`, and
 `audit_trace` views with explicit `information_loss`.
 
+The PR review target report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.pr_review_target.report.v1` |
+| Report type | `pr_review_target` |
+| Report version | `1` |
+| Input schema | [`pr-review-target.input.schema.json`](../../schemas/inputs/pr-review-target.input.schema.json) |
+| Input fixture | [`pr-review-target.input.example.json`](../../schemas/inputs/pr-review-target.input.example.json) |
+| Report schema | [`pr-review-target.report.schema.json`](../../schemas/reports/pr-review-target.report.schema.json) |
+| Example fixture | [`pr-review-target.report.example.json`](../../schemas/reports/pr-review-target.report.example.json) |
+| Runtime runner | `higher_graphen_runtime::run_pr_review_target_recommend` |
+
+The PR review target report has `result.status` set to
+`"targets_recommended"` for the checked-in fixture, records accepted PR change
+fact IDs under `result.accepted_change_ids`, and records AI-created review
+targets, obstructions, and completion candidates as suggestions with
+`review_status: "unreviewed"`. These records are review guidance only; the
+workflow does not approve a pull request or record the human decision.
+
+The git input adapter emits the same input schema from local commit history:
+
+| Surface | Value |
+| --- | --- |
+| Command | `highergraphen pr-review input from-git --base <ref> --head <ref> --format json` |
+| Output schema | `highergraphen.pr_review_target.input.v1` |
+| Deterministic facts | Changed files, additions/deletions, commit evidence, path-derived owners/contexts/tests/dependency edges |
+| Deterministic signals | Large change, ownership boundary, dependency coupling, schema validation coverage, docs/agent guidance boundary, security-sensitive paths |
+
+The adapter intentionally creates a bounded snapshot rather than a review
+report. Run `pr-review targets recommend` afterward to produce unreviewed
+review targets and obstructions.
+
 The completion review report uses this contract:
 
 | Surface | Value |
@@ -297,6 +412,18 @@ Consumers must preserve these semantics:
 - The feed reader path treats JSON `source_feeds` and `entries` as accepted
   local fixture facts, while completion and obstruction hints remain report
   findings for review.
+- The PR review target path consumes bounded
+  `highergraphen.pr_review_target.input.v1` snapshots, including
+  `schemas/inputs/pr-review-target.input.example.json`.
+- The git input adapter may create those snapshots from local commit history,
+  but its facts and signals are still deterministic inputs to the recommender,
+  not accepted review decisions.
+- The PR review target path treats supplied changed files, symbols, tests,
+  evidence, signals, and reviewer context as input observations; generated
+  review targets, obstructions, and completion candidates remain unreviewed
+  suggestions.
+- PR review recommendations must be reviewed by humans, and explicit decisions
+  must be recorded outside this recommender report.
 - Agent skills and future tool surfaces should consume the CLI output or runtime
   runner and validate against the schema instead of reimplementing the workflow.
 
@@ -307,12 +434,15 @@ These are intentionally unsupported in the current CLI:
 - Human-readable output formats.
 - Architecture input formats beyond the bounded JSON v1 document.
 - Feed input formats beyond the bounded JSON v1 fixture.
+- PR review input formats beyond the bounded PR review target JSON v1 snapshot.
 - Network fetching, scheduling, database persistence, read state, UI rendering,
   and production RSS/Atom parsing.
+- Pull request approval, provider comment posting, reviewer assignment, or
+  automatic promotion of AI recommendations into accepted review coverage.
 - MCP server behavior.
 - Provider-specific plugin, marketplace, or manifest behavior.
 - Provider-specific skills beyond the repository-owned
   `skills/highergraphen/SKILL.md` CLI skill.
 - Additional `highergraphen` subcommands beyond `architecture smoke
-  direct-db-access`, `architecture input lift`, `feed reader run`, and
-  `completion review`.
+  direct-db-access`, `architecture input lift`, `feed reader run`,
+  `pr-review targets recommend`, and `completion review`.

@@ -1,0 +1,12 @@
+case_id: hg_pr_review_target_recommender
+title: PR review target recommender
+description: 'Design and implement a HigherGraphen-powered tool that lets an AI analyze PR code changes and propose the files, symbols, and structural risks a human reviewer should inspect. Done means the workflow emits a stable JSON report with review targets, evidence, confidence, unreviewed AI proposals, human-facing projection, and verification coverage. Out of scope for the first case: automatic PR approval, silent promotion of AI inferences, and provider-specific GitHub comment automation unless added by a later case.'
+state: closed
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-04-27T11:30:21.098Z
+updated_at: 2026-04-27T12:24:41.212Z
+case_revision:
+  current: 29
+  last_event_id: 01KQ7EC7ZWR5Y1R41D5RG9CT2Y

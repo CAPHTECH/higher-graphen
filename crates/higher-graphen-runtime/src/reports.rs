@@ -75,6 +75,17 @@ impl ReportMetadata {
             cli_package: "highergraphen-cli".to_owned(),
         }
     }
+
+    /// Creates metadata for the PR review target recommender workflow.
+    #[must_use]
+    pub fn pr_review_target() -> Self {
+        Self {
+            command: "highergraphen pr-review targets recommend".to_owned(),
+            runtime_package: "higher-graphen-runtime".to_owned(),
+            runtime_crate: "higher_graphen_runtime".to_owned(),
+            cli_package: "highergraphen-cli".to_owned(),
+        }
+    }
 }
 
 /// Architecture smoke workflow report envelope.
@@ -490,6 +501,24 @@ pub enum AiProjectionRecordType {
     CompletionCandidate,
     /// Explicit completion review outcome.
     CompletionReview,
+    /// PR review context.
+    Context,
+    /// Changed file from a bounded PR snapshot.
+    ChangedFile,
+    /// Symbol from a bounded PR snapshot.
+    Symbol,
+    /// Owner from a bounded PR snapshot.
+    Owner,
+    /// Test from a bounded PR snapshot.
+    Test,
+    /// Dependency edge from a bounded PR snapshot.
+    DependencyEdge,
+    /// Evidence from a bounded PR snapshot.
+    Evidence,
+    /// Risk signal from a bounded PR snapshot.
+    RiskSignal,
+    /// Unreviewed review target recommendation.
+    ReviewTarget,
 }
 
 /// Audit-oriented projection view.
@@ -542,4 +571,6 @@ pub enum ProjectionPurpose {
     CompletionReview,
     /// Audit traceability workflow.
     AuditTrace,
+    /// PR review target recommendation workflow.
+    PrReviewTargeting,
 }

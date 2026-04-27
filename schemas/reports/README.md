@@ -47,6 +47,25 @@ The report envelope covers source feeds, observed entries, inferred topic/event
 cells, correspondences, completion candidates, obstructions, and
 timeline/topic/audit projections.
 
+`pr-review-target.report.schema.json` defines the v1 contract for
+`highergraphen.pr_review_target.report.v1`. The checked-in fixture is generated
+from:
+
+```sh
+highergraphen pr-review targets recommend \
+  --input schemas/inputs/pr-review-target.input.example.json \
+  --format json
+```
+
+The report envelope covers accepted PR change facts, unreviewed AI-proposed
+review targets, obstructions, completion candidates, and human review,
+AI-agent, and audit trace projections.
+
+PR review targets, obstructions, and completion candidates emitted by this
+workflow are suggestions with `review_status: "unreviewed"`. The report does
+not approve a pull request, assign reviewers, post provider comments, or record
+the human decision; humans should record explicit review decisions elsewhere.
+
 Schemas are intended to lock the public report envelope, deterministic scenario
 IDs, machine-checkable result shape, obstruction and completion candidate fields,
 projection audience and purpose, review boundaries between accepted facts and
@@ -65,4 +84,11 @@ Validate the checked-in fixture with:
 ```sh
 python3 scripts/validate-cli-report-contract.py \
   --report schemas/reports/architecture-direct-db-access-smoke.report.example.json
+```
+
+Validate all checked-in JSON contracts, including PR review target input and
+report fixtures, with:
+
+```sh
+python3 scripts/validate-json-contracts.py
 ```

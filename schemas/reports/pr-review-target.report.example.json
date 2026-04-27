@@ -1,0 +1,1142 @@
+{
+    "schema": "highergraphen.pr_review_target.report.v1",
+    "report_type": "pr_review_target",
+    "report_version": 1,
+    "metadata": {
+        "command": "highergraphen pr-review targets recommend",
+        "runtime_package": "higher-graphen-runtime",
+        "runtime_crate": "higher_graphen_runtime",
+        "cli_package": "highergraphen-cli"
+    },
+    "scenario": {
+        "input_schema": "highergraphen.pr_review_target.input.v1",
+        "source": {
+            "kind": "document",
+            "uri": "schemas/inputs/pr-review-target.input.example.json",
+            "title": "PR review target recommender smoke fixture",
+            "captured_at": "2026-04-27T00:00:00Z",
+            "confidence": 1.0
+        },
+        "repository": {
+            "id": "repo:higher-graphen",
+            "name": "higher-graphen",
+            "uri": "https://example.test/higher-graphen",
+            "default_branch": "main"
+        },
+        "pull_request": {
+            "id": "pr:higher-graphen:42",
+            "number": 42,
+            "title": "Add architecture lift reuse path",
+            "source_branch": "feature/reuse-architecture-lift",
+            "target_branch": "main",
+            "author_id": "user:contributor",
+            "uri": "https://example.test/higher-graphen/pull/42"
+        },
+        "changed_files": [
+            {
+                "id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                "path": "crates/runtime/src/workflows/architecture_input_lift.rs",
+                "change_type": "modified",
+                "language": "rust",
+                "additions": 84,
+                "deletions": 16,
+                "symbol_ids": [
+                    "symbol:architecture-input-lift:lift_input"
+                ],
+                "owner_ids": [
+                    "owner:runtime-team"
+                ],
+                "context_ids": [
+                    "context:pr:higher-graphen:42",
+                    "context:runtime-workflow"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            },
+            {
+                "id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "path": "schemas/inputs/architecture-lift.reuse.input.example.json",
+                "change_type": "added",
+                "language": "json",
+                "additions": 74,
+                "deletions": 0,
+                "owner_ids": [
+                    "owner:runtime-team"
+                ],
+                "context_ids": [
+                    "context:pr:higher-graphen:42",
+                    "context:schema-contract"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            }
+        ],
+        "symbols": [
+            {
+                "id": "symbol:architecture-input-lift:lift_input",
+                "file_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                "name": "lift_input",
+                "kind": "function",
+                "path": "crates/runtime/src/workflows/architecture_input_lift.rs",
+                "line_start": 41,
+                "line_end": 129,
+                "owner_ids": [
+                    "owner:runtime-team"
+                ],
+                "context_ids": [
+                    "context:runtime-workflow"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            }
+        ],
+        "owners": [
+            {
+                "id": "owner:runtime-team",
+                "owner_type": "team",
+                "name": "Runtime Team",
+                "source_ids": [
+                    "evidence:runtime-ownership"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            }
+        ],
+        "contexts": [
+            {
+                "id": "context:pr:higher-graphen:42",
+                "name": "PR 42",
+                "context_type": "pull_request",
+                "source_ids": [
+                    "pr:higher-graphen:42"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            },
+            {
+                "id": "context:runtime-workflow",
+                "name": "Runtime Workflow",
+                "context_type": "review_focus",
+                "source_ids": [
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            },
+            {
+                "id": "context:schema-contract",
+                "name": "Schema Contract",
+                "context_type": "review_focus",
+                "source_ids": [
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            }
+        ],
+        "tests": [
+            {
+                "id": "test:architecture-input-lift-reuse-fixture",
+                "name": "architecture input lift reuse fixture validation",
+                "test_type": "smoke",
+                "file_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "context_ids": [
+                    "context:schema-contract"
+                ],
+                "source_ids": [
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "review_status": "accepted",
+                "confidence": 1.0
+            }
+        ],
+        "dependency_edges": [
+            {
+                "id": "dependency:lift-input-reads-reuse-fixture",
+                "from_id": "symbol:architecture-input-lift:lift_input",
+                "to_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "relation_type": "depends_on",
+                "orientation": "directed",
+                "source_ids": [
+                    "evidence:dependency-scan"
+                ],
+                "review_status": "accepted",
+                "confidence": 0.68
+            }
+        ],
+        "evidence": [
+            {
+                "id": "evidence:runtime-ownership",
+                "evidence_type": "ownership_metadata",
+                "summary": "Ownership metadata maps runtime workflow files and schema fixtures to the Runtime Team.",
+                "source_ids": [
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "review_status": "accepted",
+                "confidence": 0.9
+            },
+            {
+                "id": "evidence:dependency-scan",
+                "evidence_type": "dependency_scan",
+                "summary": "Dependency scan links the lift function to the reuse fixture contract.",
+                "source_ids": [
+                    "symbol:architecture-input-lift:lift_input",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "review_status": "accepted",
+                "confidence": 0.68
+            }
+        ],
+        "signals": [
+            {
+                "id": "signal:architecture-lift-test-gap",
+                "signal_type": "test_gap",
+                "summary": "The runtime lift path changed while only one reuse fixture was added.",
+                "source_ids": [
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "severity": "high",
+                "confidence": 0.76
+            }
+        ],
+        "reviewer_context": {
+            "required_expertise": [
+                "runtime workflow contracts",
+                "json schema compatibility"
+            ],
+            "declared_focus": [
+                "review target recommendations only"
+            ],
+            "excluded_paths": [
+                "target/"
+            ]
+        },
+        "lifted_structure": {
+            "space": {
+                "id": "space:pr-review-target:pr:higher-graphen:42",
+                "name": "PR 42 review target space",
+                "description": "Bounded structural view of changed files, symbols, ownership, tests, dependencies, evidence, signals, and review context.",
+                "cell_ids": [
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "symbol:architecture-input-lift:lift_input",
+                    "owner:runtime-team",
+                    "test:architecture-input-lift-reuse-fixture",
+                    "evidence:runtime-ownership",
+                    "evidence:dependency-scan",
+                    "signal:architecture-lift-test-gap"
+                ],
+                "incidence_ids": [
+                    "incidence:contains:file-crates-runtime-src-workflows-architecture-input-lift-rs:symbol-architecture-input-lift-lift-input",
+                    "incidence:owned:file-crates-runtime-src-workflows-architecture-input-lift-rs:owner-runtime-team",
+                    "incidence:owned:file-schemas-inputs-architecture-lift-reuse-input-example-json:owner-runtime-team",
+                    "incidence:owned:symbol-architecture-input-lift-lift-input:owner-runtime-team",
+                    "incidence:covered:file-schemas-inputs-architecture-lift-reuse-input-example-json:test-architecture-input-lift-reuse-fixture",
+                    "dependency:lift-input-reads-reuse-fixture",
+                    "incidence:supports:evidence-runtime-ownership:file-crates-runtime-src-workflows-architecture-input-lift-rs",
+                    "incidence:supports:evidence-runtime-ownership:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "incidence:supports:evidence-dependency-scan:symbol-architecture-input-lift-lift-input",
+                    "incidence:supports:evidence-dependency-scan:file-schemas-inputs-architecture-lift-reuse-input-example-json"
+                ],
+                "context_ids": [
+                    "context:pr:higher-graphen:42",
+                    "context:runtime-workflow",
+                    "context:schema-contract"
+                ]
+            },
+            "contexts": [
+                {
+                    "id": "context:pr:higher-graphen:42",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "name": "PR 42",
+                    "context_type": "pull_request",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "contexts[0]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "context:runtime-workflow",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "name": "Runtime Workflow",
+                    "context_type": "review_focus",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "contexts[1]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "context:schema-contract",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "name": "Schema Contract",
+                    "context_type": "review_focus",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "contexts[2]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                }
+            ],
+            "cells": [
+                {
+                    "id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.changed_file",
+                    "label": "architecture_input_lift.rs",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:runtime-workflow"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "changed_files[0]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.changed_file",
+                    "label": "architecture-lift.reuse.input.example.json",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "changed_files[1]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "symbol:architecture-input-lift:lift_input",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.symbol",
+                    "label": "lift_input",
+                    "context_ids": [
+                        "context:runtime-workflow"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "symbols[0]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "owner:runtime-team",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.owner",
+                    "label": "Runtime Team",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:runtime-workflow",
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "owners[0]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "test:architecture-input-lift-reuse-fixture",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.test",
+                    "label": "architecture input lift reuse fixture validation",
+                    "context_ids": [
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "tests[0]"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "evidence:runtime-ownership",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.evidence",
+                    "label": "Ownership metadata maps runtime workflow files and schema fixtures to the Runtime Team.",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:runtime-workflow",
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[0]"
+                        },
+                        "confidence": 0.9,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "evidence:dependency-scan",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.evidence",
+                    "label": "Dependency scan links the lift function to the reuse fixture contract.",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:runtime-workflow",
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[1]"
+                        },
+                        "confidence": 0.68,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "signal:architecture-lift-test-gap",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "dimension": 0,
+                    "cell_type": "pr.risk_signal",
+                    "label": "The runtime lift path changed while only one reuse fixture was added.",
+                    "context_ids": [
+                        "context:pr:higher-graphen:42",
+                        "context:runtime-workflow",
+                        "context:schema-contract"
+                    ],
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "signals[0]"
+                        },
+                        "confidence": 0.76,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                }
+            ],
+            "incidences": [
+                {
+                    "id": "incidence:contains:file-crates-runtime-src-workflows-architecture-input-lift-rs:symbol-architecture-input-lift-lift-input",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "to_cell_id": "symbol:architecture-input-lift:lift_input",
+                    "relation_type": "contains_symbol",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "changed_files[0].symbol_ids"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:owned:file-crates-runtime-src-workflows-architecture-input-lift-rs:owner-runtime-team",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "to_cell_id": "owner:runtime-team",
+                    "relation_type": "owned_by",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "changed_files[0].owner_ids"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:owned:file-schemas-inputs-architecture-lift-reuse-input-example-json:owner-runtime-team",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "to_cell_id": "owner:runtime-team",
+                    "relation_type": "owned_by",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "changed_files[1].owner_ids"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:owned:symbol-architecture-input-lift-lift-input:owner-runtime-team",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "symbol:architecture-input-lift:lift_input",
+                    "to_cell_id": "owner:runtime-team",
+                    "relation_type": "owned_by",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "symbols[0].owner_ids"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:covered:file-schemas-inputs-architecture-lift-reuse-input-example-json:test-architecture-input-lift-reuse-fixture",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "to_cell_id": "test:architecture-input-lift-reuse-fixture",
+                    "relation_type": "covered_by_test",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "tests[0].file_id"
+                        },
+                        "confidence": 1.0,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "dependency:lift-input-reads-reuse-fixture",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "symbol:architecture-input-lift:lift_input",
+                    "to_cell_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "relation_type": "depends_on",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "dependency_edges[0]"
+                        },
+                        "confidence": 0.68,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:supports:evidence-runtime-ownership:file-crates-runtime-src-workflows-architecture-input-lift-rs",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "evidence:runtime-ownership",
+                    "to_cell_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "relation_type": "supports",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[0].source_ids"
+                        },
+                        "confidence": 0.9,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:supports:evidence-runtime-ownership:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "evidence:runtime-ownership",
+                    "to_cell_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "relation_type": "supports",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[0].source_ids"
+                        },
+                        "confidence": 0.9,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:supports:evidence-dependency-scan:symbol-architecture-input-lift-lift-input",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "evidence:dependency-scan",
+                    "to_cell_id": "symbol:architecture-input-lift:lift_input",
+                    "relation_type": "supports",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[1].source_ids"
+                        },
+                        "confidence": 0.68,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                },
+                {
+                    "id": "incidence:supports:evidence-dependency-scan:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                    "from_cell_id": "evidence:dependency-scan",
+                    "to_cell_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "relation_type": "supports",
+                    "orientation": "directed",
+                    "provenance": {
+                        "source": {
+                            "kind": "document",
+                            "uri": "schemas/inputs/pr-review-target.input.example.json",
+                            "title": "PR review target recommender smoke fixture",
+                            "captured_at": "2026-04-27T00:00:00Z",
+                            "source_local_id": "evidence[1].source_ids"
+                        },
+                        "confidence": 0.68,
+                        "review_status": "accepted",
+                        "extraction_method": "pr_review_target_lift.v1"
+                    }
+                }
+            ]
+        }
+    },
+    "result": {
+        "status": "targets_recommended",
+        "accepted_change_ids": [
+            "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+            "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+            "symbol:architecture-input-lift:lift_input",
+            "test:architecture-input-lift-reuse-fixture",
+            "dependency:lift-input-reads-reuse-fixture"
+        ],
+        "review_targets": [
+            {
+                "id": "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                "target_type": "symbol",
+                "target_ref": "symbol:architecture-input-lift:lift_input",
+                "title": "Review lift_input",
+                "rationale": "The runtime lift path changed while only one reuse fixture was added. This symbol is in the bounded PR snapshot and is linked to the risk signal.",
+                "evidence_ids": [
+                    "symbol:architecture-input-lift:lift_input",
+                    "signal:architecture-lift-test-gap",
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "location": {
+                    "path": "crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "line_start": 41,
+                    "line_end": 129,
+                    "symbol_id": "symbol:architecture-input-lift:lift_input"
+                },
+                "suggested_questions": [
+                    "Does the changed behavior have focused verification coverage?",
+                    "Are unreviewed recommendations kept separate from accepted review coverage?"
+                ],
+                "severity": "high",
+                "confidence": 0.76,
+                "review_status": "unreviewed"
+            },
+            {
+                "id": "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                "target_type": "file",
+                "target_ref": "schemas/inputs/architecture-lift.reuse.input.example.json",
+                "title": "Review architecture-lift.reuse.input.example.json",
+                "rationale": "The runtime lift path changed while only one reuse fixture was added. This changed file is directly referenced by the risk signal.",
+                "evidence_ids": [
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "signal:architecture-lift-test-gap",
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs"
+                ],
+                "location": {
+                    "path": "schemas/inputs/architecture-lift.reuse.input.example.json"
+                },
+                "suggested_questions": [
+                    "Does the changed behavior have focused verification coverage?",
+                    "Are unreviewed recommendations kept separate from accepted review coverage?"
+                ],
+                "severity": "high",
+                "confidence": 0.76,
+                "review_status": "unreviewed"
+            }
+        ],
+        "obstructions": [
+            {
+                "id": "obstruction:signal-architecture-lift-test-gap",
+                "obstruction_type": "test_gap",
+                "summary": "The runtime lift path changed while only one reuse fixture was added.",
+                "required_resolution": "A human reviewer should inspect the related unreviewed targets before treating this PR as reviewed.",
+                "severity": "high",
+                "source_ids": [
+                    "signal:architecture-lift-test-gap",
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                ],
+                "confidence": 0.76,
+                "review_status": "unreviewed"
+            }
+        ],
+        "completion_candidates": [
+            {
+                "id": "candidate:pr-higher-graphen-42:review-checklist",
+                "space_id": "space:pr-review-target:pr:higher-graphen:42",
+                "missing_type": "section",
+                "suggested_structure": {
+                    "structure_id": "section:pr-higher-graphen-42:review-checklist",
+                    "structure_type": "review_checklist",
+                    "summary": "Add a checklist section for the unreviewed PR review targets.",
+                    "related_ids": [
+                        "obstruction:signal-architecture-lift-test-gap"
+                    ]
+                },
+                "inferred_from": [
+                    "obstruction:signal-architecture-lift-test-gap"
+                ],
+                "rationale": "The recommender found unresolved review risks that should be tracked explicitly.",
+                "confidence": 0.71,
+                "review_status": "unreviewed"
+            }
+        ],
+        "source_ids": [
+            "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+            "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+            "symbol:architecture-input-lift:lift_input",
+            "test:architecture-input-lift-reuse-fixture",
+            "dependency:lift-input-reads-reuse-fixture",
+            "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+            "signal:architecture-lift-test-gap",
+            "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+            "obstruction:signal-architecture-lift-test-gap",
+            "candidate:pr-higher-graphen-42:review-checklist"
+        ]
+    },
+    "projection": {
+        "audience": "human",
+        "purpose": "pr_review_targeting",
+        "summary": "Recommended 2 unreviewed PR review targets with 1 unresolved obstructions.",
+        "recommended_actions": [
+            "Review the unreviewed targets before treating this PR as covered.",
+            "Record explicit accept or reject decisions outside this recommendation report."
+        ],
+        "information_loss": [
+            {
+                "description": "Projection summarizes changed files, symbols, risk signals, targets, obstructions, and completion candidates without embedding raw provider payloads.",
+                "source_ids": [
+                    "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "symbol:architecture-input-lift:lift_input",
+                    "test:architecture-input-lift-reuse-fixture",
+                    "dependency:lift-input-reads-reuse-fixture",
+                    "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                    "signal:architecture-lift-test-gap",
+                    "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "obstruction:signal-architecture-lift-test-gap",
+                    "candidate:pr-higher-graphen-42:review-checklist"
+                ]
+            }
+        ],
+        "source_ids": [
+            "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+            "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+            "symbol:architecture-input-lift:lift_input",
+            "test:architecture-input-lift-reuse-fixture",
+            "dependency:lift-input-reads-reuse-fixture",
+            "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+            "signal:architecture-lift-test-gap",
+            "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+            "obstruction:signal-architecture-lift-test-gap",
+            "candidate:pr-higher-graphen-42:review-checklist"
+        ],
+        "human_review": {
+            "audience": "human",
+            "purpose": "pr_review_targeting",
+            "summary": "Recommended 2 unreviewed PR review targets with 1 unresolved obstructions.",
+            "recommended_actions": [
+                "Review the unreviewed targets before treating this PR as covered.",
+                "Record explicit accept or reject decisions outside this recommendation report."
+            ],
+            "source_ids": [
+                "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "symbol:architecture-input-lift:lift_input",
+                "test:architecture-input-lift-reuse-fixture",
+                "dependency:lift-input-reads-reuse-fixture",
+                "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                "signal:architecture-lift-test-gap",
+                "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                "obstruction:signal-architecture-lift-test-gap",
+                "candidate:pr-higher-graphen-42:review-checklist"
+            ],
+            "information_loss": [
+                {
+                    "description": "Projection summarizes changed files, symbols, risk signals, targets, obstructions, and completion candidates without embedding raw provider payloads.",
+                    "source_ids": [
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                        "symbol:architecture-input-lift:lift_input",
+                        "test:architecture-input-lift-reuse-fixture",
+                        "dependency:lift-input-reads-reuse-fixture",
+                        "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                        "signal:architecture-lift-test-gap",
+                        "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                        "obstruction:signal-architecture-lift-test-gap",
+                        "candidate:pr-higher-graphen-42:review-checklist"
+                    ]
+                }
+            ]
+        },
+        "ai_view": {
+            "audience": "ai_agent",
+            "purpose": "pr_review_targeting",
+            "records": [
+                {
+                    "id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "record_type": "changed_file",
+                    "summary": "architecture_input_lift.rs changed file.",
+                    "source_ids": [
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "pr:higher-graphen:42"
+                    ],
+                    "confidence": 1.0,
+                    "review_status": "accepted"
+                },
+                {
+                    "id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "record_type": "changed_file",
+                    "summary": "architecture-lift.reuse.input.example.json changed file.",
+                    "source_ids": [
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                        "pr:higher-graphen:42"
+                    ],
+                    "confidence": 1.0,
+                    "review_status": "accepted"
+                },
+                {
+                    "id": "symbol:architecture-input-lift:lift_input",
+                    "record_type": "symbol",
+                    "summary": "Changed symbol lift_input.",
+                    "source_ids": [
+                        "symbol:architecture-input-lift:lift_input",
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs"
+                    ],
+                    "confidence": 1.0,
+                    "review_status": "accepted"
+                },
+                {
+                    "id": "signal:architecture-lift-test-gap",
+                    "record_type": "risk_signal",
+                    "summary": "The runtime lift path changed while only one reuse fixture was added.",
+                    "source_ids": [
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                    ],
+                    "confidence": 0.76,
+                    "review_status": "accepted",
+                    "severity": "high"
+                },
+                {
+                    "id": "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                    "record_type": "review_target",
+                    "summary": "Review lift_input",
+                    "source_ids": [
+                        "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                        "symbol:architecture-input-lift:lift_input",
+                        "signal:architecture-lift-test-gap",
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                    ],
+                    "confidence": 0.76,
+                    "review_status": "unreviewed",
+                    "severity": "high"
+                },
+                {
+                    "id": "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "record_type": "review_target",
+                    "summary": "Review architecture-lift.reuse.input.example.json",
+                    "source_ids": [
+                        "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                        "signal:architecture-lift-test-gap",
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs"
+                    ],
+                    "confidence": 0.76,
+                    "review_status": "unreviewed",
+                    "severity": "high"
+                },
+                {
+                    "id": "obstruction:signal-architecture-lift-test-gap",
+                    "record_type": "obstruction",
+                    "summary": "The runtime lift path changed while only one reuse fixture was added.",
+                    "source_ids": [
+                        "signal:architecture-lift-test-gap",
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json"
+                    ],
+                    "confidence": 0.76,
+                    "review_status": "unreviewed",
+                    "severity": "high"
+                },
+                {
+                    "id": "candidate:pr-higher-graphen-42:review-checklist",
+                    "record_type": "completion_candidate",
+                    "summary": "Add a checklist section for the unreviewed PR review targets.",
+                    "source_ids": [
+                        "candidate:pr-higher-graphen-42:review-checklist",
+                        "space:pr-review-target:pr:higher-graphen:42",
+                        "section:pr-higher-graphen-42:review-checklist",
+                        "obstruction:signal-architecture-lift-test-gap"
+                    ],
+                    "confidence": 0.71,
+                    "review_status": "unreviewed"
+                }
+            ],
+            "source_ids": [
+                "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "symbol:architecture-input-lift:lift_input",
+                "test:architecture-input-lift-reuse-fixture",
+                "dependency:lift-input-reads-reuse-fixture",
+                "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                "signal:architecture-lift-test-gap",
+                "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                "obstruction:signal-architecture-lift-test-gap",
+                "candidate:pr-higher-graphen-42:review-checklist"
+            ],
+            "information_loss": [
+                {
+                    "description": "AI view preserves stable IDs, severity, confidence, and review status but omits full changed-file payloads.",
+                    "source_ids": [
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                        "symbol:architecture-input-lift:lift_input",
+                        "test:architecture-input-lift-reuse-fixture",
+                        "dependency:lift-input-reads-reuse-fixture",
+                        "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                        "signal:architecture-lift-test-gap",
+                        "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                        "obstruction:signal-architecture-lift-test-gap",
+                        "candidate:pr-higher-graphen-42:review-checklist"
+                    ]
+                }
+            ]
+        },
+        "audit_trace": {
+            "audience": "audit",
+            "purpose": "audit_trace",
+            "source_ids": [
+                "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                "symbol:architecture-input-lift:lift_input",
+                "test:architecture-input-lift-reuse-fixture",
+                "dependency:lift-input-reads-reuse-fixture",
+                "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                "signal:architecture-lift-test-gap",
+                "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                "obstruction:signal-architecture-lift-test-gap",
+                "candidate:pr-higher-graphen-42:review-checklist"
+            ],
+            "information_loss": [
+                {
+                    "description": "Audit trace records represented source identifiers and view coverage but omits raw diff hunks and provider payloads.",
+                    "source_ids": [
+                        "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                        "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                        "symbol:architecture-input-lift:lift_input",
+                        "test:architecture-input-lift-reuse-fixture",
+                        "dependency:lift-input-reads-reuse-fixture",
+                        "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                        "signal:architecture-lift-test-gap",
+                        "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                        "obstruction:signal-architecture-lift-test-gap",
+                        "candidate:pr-higher-graphen-42:review-checklist"
+                    ]
+                }
+            ],
+            "traces": [
+                {
+                    "source_id": "file:crates/runtime/src/workflows/architecture_input_lift.rs",
+                    "role": "changed_file",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+                    "role": "changed_file",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "symbol:architecture-input-lift:lift_input",
+                    "role": "symbol",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "test:architecture-input-lift-reuse-fixture",
+                    "role": "source",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "dependency:lift-input-reads-reuse-fixture",
+                    "role": "dependency_edge",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "target:signal-architecture-lift-test-gap:symbol-architecture-input-lift-lift-input",
+                    "role": "review_target",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "signal:architecture-lift-test-gap",
+                    "role": "risk_signal",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "target:signal-architecture-lift-test-gap:file-schemas-inputs-architecture-lift-reuse-input-example-json",
+                    "role": "review_target",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "obstruction:signal-architecture-lift-test-gap",
+                    "role": "obstruction",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                },
+                {
+                    "source_id": "candidate:pr-higher-graphen-42:review-checklist",
+                    "role": "completion_candidate",
+                    "represented_in": [
+                        "human_review",
+                        "ai_view",
+                        "audit_trace"
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -22,21 +22,22 @@ The original proposal remains available as source material:
 13. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
 14. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
 15. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
-16. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
-17. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
-18. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
-19. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
-20. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
-21. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
-22. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
-23. [`cli/highergraphen.md`](cli/highergraphen.md)
-24. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-25. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
-26. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-27. [`specs/engine-traits.md`](specs/engine-traits.md)
-28. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-29. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-30. [`mvp-roadmap.md`](mvp-roadmap.md)
+16. [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md)
+17. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
+18. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
+19. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
+20. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
+21. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
+22. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
+23. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
+24. [`cli/highergraphen.md`](cli/highergraphen.md)
+25. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+26. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
+27. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+28. [`specs/engine-traits.md`](specs/engine-traits.md)
+29. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+30. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+31. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -66,8 +67,9 @@ The original proposal remains available as source material:
 | [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md) | Locks the immediate `higher-graphen-runtime` and `highergraphen` CLI scope, first command, and JSON report contract. |
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |
 | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
-| [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for the first `highergraphen` command. |
-| [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using the first HigherGraphen report contract. |
+| [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md) | Defines the bounded PR review target input and report contract, including unreviewed AI target semantics and projection records. |
+| [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for `highergraphen` runtime workflows, including PR review target recommendation. |
+| [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using HigherGraphen report contracts, including PR review target reports. |
 | [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md) | Provides the repository-owned release preparation, verification, packaging, and publication workflow. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
