@@ -160,6 +160,23 @@ This is why HigherGraphen treats concepts such as `Invariant`, `Obstruction`,
 `CompletionCandidate`, `Morphism`, `Context`, and `Projection` as product-level
 objects rather than hidden implementation details.
 
+## Release And Install
+
+The latest release is
+[`v0.1.0`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.1.0).
+It includes Darwin arm64 binaries for:
+
+- `casegraphen`
+- `highergraphen`
+
+Cargo packages are not published to crates.io yet; workspace packages currently
+set `publish = false`. To build locally from source, use Cargo from the
+repository root:
+
+```sh
+cargo build --workspace --release --locked
+```
+
 ## What You Can Run Today
 
 The repository already includes a Rust workspace, core crates, schemas,
