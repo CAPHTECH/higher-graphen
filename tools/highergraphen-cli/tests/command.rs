@@ -293,11 +293,76 @@ fn pr_review_input_from_git_emits_bounded_snapshot() {
         .iter()
         .any(|file| file["path"]
             == json!("crates/higher-graphen-runtime/src/workflows/pr_review_target.rs")));
+    assert!(value["changed_files"]
+        .as_array()
+        .expect("changed files")
+        .iter()
+        .any(|file| file["path"] == json!(".casegraphen/cases/generated/events.jsonl")));
+    assert!(value["changed_files"]
+        .as_array()
+        .expect("changed files")
+        .iter()
+        .any(|file| file["path"] == json!(".github/workflows/ci.yml")));
     assert!(value["signals"]
         .as_array()
         .expect("signals")
         .iter()
         .any(|signal| signal["id"] == json!("signal:contract-coupling")));
+    let signal_ids = value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .map(|signal| signal["id"].clone())
+        .collect::<Vec<_>>();
+    assert!(signal_ids.contains(&json!("signal:public-api-surface-change")));
+    assert!(signal_ids.contains(&json!("signal:serde-contract-change")));
+    assert!(signal_ids.contains(&json!("signal:panic-placeholder-added")));
+    assert!(signal_ids.contains(&json!("signal:external-effect-surface-change")));
+    assert!(signal_ids.contains(&json!("signal:test-assertion-weakened")));
+    assert!(signal_ids.contains(&json!("signal:ai-review-boundary-change")));
+    let large_signal = value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .find(|signal| signal["id"] == json!("signal:large-git-change"))
+        .expect("large git change signal");
+    assert_eq!(
+        large_signal["source_ids"],
+        json!(["evidence:git-diff"]),
+        "large changes should stay aggregate instead of expanding to every file"
+    );
+    let ownership_signal = value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .find(|signal| signal["id"] == json!("signal:ownership-boundary"))
+        .expect("ownership boundary signal");
+    assert_eq!(
+        ownership_signal["source_ids"]
+            .as_array()
+            .expect("ownership source ids")
+            .len(),
+        5,
+        "ownership boundary should use one representative file per reviewable owner"
+    );
+    assert!(value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .flat_map(|signal| signal["source_ids"].as_array().into_iter().flatten())
+        .all(|source_id| !source_id
+            .as_str()
+            .expect("source id should be a string")
+            .contains("casegraphen")));
+    assert!(value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .flat_map(|signal| signal["source_ids"].as_array().into_iter().flatten())
+        .any(|source_id| source_id
+            .as_str()
+            .expect("source id should be a string")
+            .contains("github-workflows-ci-yml")));
 
     fs::remove_dir_all(repository).expect("remove temp test repository");
 }
@@ -357,6 +422,23 @@ fn pr_review_input_from_git_output_feeds_recommender() {
         .expect("review targets")
         .iter()
         .all(|target| target["review_status"] == json!("unreviewed")));
+    let review_targets = value["result"]["review_targets"]
+        .as_array()
+        .expect("review targets");
+    assert!(review_targets.iter().all(|target| !target["target_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with(".casegraphen/")));
+    assert!(review_targets
+        .iter()
+        .any(|target| target["target_ref"] == json!(".github/workflows/ci.yml")));
+    assert_eq!(
+        review_targets
+            .iter()
+            .filter(|target| target["target_ref"] == json!("signal:large-git-change"))
+            .count(),
+        1
+    );
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
     fs::remove_dir_all(repository).expect("remove temp test repository");
@@ -668,13 +750,28 @@ fn write_git_fixture() -> PathBuf {
     run_git(&repository, &["config", "user.name", "Test User"]);
 
     fs::write(repository.join("README.md"), "# fixture\n").expect("write base file");
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/tests/command.rs",
+        "#[test]\nfn pr_review_targets_recommend() {\n    assert!(true);\n}\n",
+    );
     run_git(&repository, &["add", "."]);
     run_git(&repository, &["commit", "-m", "base"]);
 
     write_repo_file(
         &repository,
         "crates/higher-graphen-runtime/src/workflows/pr_review_target.rs",
-        "pub fn run_pr_review_target_recommend() {}\n",
+        "pub fn run_pr_review_target_recommend() {\n    let _ = Some(1).unwrap();\n}\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/pr_review_reports.rs",
+        "#[serde(rename_all = \"snake_case\")]\npub enum ReviewStatus {\n    Unreviewed,\n}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/pr_review_git.rs",
+        "use std::process::Command as ProcessCommand;\nfn run_git() {\n    let _ = ProcessCommand::new(\"git\");\n}\n",
     );
     write_repo_file(
         &repository,
@@ -694,7 +791,17 @@ fn write_git_fixture() -> PathBuf {
     write_repo_file(
         &repository,
         "docs/cli/highergraphen.md",
-        "# highergraphen\n",
+        "# highergraphen\n\nAI proposal output must remain unreviewed until human review accepts it.\n",
+    );
+    write_repo_file(
+        &repository,
+        ".casegraphen/cases/generated/events.jsonl",
+        "{\"event\":\"generated\"}\n",
+    );
+    write_repo_file(
+        &repository,
+        ".github/workflows/ci.yml",
+        "name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps: []\n",
     );
     run_git(&repository, &["add", "."]);
     run_git(

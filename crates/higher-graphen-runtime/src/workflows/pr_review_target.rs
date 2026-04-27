@@ -20,7 +20,10 @@ use crate::reports::{
 use higher_graphen_completion::{CompletionCandidate, MissingType, SuggestedStructure};
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceRef};
 use higher_graphen_projection::InformationLoss;
-use higher_graphen_space::IncidenceOrientation;
+use higher_graphen_space::{
+    CoverageCandidate, DominanceAnalysis, IncidenceOrientation, WeightedCoverageSelector,
+    WeightedUniverseElement,
+};
 
 const WORKFLOW_NAME: &str = "pr_review_target";
 const INPUT_SCHEMA: &str = "highergraphen.pr_review_target.input.v1";
@@ -525,6 +528,11 @@ fn recommend_review_targets(
 ) -> RuntimeResult<Vec<PrReviewTarget>> {
     let mut targets = Vec::new();
     for signal in &input.signals {
+        if !should_expand_signal_to_sources(signal) {
+            push_unique_target(&mut targets, cross_cutting_target(input, signal)?);
+            continue;
+        }
+
         let mut signal_targets = Vec::new();
         for source_id in &signal.source_ids {
             if let Some(target) = target_for_signal_source(input, signal, source_id)? {
@@ -538,6 +546,7 @@ fn recommend_review_targets(
             push_unique_target(&mut targets, target);
         }
     }
+    order_review_targets_by_signal_coverage(input, &mut targets);
     Ok(targets)
 }
 
@@ -599,11 +608,8 @@ fn symbol_target(
         target_type: PrReviewTargetType::Symbol,
         target_ref: symbol.id.to_string(),
         title: format!("Review {}", symbol.name),
-        rationale: format!(
-            "{} This symbol is in the bounded PR snapshot and is linked to the risk signal.",
-            signal.summary
-        ),
-        evidence_ids: evidence_ids(signal, Some(&symbol.id)),
+        rationale: signal.summary.clone(),
+        evidence_ids: target_evidence_ids(signal, Some(&symbol.id)),
         location: Some(PrReviewTargetLocation {
             path,
             line_start: symbol.line_start,
@@ -628,11 +634,8 @@ fn file_target(
         target_type: PrReviewTargetType::File,
         target_ref: file.path.clone(),
         title: format!("Review {}", file_label(&file.path)),
-        rationale: format!(
-            "{} This changed file is directly referenced by the risk signal.",
-            signal.summary
-        ),
-        evidence_ids: evidence_ids(signal, Some(&file.id)),
+        rationale: signal.summary.clone(),
+        evidence_ids: target_evidence_ids(signal, Some(&file.id)),
         location: Some(PrReviewTargetLocation {
             path: file.path.clone(),
             line_start: None,
@@ -641,7 +644,7 @@ fn file_target(
         }),
         suggested_questions: questions_for_signal(signal),
         related_target_ids: Vec::new(),
-        severity: recommended_severity(signal),
+        severity: recommended_file_severity(signal, &file.path),
         confidence: signal.confidence,
         review_status: ReviewStatus::Unreviewed,
     })
@@ -657,11 +660,8 @@ fn dependency_target(
         target_type: PrReviewTargetType::Dependency,
         target_ref: edge.id.to_string(),
         title: format!("Review dependency {}", edge.id),
-        rationale: format!(
-            "{} This dependency edge may affect review scope.",
-            signal.summary
-        ),
-        evidence_ids: evidence_ids(signal, Some(&edge.id)),
+        rationale: signal.summary.clone(),
+        evidence_ids: target_evidence_ids(signal, Some(&edge.id)),
         location: None,
         suggested_questions: questions_for_signal(signal),
         related_target_ids: Vec::new(),
@@ -681,11 +681,8 @@ fn test_target(
         target_type: PrReviewTargetType::Test,
         target_ref: test.id.to_string(),
         title: format!("Review test {}", test.name),
-        rationale: format!(
-            "{} This test is referenced by the risk signal.",
-            signal.summary
-        ),
-        evidence_ids: evidence_ids(signal, Some(&test.id)),
+        rationale: signal.summary.clone(),
+        evidence_ids: target_evidence_ids(signal, Some(&test.id)),
         location: None,
         suggested_questions: questions_for_signal(signal),
         related_target_ids: Vec::new(),
@@ -705,7 +702,7 @@ fn cross_cutting_target(
         target_ref: signal.id.to_string(),
         title: "Review cross-cutting PR risk".to_owned(),
         rationale: signal.summary.clone(),
-        evidence_ids: evidence_ids(signal, None),
+        evidence_ids: target_evidence_ids(signal, None),
         location: None,
         suggested_questions: questions_for_signal(signal),
         related_target_ids: Vec::new(),
@@ -1403,6 +1400,36 @@ fn recommended_severity(signal: &PrReviewTargetInputRiskSignal) -> Severity {
     }
 }
 
+fn recommended_file_severity(signal: &PrReviewTargetInputRiskSignal, path: &str) -> Severity {
+    let severity = recommended_severity(signal);
+    if matches!(
+        signal.signal_type,
+        crate::pr_review_reports::PrReviewTargetRiskSignalType::DependencyChange
+    ) && is_supporting_contract_file(path)
+        && severity > Severity::Medium
+    {
+        Severity::Medium
+    } else {
+        severity
+    }
+}
+
+fn is_supporting_contract_file(path: &str) -> bool {
+    path.starts_with("docs/")
+        || path.starts_with("skills/")
+        || path.ends_with("README.md")
+        || path.ends_with(".example.json")
+}
+
+fn should_expand_signal_to_sources(signal: &PrReviewTargetInputRiskSignal) -> bool {
+    use crate::pr_review_reports::PrReviewTargetRiskSignalType;
+
+    !matches!(
+        signal.signal_type,
+        PrReviewTargetRiskSignalType::LargeChange | PrReviewTargetRiskSignalType::GeneratedCode
+    )
+}
+
 fn obstruction_type_for_signal(
     signal: &PrReviewTargetInputRiskSignal,
 ) -> Option<PrReviewTargetObstructionType> {
@@ -1433,6 +1460,19 @@ fn evidence_ids(signal: &PrReviewTargetInputRiskSignal, target_id: Option<&Id>) 
     for source_id in &signal.source_ids {
         push_unique(&mut ids, source_id.clone());
     }
+    ids
+}
+
+fn target_evidence_ids(signal: &PrReviewTargetInputRiskSignal, target_id: Option<&Id>) -> Vec<Id> {
+    let mut ids = Vec::new();
+    if let Some(target_id) = target_id {
+        push_unique(&mut ids, target_id.clone());
+    } else {
+        for source_id in &signal.source_ids {
+            push_unique(&mut ids, source_id.clone());
+        }
+    }
+    push_unique(&mut ids, signal.id.clone());
     ids
 }
 
@@ -1582,9 +1622,168 @@ fn push_unique(ids: &mut Vec<Id>, id: Id) {
 }
 
 fn push_unique_target(targets: &mut Vec<PrReviewTarget>, target: PrReviewTarget) {
-    if !targets.iter().any(|existing| existing.id == target.id) {
+    if let Some(existing) = targets
+        .iter_mut()
+        .find(|existing| same_review_target(existing, &target))
+    {
+        merge_review_target(existing, target);
+    } else {
         targets.push(target);
     }
+}
+
+fn same_review_target(left: &PrReviewTarget, right: &PrReviewTarget) -> bool {
+    left.target_type == right.target_type && left.target_ref == right.target_ref
+}
+
+fn merge_review_target(existing: &mut PrReviewTarget, incoming: PrReviewTarget) {
+    if existing.severity < incoming.severity {
+        existing.severity = incoming.severity;
+    }
+    if existing.confidence < incoming.confidence {
+        existing.confidence = incoming.confidence;
+    }
+    if existing.location.is_none() {
+        existing.location = incoming.location;
+    }
+    existing.rationale = merge_rationale(&existing.rationale, &incoming.rationale);
+    for evidence_id in incoming.evidence_ids {
+        push_unique(&mut existing.evidence_ids, evidence_id);
+    }
+    for question in incoming.suggested_questions {
+        if !existing.suggested_questions.contains(&question) {
+            existing.suggested_questions.push(question);
+        }
+    }
+    for related_target_id in incoming.related_target_ids {
+        push_unique(&mut existing.related_target_ids, related_target_id);
+    }
+}
+
+fn merge_rationale(existing: &str, incoming: &str) -> String {
+    let mut parts = rationale_parts(existing);
+    for part in rationale_parts(incoming) {
+        if !parts.contains(&part) {
+            parts.push(part);
+        }
+    }
+
+    if parts.len() == 1 {
+        parts.remove(0)
+    } else {
+        format!("Multiple signals apply: {}", parts.join("; "))
+    }
+}
+
+fn rationale_parts(value: &str) -> Vec<String> {
+    const PREFIX: &str = "Multiple signals apply: ";
+    value
+        .strip_prefix(PREFIX)
+        .unwrap_or(value)
+        .split("; ")
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn order_review_targets_by_signal_coverage(
+    input: &PrReviewTargetInputDocument,
+    targets: &mut Vec<PrReviewTarget>,
+) {
+    let weighted_signals = input
+        .signals
+        .iter()
+        .map(|signal| WeightedUniverseElement::new(signal.id.clone(), review_signal_weight(signal)))
+        .collect::<Vec<_>>();
+    let signal_ids = weighted_signals
+        .iter()
+        .map(|signal| signal.id.clone())
+        .collect::<Vec<_>>();
+    if signal_ids.is_empty() || targets.is_empty() {
+        return;
+    }
+
+    let candidates = targets
+        .iter()
+        .map(|target| {
+            CoverageCandidate::new(target.id.clone(), target_signal_ids(target, &signal_ids))
+                .with_priority(review_target_priority(target))
+        })
+        .collect::<Vec<_>>();
+    let dominance_report = DominanceAnalysis::new(candidates.clone()).analyze();
+    let dominated_ids = dominance_report
+        .dominated_ids
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    let selection = WeightedCoverageSelector::new(weighted_signals)
+        .with_candidates(candidates)
+        .select();
+    let selected_ids = selection.selected_ids;
+
+    targets.sort_by(|left, right| {
+        selected_position(&selected_ids, &left.id)
+            .cmp(&selected_position(&selected_ids, &right.id))
+            .then_with(|| {
+                dominated_ids
+                    .contains(&left.id)
+                    .cmp(&dominated_ids.contains(&right.id))
+            })
+            .then_with(|| right.severity.cmp(&left.severity))
+            .then_with(|| {
+                right
+                    .confidence
+                    .partial_cmp(&left.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| left.target_ref.cmp(&right.target_ref))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+}
+
+fn review_signal_weight(signal: &PrReviewTargetInputRiskSignal) -> u32 {
+    let severity = match signal.severity {
+        Severity::Low => 1,
+        Severity::Medium => 2,
+        Severity::High => 4,
+        Severity::Critical => 8,
+    };
+    let confidence = (signal.confidence.value() * 100.0).round() as u32;
+    severity * confidence.max(1)
+}
+
+fn target_signal_ids(target: &PrReviewTarget, signal_ids: &[Id]) -> Vec<Id> {
+    target
+        .evidence_ids
+        .iter()
+        .filter(|evidence_id| signal_ids.contains(evidence_id))
+        .cloned()
+        .collect()
+}
+
+fn selected_position(selected_ids: &[Id], target_id: &Id) -> usize {
+    selected_ids
+        .iter()
+        .position(|selected_id| selected_id == target_id)
+        .unwrap_or(usize::MAX)
+}
+
+fn review_target_priority(target: &PrReviewTarget) -> u32 {
+    let severity = match target.severity {
+        Severity::Low => 1,
+        Severity::Medium => 2,
+        Severity::High => 3,
+        Severity::Critical => 4,
+    };
+    let target_type = match target.target_type {
+        PrReviewTargetType::Dependency => 4,
+        PrReviewTargetType::Symbol => 3,
+        PrReviewTargetType::File => 2,
+        PrReviewTargetType::Test => 2,
+        PrReviewTargetType::Documentation => 1,
+        PrReviewTargetType::CrossCutting => 1,
+    };
+    severity * 10 + target_type
 }
 
 fn serde_plain_context_type(

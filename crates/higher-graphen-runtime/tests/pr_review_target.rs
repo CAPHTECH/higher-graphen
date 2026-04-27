@@ -1,9 +1,10 @@
 //! Contract tests for the PR review target runtime workflow.
 
-use higher_graphen_core::{Id, ReviewStatus};
+use higher_graphen_core::{Confidence, Id, ReviewStatus, Severity};
 use higher_graphen_runtime::{
     run_pr_review_target_recommend, AiProjectionRecordType, PrReviewTargetInputDocument,
-    PrReviewTargetStatus, ProjectionAudience, ProjectionPurpose,
+    PrReviewTargetInputRiskSignal, PrReviewTargetRiskSignalType, PrReviewTargetStatus,
+    ProjectionAudience, ProjectionPurpose,
 };
 use serde_json::{json, Value};
 
@@ -13,6 +14,8 @@ const REPORT_TYPE: &str = "pr_review_target";
 const RUNTIME_FILE: &str = "file:crates/runtime/src/workflows/architecture_input_lift.rs";
 const LIFT_SYMBOL: &str = "symbol:architecture-input-lift:lift_input";
 const SIGNAL_TEST_GAP: &str = "signal:architecture-lift-test-gap";
+const SIGNAL_DUPLICATE_TARGET: &str = "signal:architecture-lift-contract-risk";
+const SIGNAL_SCHEMA_REVIEW: &str = "signal:schema-review";
 
 #[test]
 fn runner_recommends_targets_from_bounded_pr_fixture() {
@@ -121,6 +124,111 @@ fn no_signals_is_successful_no_targets_result() {
     assert!(report.result.obstructions.is_empty());
     assert!(report.result.completion_candidates.is_empty());
     assert!(!report.result.source_ids.is_empty());
+}
+
+#[test]
+fn large_change_signal_remains_aggregate_target() {
+    let mut input = fixture();
+    let large_signal_id = id("signal:large-change-fixture");
+    input.signals.push(PrReviewTargetInputRiskSignal {
+        id: large_signal_id.clone(),
+        signal_type: PrReviewTargetRiskSignalType::LargeChange,
+        summary: "Fixture changes many files.".to_owned(),
+        source_ids: input
+            .changed_files
+            .iter()
+            .map(|file| file.id.clone())
+            .collect(),
+        severity: Severity::High,
+        confidence: Confidence::new(0.82).expect("valid confidence"),
+    });
+
+    let report = run_pr_review_target_recommend(input).expect("workflow should run");
+    let large_targets = report
+        .result
+        .review_targets
+        .iter()
+        .filter(|target| target.evidence_ids.contains(&large_signal_id))
+        .collect::<Vec<_>>();
+
+    assert_eq!(large_targets.len(), 1);
+    assert_eq!(large_targets[0].target_ref, large_signal_id.to_string());
+    assert!(large_targets[0].location.is_none());
+}
+
+#[test]
+fn duplicate_target_refs_merge_evidence_and_rationale() {
+    let mut input = fixture();
+    input.signals.push(PrReviewTargetInputRiskSignal {
+        id: id(SIGNAL_DUPLICATE_TARGET),
+        signal_type: PrReviewTargetRiskSignalType::DependencyChange,
+        summary: "Architecture lift also changes a downstream contract.".to_owned(),
+        source_ids: vec![id(RUNTIME_FILE)],
+        severity: Severity::High,
+        confidence: Confidence::new(0.91).expect("valid confidence"),
+    });
+
+    let report = run_pr_review_target_recommend(input).expect("workflow should run");
+    let runtime_targets = report
+        .result
+        .review_targets
+        .iter()
+        .filter(|target| target.target_ref == LIFT_SYMBOL)
+        .collect::<Vec<_>>();
+
+    assert_eq!(runtime_targets.len(), 1);
+    let runtime_target = runtime_targets[0];
+    assert_eq!(runtime_target.severity, Severity::High);
+    assert_eq!(
+        runtime_target.confidence,
+        Confidence::new(0.91).expect("valid confidence")
+    );
+    assert!(runtime_target.evidence_ids.contains(&id(SIGNAL_TEST_GAP)));
+    assert!(runtime_target
+        .evidence_ids
+        .contains(&id(SIGNAL_DUPLICATE_TARGET)));
+    assert_eq!(runtime_target.evidence_ids.len(), 3);
+    assert!(runtime_target
+        .rationale
+        .contains("The runtime lift path changed while only one reuse fixture was added."));
+    assert!(runtime_target
+        .rationale
+        .contains("Architecture lift also changes a downstream contract."));
+    assert!(runtime_target
+        .rationale
+        .starts_with("Multiple signals apply: "));
+    assert!(!runtime_target.rationale.contains("Additional rationale"));
+}
+
+#[test]
+fn review_targets_are_ordered_by_weighted_signal_coverage() {
+    let mut input = fixture();
+    input.signals.push(PrReviewTargetInputRiskSignal {
+        id: id(SIGNAL_SCHEMA_REVIEW),
+        signal_type: PrReviewTargetRiskSignalType::DependencyChange,
+        summary: "Schema fixture also carries the contract surface.".to_owned(),
+        source_ids: vec![id(
+            "file:schemas/inputs/architecture-lift.reuse.input.example.json",
+        )],
+        severity: Severity::Medium,
+        confidence: Confidence::new(0.71).expect("valid confidence"),
+    });
+
+    let report = run_pr_review_target_recommend(input).expect("workflow should run");
+    let first_target = report
+        .result
+        .review_targets
+        .first()
+        .expect("at least one target");
+
+    assert_eq!(
+        first_target.target_ref,
+        "schemas/inputs/architecture-lift.reuse.input.example.json"
+    );
+    assert!(first_target.evidence_ids.contains(&id(SIGNAL_TEST_GAP)));
+    assert!(first_target
+        .evidence_ids
+        .contains(&id(SIGNAL_SCHEMA_REVIEW)));
 }
 
 #[test]

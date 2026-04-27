@@ -4,6 +4,113 @@ fn id(value: &str) -> Id {
     Id::new(value).expect("valid test id")
 }
 
+#[test]
+fn greedy_coverage_selects_candidates_until_universe_is_covered() {
+    let selection =
+        GreedyCoverageSelector::new([id("element:alpha"), id("element:beta"), id("element:gamma")])
+            .with_candidates([
+                CoverageCandidate::new(
+                    id("candidate:one"),
+                    [id("element:alpha"), id("element:beta")],
+                )
+                .with_priority(1),
+                CoverageCandidate::new(
+                    id("candidate:two"),
+                    [id("element:beta"), id("element:gamma")],
+                )
+                .with_priority(1),
+                CoverageCandidate::new(id("candidate:three"), [id("element:gamma")])
+                    .with_priority(9),
+            ])
+            .select();
+
+    assert_eq!(
+        selection.selected_ids,
+        vec![id("candidate:one"), id("candidate:three")]
+    );
+    assert_eq!(
+        selection.covered_ids,
+        vec![id("element:alpha"), id("element:beta"), id("element:gamma")]
+    );
+    assert!(selection.uncovered_ids.is_empty());
+}
+
+#[test]
+fn greedy_coverage_reports_uncovered_universe_under_budget() {
+    let selection =
+        GreedyCoverageSelector::new([id("element:alpha"), id("element:beta"), id("element:gamma")])
+            .with_candidates([
+                CoverageCandidate::new(id("candidate:one"), [id("element:alpha")]),
+                CoverageCandidate::new(id("candidate:two"), [id("element:beta")]),
+            ])
+            .with_budget(1)
+            .select();
+
+    assert_eq!(selection.selected_ids, vec![id("candidate:one")]);
+    assert_eq!(selection.covered_ids, vec![id("element:alpha")]);
+    assert_eq!(
+        selection.uncovered_ids,
+        vec![id("element:beta"), id("element:gamma")]
+    );
+}
+
+#[test]
+fn weighted_coverage_prefers_higher_weighted_uncovered_elements() {
+    let selection = WeightedCoverageSelector::new([
+        WeightedUniverseElement::new(id("element:alpha"), 10),
+        WeightedUniverseElement::new(id("element:beta"), 1),
+        WeightedUniverseElement::new(id("element:gamma"), 1),
+    ])
+    .with_candidates([
+        CoverageCandidate::new(
+            id("candidate:one"),
+            [id("element:beta"), id("element:gamma")],
+        ),
+        CoverageCandidate::new(id("candidate:two"), [id("element:alpha")]),
+    ])
+    .select();
+
+    assert_eq!(
+        selection.selected_ids,
+        vec![id("candidate:two"), id("candidate:one")]
+    );
+    assert_eq!(selection.covered_weight, 12);
+    assert_eq!(selection.uncovered_weight, 0);
+}
+
+#[test]
+fn dominance_analysis_reports_candidates_with_subset_coverage_and_no_better_profile() {
+    let report = DominanceAnalysis::new([
+        CoverageCandidate::new(
+            id("candidate:broad"),
+            [id("element:alpha"), id("element:beta")],
+        )
+        .with_priority(3)
+        .with_cost(1),
+        CoverageCandidate::new(id("candidate:narrow"), [id("element:alpha")])
+            .with_priority(2)
+            .with_cost(1),
+        CoverageCandidate::new(id("candidate:expensive"), [id("element:alpha")])
+            .with_priority(2)
+            .with_cost(5),
+    ])
+    .analyze();
+
+    assert_eq!(
+        report.dominated_ids,
+        vec![id("candidate:expensive"), id("candidate:narrow")]
+    );
+    assert!(report.relations.iter().any(|relation| {
+        relation.dominant_id == id("candidate:broad")
+            && relation.dominated_id == id("candidate:narrow")
+            && relation.covered_ids == vec![id("element:alpha")]
+    }));
+    assert!(report.relations.iter().any(|relation| {
+        relation.dominant_id == id("candidate:narrow")
+            && relation.dominated_id == id("candidate:expensive")
+    }));
+}
+
 fn seeded_store() -> InMemorySpaceStore {
     let mut store = InMemorySpaceStore::new();
     store

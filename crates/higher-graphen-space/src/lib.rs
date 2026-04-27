@@ -1,11 +1,13 @@
 //! Space, cell, incidence, complex, boundary, and storage abstractions for HigherGraphen.
 
+pub mod coverage;
 pub mod traversal;
 
 use higher_graphen_core::{CoreError, Id, Provenance, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+pub use coverage::*;
 pub use traversal::*;
 
 /// Non-negative cell dimension.

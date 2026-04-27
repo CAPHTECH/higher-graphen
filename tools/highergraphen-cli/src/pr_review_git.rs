@@ -46,6 +46,7 @@ pub(crate) fn input_from_git(
     if changes.is_empty() {
         return Err(format!("git range {range} has no changed files"));
     }
+    let diff_analysis = diff_analysis(&repo_path, &range, &changes)?;
 
     let repository_id = id(format!("repo:{}", slug(&repo_name)))?;
     let pull_request_id = id(format!(
@@ -67,7 +68,12 @@ pub(crate) fn input_from_git(
     let dependency_edges = dependency_edges_for_changes(&changes, &diff_evidence_id)?;
     let evidence =
         evidence_for_changes(&changes, &commits, &diff_evidence_id, &commit_evidence_id)?;
-    let signals = signals_for_changes(&changes, &dependency_edges)?;
+    let signals = signals_for_changes(
+        &changes,
+        &dependency_edges,
+        &diff_evidence_id,
+        &diff_analysis,
+    )?;
 
     Ok(PrReviewTargetInputDocument {
         schema: INPUT_SCHEMA.to_owned(),
@@ -122,6 +128,23 @@ struct GitChange {
     change_type: PrReviewTargetChangeType,
     additions: u32,
     deletions: u32,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct GitDiffAnalysis {
+    public_api_ids: Vec<Id>,
+    serde_contract_ids: Vec<Id>,
+    panic_or_placeholder_ids: Vec<Id>,
+    external_effect_ids: Vec<Id>,
+    weakened_test_ids: Vec<Id>,
+    review_boundary_ids: Vec<Id>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct GitDiffFile {
+    path: String,
+    added_lines: Vec<String>,
+    removed_lines: Vec<String>,
 }
 
 fn changed_file(
@@ -311,12 +334,12 @@ fn evidence_for_changes(
 fn signals_for_changes(
     changes: &[GitChange],
     dependency_edges: &[PrReviewTargetInputDependencyEdge],
+    diff_evidence_id: &Id,
+    diff_analysis: &GitDiffAnalysis,
 ) -> Result<Vec<PrReviewTargetInputRiskSignal>, String> {
     let mut signals = Vec::new();
-    let file_ids = changes
-        .iter()
-        .map(|change| file_id(&change.path))
-        .collect::<Result<Vec<_>, _>>()?;
+    let ownership_scope_ids = representative_reviewable_file_ids_by_owner(changes)?
+        .unwrap_or_else(|| vec![diff_evidence_id.clone()]);
     let total_lines = changes
         .iter()
         .map(|change| change.additions + change.deletions)
@@ -331,7 +354,7 @@ fn signals_for_changes(
                 changes.len(),
                 total_lines
             ),
-            source_ids: file_ids.clone(),
+            source_ids: vec![diff_evidence_id.clone()],
             severity: if total_lines >= 1200 {
                 Severity::High
             } else {
@@ -353,13 +376,19 @@ fn signals_for_changes(
                 "Git range crosses {} ownership areas.",
                 touched_owners.len()
             ),
-            source_ids: file_ids.clone(),
+            source_ids: ownership_scope_ids,
             severity: Severity::Medium,
             confidence: confidence(0.76)?,
         });
     }
 
     if !dependency_edges.is_empty() {
+        let contract_file_ids = changes
+            .iter()
+            .filter(|change| is_review_signal_path(&change.path))
+            .filter(|change| is_contract_coupling_path(&change.path))
+            .map(|change| file_id(&change.path))
+            .collect::<Result<Vec<_>, _>>()?;
         signals.push(PrReviewTargetInputRiskSignal {
             id: id("signal:contract-coupling")?,
             signal_type: PrReviewTargetRiskSignalType::DependencyChange,
@@ -367,7 +396,7 @@ fn signals_for_changes(
             source_ids: dependency_edges
                 .iter()
                 .map(|edge| edge.id.clone())
-                .chain(file_ids.iter().cloned())
+                .chain(contract_file_ids)
                 .collect(),
             severity: Severity::High,
             confidence: confidence(0.8)?,
@@ -431,6 +460,75 @@ fn signals_for_changes(
         });
     }
 
+    if !diff_analysis.public_api_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:public-api-surface-change")?,
+            signal_type: PrReviewTargetRiskSignalType::Custom,
+            summary: "Diff changes public Rust API-like declarations.".to_owned(),
+            source_ids: diff_analysis.public_api_ids.clone(),
+            severity: Severity::High,
+            confidence: confidence(0.74)?,
+        });
+    }
+
+    if !diff_analysis.serde_contract_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:serde-contract-change")?,
+            signal_type: PrReviewTargetRiskSignalType::DependencyChange,
+            summary: "Diff changes serde or schema-visible contract annotations.".to_owned(),
+            source_ids: diff_analysis.serde_contract_ids.clone(),
+            severity: Severity::High,
+            confidence: confidence(0.78)?,
+        });
+    }
+
+    if !diff_analysis.panic_or_placeholder_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:panic-placeholder-added")?,
+            signal_type: PrReviewTargetRiskSignalType::Custom,
+            summary: "Diff adds panic, unwrap/expect, or placeholder control-flow paths."
+                .to_owned(),
+            source_ids: diff_analysis.panic_or_placeholder_ids.clone(),
+            severity: Severity::Medium,
+            confidence: confidence(0.7)?,
+        });
+    }
+
+    if !diff_analysis.external_effect_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:external-effect-surface-change")?,
+            signal_type: PrReviewTargetRiskSignalType::Custom,
+            summary: "Diff adds unsafe, subprocess, filesystem, or network effect surfaces."
+                .to_owned(),
+            source_ids: diff_analysis.external_effect_ids.clone(),
+            severity: Severity::Medium,
+            confidence: confidence(0.76)?,
+        });
+    }
+
+    if !diff_analysis.weakened_test_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:test-assertion-weakened")?,
+            signal_type: PrReviewTargetRiskSignalType::TestGap,
+            summary: "Diff removes test assertions or test declarations.".to_owned(),
+            source_ids: diff_analysis.weakened_test_ids.clone(),
+            severity: Severity::Medium,
+            confidence: confidence(0.68)?,
+        });
+    }
+
+    if !diff_analysis.review_boundary_ids.is_empty() {
+        signals.push(PrReviewTargetInputRiskSignal {
+            id: id("signal:ai-review-boundary-change")?,
+            signal_type: PrReviewTargetRiskSignalType::OwnershipBoundary,
+            summary: "Diff changes AI proposal, human review, or review-status boundary text."
+                .to_owned(),
+            source_ids: diff_analysis.review_boundary_ids.clone(),
+            severity: Severity::Medium,
+            confidence: confidence(0.72)?,
+        });
+    }
+
     Ok(signals)
 }
 
@@ -453,6 +551,122 @@ fn changed_files(repo: &Path, range: &str) -> Result<Vec<GitChange>, String> {
         .filter(|line| !line.trim().is_empty())
         .map(|line| parse_name_status(line, &stats))
         .collect()
+}
+
+fn diff_analysis(
+    repo: &Path,
+    range: &str,
+    changes: &[GitChange],
+) -> Result<GitDiffAnalysis, String> {
+    let reviewable_paths = changes
+        .iter()
+        .filter(|change| is_review_signal_path(&change.path))
+        .map(|change| change.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let diff = git(repo, &["diff", "--unified=0", "--no-ext-diff", range])?;
+    let files = parse_diff_files(&diff);
+    let mut analysis = GitDiffAnalysis::default();
+
+    for file in files
+        .iter()
+        .filter(|file| reviewable_paths.contains(file.path.as_str()))
+    {
+        let file_id = file_id(&file.path)?;
+        if file
+            .added_lines
+            .iter()
+            .any(|line| is_public_api_line(&file.path, line))
+            || file
+                .removed_lines
+                .iter()
+                .any(|line| is_public_api_line(&file.path, line))
+        {
+            push_unique(&mut analysis.public_api_ids, file_id.clone());
+        }
+        if file
+            .added_lines
+            .iter()
+            .chain(file.removed_lines.iter())
+            .any(|line| is_serde_contract_line(&file.path, line))
+        {
+            push_unique(&mut analysis.serde_contract_ids, file_id.clone());
+        }
+        if file
+            .added_lines
+            .iter()
+            .any(|line| is_panic_or_placeholder_line(&file.path, line))
+        {
+            push_unique(&mut analysis.panic_or_placeholder_ids, file_id.clone());
+        }
+        if file
+            .added_lines
+            .iter()
+            .any(|line| is_external_effect_line(&file.path, line))
+        {
+            push_unique(&mut analysis.external_effect_ids, file_id.clone());
+        }
+        if is_test_path(&file.path)
+            && file
+                .removed_lines
+                .iter()
+                .any(|line| is_test_assertion_line(line))
+        {
+            push_unique(&mut analysis.weakened_test_ids, file_id.clone());
+        }
+        if file
+            .added_lines
+            .iter()
+            .chain(file.removed_lines.iter())
+            .any(|line| is_review_boundary_line(&file.path, line))
+        {
+            push_unique(&mut analysis.review_boundary_ids, file_id);
+        }
+    }
+
+    Ok(analysis)
+}
+
+fn parse_diff_files(diff: &str) -> Vec<GitDiffFile> {
+    let mut files = Vec::<GitDiffFile>::new();
+    let mut current = None::<GitDiffFile>;
+
+    for line in diff.lines() {
+        if let Some(path) = line.strip_prefix("diff --git ") {
+            if let Some(file) = current.take() {
+                files.push(file);
+            }
+            let new_path = path
+                .split_whitespace()
+                .nth(1)
+                .and_then(|value| value.strip_prefix("b/"))
+                .unwrap_or_default()
+                .to_owned();
+            current = Some(GitDiffFile {
+                path: new_path,
+                added_lines: Vec::new(),
+                removed_lines: Vec::new(),
+            });
+            continue;
+        }
+
+        let Some(file) = current.as_mut() else {
+            continue;
+        };
+        if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        }
+        if let Some(added) = line.strip_prefix('+') {
+            file.added_lines.push(added.to_owned());
+        } else if let Some(removed) = line.strip_prefix('-') {
+            file.removed_lines.push(removed.to_owned());
+        }
+    }
+
+    if let Some(file) = current {
+        files.push(file);
+    }
+
+    files
 }
 
 fn parse_name_status(
@@ -545,6 +759,12 @@ fn id(value: impl Into<String>) -> Result<Id, String> {
 
 fn confidence(value: f64) -> Result<Confidence, String> {
     Confidence::new(value).map_err(|error| error.to_string())
+}
+
+fn push_unique(ids: &mut Vec<Id>, id: Id) {
+    if !ids.contains(&id) {
+        ids.push(id);
+    }
 }
 
 fn first_path_matching(changes: &[GitChange], predicate: fn(&str) -> bool) -> Option<&GitChange> {
@@ -710,6 +930,166 @@ fn is_security_path(path: &str) -> bool {
         || lower.contains("permission")
         || lower.contains("secret")
         || lower.contains("crypto")
+}
+
+fn is_contract_coupling_path(path: &str) -> bool {
+    is_runtime_path(path) || is_cli_path(path) || is_schema_path(path) || is_test_path(path)
+}
+
+fn is_review_signal_path(path: &str) -> bool {
+    !is_evidence_only_path(path)
+}
+
+fn is_evidence_only_path(path: &str) -> bool {
+    is_top_level_dot_path(path) && !is_reviewable_dot_path(path)
+}
+
+fn is_top_level_dot_path(path: &str) -> bool {
+    path.starts_with('.') && !path.starts_with("../")
+}
+
+fn is_reviewable_dot_path(path: &str) -> bool {
+    path.starts_with(".github/workflows/")
+        || path.starts_with(".github/actions/")
+        || path.starts_with(".cargo/")
+        || path.starts_with(".config/")
+        || path.starts_with(".vscode/extensions.json")
+        || path == ".gitignore"
+        || path == ".gitattributes"
+        || path == ".editorconfig"
+        || path == ".env.example"
+        || path == ".rustfmt.toml"
+        || path == ".clippy.toml"
+        || path == ".prettierrc"
+        || path == ".prettierrc.json"
+        || path == ".prettierrc.yaml"
+        || path == ".prettierrc.yml"
+        || path == ".eslintrc"
+        || path == ".eslintrc.js"
+        || path == ".eslintrc.cjs"
+        || path == ".eslintrc.json"
+        || path == ".markdownlint.json"
+}
+
+fn is_public_api_line(path: &str, line: &str) -> bool {
+    if !path.ends_with(".rs") {
+        return false;
+    }
+    let trimmed = line.trim_start();
+    trimmed.starts_with("pub fn ")
+        || trimmed.starts_with("pub struct ")
+        || trimmed.starts_with("pub enum ")
+        || trimmed.starts_with("pub trait ")
+        || trimmed.starts_with("pub type ")
+        || trimmed.starts_with("pub const ")
+        || trimmed.starts_with("pub mod ")
+        || trimmed.starts_with("pub use ")
+        || trimmed.starts_with("pub(crate) fn ")
+        || trimmed.starts_with("pub(crate) struct ")
+        || trimmed.starts_with("pub(crate) enum ")
+}
+
+fn is_serde_contract_line(path: &str, line: &str) -> bool {
+    let trimmed = line.trim();
+    is_schema_contract_path(path)
+        || trimmed.contains("#[serde")
+        || trimmed.contains("serde(")
+        || trimmed.contains("deny_unknown_fields")
+        || trimmed.contains("rename_all")
+        || trimmed.contains("skip_serializing_if")
+}
+
+fn is_schema_contract_path(path: &str) -> bool {
+    path.ends_with(".schema.json") || path.ends_with(".example.json")
+}
+
+fn is_panic_or_placeholder_line(path: &str, line: &str) -> bool {
+    if is_test_path(path) && looks_like_fixture_string(line) {
+        return false;
+    }
+    line.contains(".unwrap(")
+        || line.contains(".expect(")
+        || line.contains("panic!(")
+        || line.contains("todo!(")
+        || line.contains("unimplemented!(")
+}
+
+fn is_external_effect_line(path: &str, line: &str) -> bool {
+    if is_test_path(path) && looks_like_fixture_string(line) {
+        return false;
+    }
+    let trimmed = line.trim();
+    trimmed.contains("unsafe ")
+        || trimmed.starts_with("unsafe {")
+        || trimmed.contains("Command::new")
+        || trimmed.contains("ProcessCommand::new")
+        || trimmed.contains("fs::read")
+        || trimmed.contains("fs::write")
+        || trimmed.contains("fs::remove")
+        || trimmed.contains("fs::create")
+        || trimmed.contains("File::open")
+        || trimmed.contains("File::create")
+        || trimmed.contains("TcpStream")
+        || trimmed.contains("UdpSocket")
+        || trimmed.contains("reqwest")
+        || trimmed.contains("curl")
+}
+
+fn looks_like_fixture_string(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with('"')
+        || trimmed.starts_with("r#\"")
+        || trimmed.starts_with("r\"")
+        || trimmed.contains("\\n")
+}
+
+fn is_test_assertion_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with("#[test]")
+        || trimmed.contains("assert!")
+        || trimmed.contains("assert_eq!")
+        || trimmed.contains("assert_ne!")
+        || trimmed.contains(".expect(")
+        || trimmed.contains("should_panic")
+}
+
+fn is_review_boundary_line(path: &str, line: &str) -> bool {
+    if !(is_docs_or_skill_path(path)
+        || path.contains("pr_review")
+        || path.contains("review_target")
+        || path.ends_with("_reports.rs"))
+    {
+        return false;
+    }
+    let lower = line.to_ascii_lowercase();
+    lower.contains("review_status")
+        || lower.contains("unreviewed")
+        || lower.contains("accepted fact")
+        || lower.contains("accepted facts")
+        || lower.contains("ai proposal")
+        || lower.contains("human review")
+        || lower.contains("recommendation")
+        || lower.contains("proposal")
+}
+
+fn representative_reviewable_file_ids_by_owner(
+    changes: &[GitChange],
+) -> Result<Option<Vec<Id>>, String> {
+    let mut representatives = BTreeMap::<Id, Id>::new();
+    for change in changes
+        .iter()
+        .filter(|change| is_review_signal_path(&change.path))
+    {
+        representatives
+            .entry(owner_id_for_path(&change.path)?)
+            .or_insert(file_id(&change.path)?);
+    }
+
+    if representatives.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(representatives.into_values().collect()))
+    }
 }
 
 fn slug(value: &str) -> String {
