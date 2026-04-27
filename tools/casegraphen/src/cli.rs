@@ -4,16 +4,20 @@ use crate::{
     native_cli::{NativeCliCommand, NativeCliError},
     report,
     store::{read_case_graph, read_coverage_policy, read_projection, write_report, LocalCaseStore},
+    topology::TopologyReportOptions,
     workflow_eval::cli_reports::{
         workflow_completions_json, workflow_correspond_json, workflow_evidence_json,
         workflow_evolution_json, workflow_obstructions_json, workflow_project_json,
-        workflow_readiness_json, workflow_reason_json, workflow_topology_json,
-        workflow_validate_json, WorkflowCommandError,
+        workflow_readiness_json, workflow_reason_json, workflow_topology_diff_json,
+        workflow_topology_json, workflow_validate_json, WorkflowCommandError,
     },
     workflow_workspace::cli_bridge::{CgWorkflowBridgeCommand, WorkflowBridgeError},
 };
+#[path = "cli_required.rs"]
+mod cli_required;
 mod options;
 
+use cli_required::required_segment;
 use higher_graphen_core::Id;
 use options::Options;
 use std::{
@@ -24,37 +28,7 @@ use std::{
     process::ExitCode,
 };
 
-const USAGE: &str = "usage:
-  casegraphen create --case-graph-id <id> --space-id <id> --store <dir> --format json [--output <path>]
-  casegraphen inspect --input <path> --format json [--output <path>]
-  casegraphen list --store <dir> --format json [--output <path>]
-  casegraphen validate --input <path> --format json [--output <path>]
-  casegraphen history topology --input <path> --format json [--output <path>]
-  casegraphen coverage --input <path> --coverage <path> --format json [--output <path>]
-  casegraphen missing --input <path> --coverage <path> --format json [--output <path>]
-  casegraphen conflicts --input <path> --format json [--output <path>]
-  casegraphen project --input <path> --projection <path> --format json [--output <path>]
-  casegraphen compare --left <path> --right <path> --format json [--output <path>]
-  casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow validate --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow readiness --input <workflow.graph.json> --format json [--projection <projection.json>] [--output <path>]
-  casegraphen workflow obstructions --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow completions --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow evidence --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow history topology --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen workflow project --input <workflow.graph.json> --projection <projection.json> --format json [--output <path>]
-  casegraphen workflow correspond --left <left.workflow.json> --right <right.workflow.json> --format json [--output <path>]
-  casegraphen workflow evolution --input <workflow.graph.json> --format json [--output <path>]
-  casegraphen cg workflow import --store <dir> --input <workflow.graph.json> --revision-id <id> --format json [--output <path>]
-  casegraphen cg workflow list --store <dir> --format json [--output <path>]
-  casegraphen cg workflow inspect|history|replay|validate --store <dir> --workflow-graph-id <id> --format json [--output <path>]
-  casegraphen cg workflow readiness (--input <workflow.graph.json> | --store <dir> --workflow-graph-id <id>) --format json [--projection <projection.json>] [--output <path>]
-  casegraphen cg workflow completion accept|reject|reopen --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--evidence-id <id> ...] [--decision-id <id> ...] [--output <path>]
-  casegraphen cg workflow completion patch --store <dir> --workflow-graph-id <id> --candidate-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--transition-id <id>] [--reviewed-at <text>] [--output <path>]
-  casegraphen cg workflow patch check --store <dir> --workflow-graph-id <id> --transition-id <id> --format json [--output <path>]
-  casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
-  casegraphen case new|import|list|inspect|history|history topology|replay|validate|reason|frontier|obstructions|completions|evidence|project|close-check ... --format json [--output <path>]
-  casegraphen morphism propose|check|apply|reject ... --format json [--output <path>]";
+const USAGE: &str = include_str!("cli_usage.txt");
 
 pub fn main_entry() -> ExitCode {
     match run(env::args_os().skip(1)) {
@@ -101,6 +75,13 @@ enum Command {
     },
     HistoryTopology {
         input: PathBuf,
+        topology_options: TopologyReportOptions,
+        output: Option<PathBuf>,
+    },
+    HistoryTopologyDiff {
+        left: PathBuf,
+        right: PathBuf,
+        topology_options: TopologyReportOptions,
         output: Option<PathBuf>,
     },
     Coverage {
@@ -154,6 +135,13 @@ enum Command {
     },
     WorkflowHistoryTopology {
         input: PathBuf,
+        topology_options: TopologyReportOptions,
+        output: Option<PathBuf>,
+    },
+    WorkflowHistoryTopologyDiff {
+        left: PathBuf,
+        right: PathBuf,
+        topology_options: TopologyReportOptions,
         output: Option<PathBuf>,
     },
     WorkflowProject {
@@ -223,9 +211,20 @@ impl Command {
     fn parse_history(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let mut args = args;
         match required_segment(&mut args, "history operation")?.to_str() {
-            Some("topology") => Self::parse_one_input(args, |input, output| {
-                Self::HistoryTopology { input, output }
-            }),
+            Some("topology") => Self::parse_topology(
+                args,
+                |input, topology_options, output| Self::HistoryTopology {
+                    input,
+                    topology_options,
+                    output,
+                },
+                |left, right, topology_options, output| Self::HistoryTopologyDiff {
+                    left,
+                    right,
+                    topology_options,
+                    output,
+                },
+            ),
             Some(_) | None => Err(CliError::usage("unsupported history command segment")),
         }
     }
@@ -255,6 +254,46 @@ impl Command {
             options
                 .input
                 .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+            options.output,
+        ))
+    }
+
+    fn parse_topology(
+        args: impl Iterator<Item = OsString>,
+        constructor: impl FnOnce(PathBuf, TopologyReportOptions, Option<PathBuf>) -> Self,
+        diff_constructor: impl FnOnce(PathBuf, PathBuf, TopologyReportOptions, Option<PathBuf>) -> Self,
+    ) -> Result<Self, CliError> {
+        let mut args = args.peekable();
+        if matches!(args.peek().and_then(|arg| arg.to_str()), Some("diff")) {
+            args.next();
+            return Self::parse_topology_diff(args, diff_constructor);
+        }
+
+        let options = Options::parse(args)?;
+        let topology_options = options.topology_options();
+        Ok(constructor(
+            options
+                .input
+                .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+            topology_options,
+            options.output,
+        ))
+    }
+
+    fn parse_topology_diff(
+        args: impl Iterator<Item = OsString>,
+        constructor: impl FnOnce(PathBuf, PathBuf, TopologyReportOptions, Option<PathBuf>) -> Self,
+    ) -> Result<Self, CliError> {
+        let options = Options::parse(args)?;
+        let topology_options = options.topology_options();
+        Ok(constructor(
+            options
+                .left
+                .ok_or_else(|| CliError::usage("--left <path> is required"))?,
+            options
+                .right
+                .ok_or_else(|| CliError::usage("--right <path> is required"))?,
+            topology_options,
             options.output,
         ))
     }
@@ -343,9 +382,20 @@ impl Command {
     fn parse_workflow_history(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let mut args = args;
         match required_segment(&mut args, "workflow history operation")?.to_str() {
-            Some("topology") => Self::parse_one_input(args, |input, output| {
-                Self::WorkflowHistoryTopology { input, output }
-            }),
+            Some("topology") => Self::parse_topology(
+                args,
+                |input, topology_options, output| Self::WorkflowHistoryTopology {
+                    input,
+                    topology_options,
+                    output,
+                },
+                |left, right, topology_options, output| Self::WorkflowHistoryTopologyDiff {
+                    left,
+                    right,
+                    topology_options,
+                    output,
+                },
+            ),
             Some(_) | None => Err(CliError::usage(
                 "unsupported workflow history command segment",
             )),
@@ -396,6 +446,7 @@ impl Command {
             | Self::List { output, .. }
             | Self::Validate { output, .. }
             | Self::HistoryTopology { output, .. }
+            | Self::HistoryTopologyDiff { output, .. }
             | Self::Coverage { output, .. }
             | Self::Missing { output, .. }
             | Self::Conflicts { output, .. }
@@ -408,6 +459,7 @@ impl Command {
             | Self::WorkflowCompletions { output, .. }
             | Self::WorkflowEvidence { output, .. }
             | Self::WorkflowHistoryTopology { output, .. }
+            | Self::WorkflowHistoryTopologyDiff { output, .. }
             | Self::WorkflowProject { output, .. }
             | Self::WorkflowCorrespond { output, .. }
             | Self::WorkflowEvolution { output, .. } => output.as_ref(),
@@ -427,7 +479,17 @@ impl Command {
             Self::Inspect { input, .. } => run_inspect(input),
             Self::List { store, .. } => run_list(store),
             Self::Validate { input, .. } => run_validate(input),
-            Self::HistoryTopology { input, .. } => run_topology(input),
+            Self::HistoryTopology {
+                input,
+                topology_options,
+                ..
+            } => run_topology(input, *topology_options),
+            Self::HistoryTopologyDiff {
+                left,
+                right,
+                topology_options,
+                ..
+            } => run_topology_diff(left, right, *topology_options),
             Self::Coverage {
                 input, coverage, ..
             } => run_coverage(input, coverage),
@@ -457,8 +519,18 @@ impl Command {
             Self::WorkflowEvidence { input, .. } => {
                 workflow_evidence_json(input).map_err(CliError::from)
             }
-            Self::WorkflowHistoryTopology { input, .. } => {
-                workflow_topology_json(input).map_err(CliError::from)
+            Self::WorkflowHistoryTopology {
+                input,
+                topology_options,
+                ..
+            } => workflow_topology_json(input, *topology_options).map_err(CliError::from),
+            Self::WorkflowHistoryTopologyDiff {
+                left,
+                right,
+                topology_options,
+                ..
+            } => {
+                workflow_topology_diff_json(left, right, *topology_options).map_err(CliError::from)
             }
             Self::WorkflowProject {
                 input, projection, ..
@@ -509,12 +581,30 @@ fn run_validate(input: &Path) -> Result<String, CliError> {
     ))
 }
 
-fn run_topology(input: &Path) -> Result<String, CliError> {
+fn run_topology(input: &Path, topology_options: TopologyReportOptions) -> Result<String, CliError> {
     let graph = read_case_graph(input)?;
     serialize(&report::topology_report(
         "casegraphen history topology",
         input,
         &graph,
+        topology_options,
+    ))
+}
+
+fn run_topology_diff(
+    left: &Path,
+    right: &Path,
+    topology_options: TopologyReportOptions,
+) -> Result<String, CliError> {
+    let left_graph = read_case_graph(left)?;
+    let right_graph = read_case_graph(right)?;
+    serialize(&report::topology_diff_report(
+        "casegraphen history topology diff",
+        left,
+        right,
+        &left_graph,
+        &right_graph,
+        topology_options,
     ))
 }
 
@@ -651,11 +741,3 @@ impl fmt::Display for CliError {
 }
 
 impl std::error::Error for CliError {}
-
-fn required_segment(
-    args: &mut impl Iterator<Item = OsString>,
-    expected: &'static str,
-) -> Result<OsString, CliError> {
-    args.next()
-        .ok_or_else(|| CliError::usage(format!("missing command segment {expected:?}")))
-}

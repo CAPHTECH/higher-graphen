@@ -1,4 +1,8 @@
-use super::{NativeCliError, NativeReasonSection};
+use super::{
+    path_helpers::{id_lossy, path_segment, relative_store_path},
+    reporting::report,
+    NativeCliError, NativeReasonSection,
+};
 use crate::{
     native_eval::evaluate_native_case,
     native_model::{
@@ -8,6 +12,7 @@ use crate::{
     },
     native_review::{check_native_close, NativeCloseCheckRequest},
     native_store::NativeCaseStore,
+    topology::TopologyReportOptions,
 };
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, SourceKind, SourceRef};
 use serde_json::{json, Map, Value};
@@ -17,9 +22,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const REPORT_SCHEMA: &str = "highergraphen.case.native_cli.report.v1";
-const REPORT_TYPE: &str = "native_cli_operation";
-const REPORT_VERSION: u32 = 1;
 const PROPOSAL_SCHEMA: &str = "highergraphen.case.native_cli.morphism_proposal.v1";
 const PROPOSAL_DIR: &str = "native_morphism_proposals";
 
@@ -116,13 +118,53 @@ pub(super) fn case_close_check(
     ))
 }
 
-pub(super) fn case_topology(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+pub(super) fn case_topology(
+    store: &Path,
+    case_space_id: &Id,
+    topology_options: TopologyReportOptions,
+) -> Result<Value, NativeCliError> {
     let replay =
         NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
-    let topology = crate::topology::native_case_topology(&replay.case_space)?;
+    let topology = crate::topology::native_case_topology_with_history(
+        &replay.case_space,
+        &replay.history,
+        topology_options,
+    )?;
     Ok(report(
         "casegraphen case history topology",
         json!({ "topology": topology }),
+    ))
+}
+
+pub(super) fn case_topology_diff(
+    left_store: &Path,
+    left_case_space_id: &Id,
+    right_store: &Path,
+    right_case_space_id: &Id,
+    topology_options: TopologyReportOptions,
+) -> Result<Value, NativeCliError> {
+    let left_replay = NativeCaseStore::new(left_store.to_path_buf())
+        .replay_current_case_space(left_case_space_id)?;
+    let right_replay = NativeCaseStore::new(right_store.to_path_buf())
+        .replay_current_case_space(right_case_space_id)?;
+    let left_topology = crate::topology::native_case_topology_with_history(
+        &left_replay.case_space,
+        &left_replay.history,
+        topology_options,
+    )?;
+    let right_topology = crate::topology::native_case_topology_with_history(
+        &right_replay.case_space,
+        &right_replay.history,
+        topology_options,
+    )?;
+    let topology_diff = crate::topology::topology_diff(&left_topology, &right_topology);
+    Ok(report(
+        "casegraphen case history topology diff",
+        json!({
+            "left_case_space_id": left_case_space_id,
+            "right_case_space_id": right_case_space_id,
+            "topology_diff": topology_diff
+        }),
     ))
 }
 
@@ -604,40 +646,6 @@ fn write_json(path: &Path, value: &Value) -> Result<(), NativeCliError> {
     })
 }
 
-pub(super) fn report(command: &str, result: Value) -> Value {
-    json!({
-        "schema": REPORT_SCHEMA,
-        "report_type": REPORT_TYPE,
-        "report_version": REPORT_VERSION,
-        "metadata": {
-            "command": command,
-            "tool_package": "tools/casegraphen",
-            "core_packages": [
-                "higher-graphen-core"
-            ]
-        },
-        "input": {
-            "command": command
-        },
-        "result": result,
-        "projection": {
-            "human_review": {
-                "summary": "Native CaseGraphen CLI operation completed."
-            },
-            "ai_view": {
-                "operation": command,
-                "native_boundary": "CaseSpace plus MorphismLog state is replayed before derived reports are emitted."
-            },
-            "audit_trace": {
-                "source_ids": [],
-                "information_loss": [
-                    "Native CLI operation reports include the operation result but not a full command-line argv transcript."
-                ]
-            }
-        }
-    })
-}
-
 fn known_ids(case_space: &CaseSpace) -> Vec<Id> {
     case_space
         .case_cells
@@ -706,28 +714,4 @@ fn timestamp() -> String {
         .map(|duration| duration.as_secs())
         .unwrap_or(0);
     format!("unix:{seconds}")
-}
-
-fn path_segment(id: &Id) -> String {
-    let mut segment = String::new();
-    for byte in id.as_str().bytes() {
-        match byte {
-            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' => {
-                segment.push(byte as char);
-            }
-            _ => segment.push_str(&format!("~{byte:02x}")),
-        }
-    }
-    segment
-}
-
-fn relative_store_path(store: &Path, path: &Path) -> String {
-    path.strip_prefix(store)
-        .unwrap_or(path)
-        .display()
-        .to_string()
-}
-
-fn id_lossy(value: &str) -> Id {
-    Id::new(value.to_owned()).expect("static id is valid")
 }

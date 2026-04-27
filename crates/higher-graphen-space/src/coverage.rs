@@ -153,56 +153,20 @@ impl GreedyCoverageSelector {
     /// Selects candidates greedily by uncovered coverage, priority, cost, and id.
     #[must_use]
     pub fn select(&self) -> CoverageSelection {
-        let universe = id_set(self.universe.iter().cloned());
-        let mut uncovered = universe.clone();
-        let mut covered = BTreeSet::<Id>::new();
-        let mut selected_ids = Vec::<Id>::new();
-        let mut selected_candidate_ids = BTreeSet::<Id>::new();
-        let budget = self.budget.unwrap_or(usize::MAX);
-
-        while !uncovered.is_empty() && selected_ids.len() < budget {
-            let Some(candidate) = self.best_candidate(&uncovered, &selected_candidate_ids) else {
-                break;
-            };
-            selected_candidate_ids.insert(candidate.id.clone());
-            selected_ids.push(candidate.id.clone());
-            for covered_id in candidate.covers.iter().filter(|id| universe.contains(*id)) {
-                covered.insert(covered_id.clone());
-                uncovered.remove(covered_id);
-            }
-        }
+        let weighted = WeightedCoverageSelector::from_ids(self.universe.iter().cloned())
+            .with_candidates(self.candidates.clone());
+        let weighted = if let Some(budget) = self.budget {
+            weighted.with_budget(budget)
+        } else {
+            weighted
+        };
+        let selection = weighted.select();
 
         CoverageSelection {
-            selected_ids,
-            covered_ids: ids_from_set(covered),
-            uncovered_ids: ids_from_set(uncovered),
+            selected_ids: selection.selected_ids,
+            covered_ids: selection.covered_ids,
+            uncovered_ids: selection.uncovered_ids,
         }
-    }
-
-    fn best_candidate<'a>(
-        &'a self,
-        uncovered: &BTreeSet<Id>,
-        selected_candidate_ids: &BTreeSet<Id>,
-    ) -> Option<&'a CoverageCandidate> {
-        self.candidates
-            .iter()
-            .filter(|candidate| !selected_candidate_ids.contains(&candidate.id))
-            .filter_map(|candidate| {
-                let uncovered_count = candidate
-                    .covers
-                    .iter()
-                    .filter(|covered_id| uncovered.contains(*covered_id))
-                    .count();
-                (uncovered_count > 0).then_some((candidate, uncovered_count))
-            })
-            .max_by(|(left, left_count), (right, right_count)| {
-                left_count
-                    .cmp(right_count)
-                    .then_with(|| left.priority.cmp(&right.priority))
-                    .then_with(|| right.cost.cmp(&left.cost))
-                    .then_with(|| right.id.cmp(&left.id))
-            })
-            .map(|(candidate, _)| candidate)
     }
 }
 

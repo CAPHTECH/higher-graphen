@@ -120,6 +120,115 @@ fn topology_command_emits_report_for_graph_fixture() {
         .as_array()
         .expect("topology nodes")
         .is_empty());
+    assert!(value["result"].get("higher_order").is_none());
+}
+
+#[test]
+fn topology_command_can_emit_higher_order_persistence() {
+    let output = run_cli(&[
+        "history",
+        "topology",
+        "--input",
+        graph_fixture().to_str().expect("fixture path"),
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+        "--min-persistence",
+        "2",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["result"]["higher_order"]["options"]["max_dimension"],
+        json!(1)
+    );
+    assert_eq!(
+        value["result"]["higher_order"]["options"]["min_persistence_stages"],
+        json!(2)
+    );
+    assert!(!value["result"]["higher_order"]["persistence"]["intervals"]
+        .as_array()
+        .expect("persistence intervals")
+        .is_empty());
+}
+
+#[test]
+fn topology_diff_command_reports_file_to_file_deltas() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let right_path = directory.join("right.case.graph.json");
+    let mut graph = json_file(graph_fixture());
+
+    let mut added_scenario = graph["scenarios"][0].clone();
+    added_scenario["id"] = json!("scenario:topology-diff-added");
+    added_scenario["title"] = json!("Topology diff added scenario");
+    graph["scenarios"]
+        .as_array_mut()
+        .expect("scenarios")
+        .push(added_scenario);
+
+    let mut added_relation = graph["relations"][0].clone();
+    added_relation["id"] = json!("relation:topology-diff-added");
+    added_relation["relation_type"] = json!("relates");
+    added_relation["from_id"] = json!("scenario:topology-diff-added");
+    added_relation["to_id"] = json!("case:direct-db-access-smoke");
+    graph["relations"]
+        .as_array_mut()
+        .expect("relations")
+        .push(added_relation);
+
+    fs::write(
+        &right_path,
+        serde_json::to_string_pretty(&graph).expect("serialize right graph"),
+    )
+    .expect("write right graph");
+
+    let output = run_cli(&[
+        "history",
+        "topology",
+        "diff",
+        "--left",
+        graph_fixture().to_str().expect("fixture path"),
+        "--right",
+        right_path.to_str().expect("right graph path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.topology_diff.report.v1")
+    );
+    assert_eq!(value["report_type"], json!("case_topology_diff"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen history topology diff")
+    );
+    assert_eq!(
+        value["result"]["scalar_deltas"]["vertex_count"]["delta"],
+        json!(1)
+    );
+    assert_eq!(
+        value["result"]["scalar_deltas"]["graph_edge_count"]["delta"],
+        json!(1)
+    );
+    assert_eq!(
+        value["result"]["source_mapping"]["added_source_node_ids"],
+        json!(["scenario:topology-diff-added"])
+    );
+    assert_eq!(
+        value["result"]["source_mapping"]["added_source_relation_ids"],
+        json!(["relation:topology-diff-added"])
+    );
+    assert!(value["result"].get("higher_order").is_none());
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
 }
 
 #[test]
@@ -231,6 +340,7 @@ fn workflow_topology_emits_diagnostics_report() {
         .as_array()
         .expect("topology nodes")
         .is_empty());
+    assert!(value["result"].get("higher_order").is_none());
 
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
@@ -259,6 +369,125 @@ fn workflow_topology_emits_diagnostics_report() {
         json_file(output_path)["schema"],
         json!("highergraphen.case.workflow.topology.report.v1")
     );
+
+    let higher_order = run_cli(&[
+        "workflow",
+        "history",
+        "topology",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+        "--higher-order",
+        "--min-persistence-stages",
+        "1",
+    ]);
+    assert!(
+        higher_order.status.success(),
+        "stderr: {}",
+        stderr(&higher_order)
+    );
+    let higher_order_json = stdout_json(&higher_order);
+    assert_eq!(
+        higher_order_json["result"]["higher_order"]["options"]["min_persistence_stages"],
+        json!(1)
+    );
+    assert!(
+        !higher_order_json["result"]["higher_order"]["persistence"]["stages"]
+            .as_array()
+            .expect("higher-order stages")
+            .is_empty()
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn workflow_topology_diff_command_reports_file_to_file_deltas() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let right_path = directory.join("right.workflow.graph.json");
+    let output_path = directory.join("workflow.topology.diff.report.json");
+    let mut workflow = json_file(workflow_fixture());
+
+    let mut added_item = workflow["work_items"][0].clone();
+    added_item["id"] = json!("task:topology-diff-added");
+    added_item["title"] = json!("Topology diff added workflow item");
+    added_item["state"] = json!("todo");
+    added_item["hard_dependency_ids"] = json!([]);
+    added_item["external_wait_ids"] = json!([]);
+    added_item["evidence_requirement_ids"] = json!([]);
+    added_item["proof_requirement_ids"] = json!([]);
+    workflow["work_items"]
+        .as_array_mut()
+        .expect("work items")
+        .push(added_item);
+
+    let mut added_relation = workflow["workflow_relations"][0].clone();
+    added_relation["id"] = json!("relation:topology-diff-added");
+    added_relation["relation_type"] = json!("relates_to");
+    added_relation["from_id"] = json!("task:topology-diff-added");
+    added_relation["to_id"] = json!("task:define-workflow-reasoning-contract");
+    added_relation["evidence_ids"] = json!([]);
+    workflow["workflow_relations"]
+        .as_array_mut()
+        .expect("workflow relations")
+        .push(added_relation);
+
+    fs::write(
+        &right_path,
+        serde_json::to_string_pretty(&workflow).expect("serialize right workflow"),
+    )
+    .expect("write right workflow");
+
+    let output = run_cli(&[
+        "workflow",
+        "history",
+        "topology",
+        "diff",
+        "--left",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--right",
+        right_path.to_str().expect("right workflow path"),
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+        "--output",
+        output_path.to_str().expect("output path"),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+    let value = json_file(output_path);
+    assert_eq!(
+        value["schema"],
+        json!("highergraphen.case.workflow.topology_diff.report.v1")
+    );
+    assert_eq!(value["report_type"], json!("case_workflow_topology_diff"));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen workflow history topology diff")
+    );
+    assert_eq!(
+        value["result"]["scalar_deltas"]["vertex_count"]["delta"],
+        json!(1)
+    );
+    assert_eq!(
+        value["result"]["scalar_deltas"]["graph_edge_count"]["delta"],
+        json!(1)
+    );
+    assert_eq!(
+        value["result"]["source_mapping"]["added_source_node_ids"],
+        json!(["task:topology-diff-added"])
+    );
+    assert_eq!(
+        value["result"]["source_mapping"]["added_source_relation_ids"],
+        json!(["relation:topology-diff-added"])
+    );
+    assert!(value["result"].get("higher_order").is_some());
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
@@ -663,6 +892,47 @@ fn cg_bridge_readiness_supports_file_and_stored_workflow_graphs() {
         stored_json["result"]["not_ready_items"][0]["work_item_id"],
         json!("proof:workflow-schema-parse-check")
     );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn cg_bridge_workflow_history_topology_uses_revision_filtration() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    import_bridge_workflow(&directory);
+
+    let output = run_cli(&[
+        "cg",
+        "workflow",
+        "history",
+        "topology",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--workflow-graph-id",
+        "workflow_graph:casegraphen-rewrite-contract",
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen cg workflow history topology")
+    );
+    assert_eq!(
+        value["result"]["topology"]["higher_order"]["filtration_source"],
+        json!("workflow_history")
+    );
+    assert!(value["result"]["topology"]["higher_order"]["stage_sources"]
+        .as_array()
+        .expect("workflow stage sources")
+        .iter()
+        .any(|stage| stage["source_type"] == json!("workflow_revision")));
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
@@ -1250,6 +1520,57 @@ fn generated_native_cli_report_validates_against_schema() {
         &report_path,
     );
 
+    let topology_report_path = directory.join("native-cli-topology.report.json");
+    let topology = run_cli(&[
+        "case",
+        "history",
+        "topology",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+        "--output",
+        topology_report_path.to_str().expect("report path"),
+    ]);
+    assert!(topology.status.success(), "stderr: {}", stderr(&topology));
+    assert_jsonschema_valid(
+        &repo_path("schemas/casegraphen/native-cli.report.schema.json"),
+        &topology_report_path,
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn generated_case_topology_higher_order_report_validates_against_schema() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let report_path = directory.join("case-topology.report.json");
+
+    let output = run_cli(&[
+        "history",
+        "topology",
+        "--input",
+        graph_fixture().to_str().expect("fixture path"),
+        "--format",
+        "json",
+        "--higher-order",
+        "--min-persistence-stages",
+        "1",
+        "--output",
+        report_path.to_str().expect("report path"),
+    ]);
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert_jsonschema_valid(
+        &repo_path("schemas/casegraphen/case.report.schema.json"),
+        &report_path,
+    );
+
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
 
@@ -1273,6 +1594,27 @@ fn generated_workflow_operation_report_validates_against_schema() {
     assert_jsonschema_valid(
         &repo_path("schemas/casegraphen/workflow.operation.report.schema.json"),
         &report_path,
+    );
+
+    let topology_report_path = directory.join("workflow.topology.report.json");
+    let topology = run_cli(&[
+        "workflow",
+        "history",
+        "topology",
+        "--input",
+        workflow_fixture().to_str().expect("workflow fixture path"),
+        "--format",
+        "json",
+        "--higher-order",
+        "--min-persistence-stages",
+        "1",
+        "--output",
+        topology_report_path.to_str().expect("report path"),
+    ]);
+    assert!(topology.status.success(), "stderr: {}", stderr(&topology));
+    assert_jsonschema_valid(
+        &repo_path("schemas/casegraphen/workflow.operation.report.schema.json"),
+        &topology_report_path,
     );
 
     fs::remove_dir_all(directory).expect("remove temp directory");
@@ -1396,8 +1738,98 @@ fn native_case_topology_emits_domain_report() {
         .as_array()
         .expect("topology nodes")
         .is_empty());
+    assert!(value["result"]["topology"].get("higher_order").is_none());
+
+    let higher_order = run_cli(&[
+        "case",
+        "history",
+        "topology",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+    ]);
+    assert!(
+        higher_order.status.success(),
+        "stderr: {}",
+        stderr(&higher_order)
+    );
+    let higher_order_json = stdout_json(&higher_order);
+    assert_eq!(
+        higher_order_json["result"]["topology"]["higher_order"]["options"]["max_dimension"],
+        json!(1)
+    );
+    assert!(
+        !higher_order_json["result"]["topology"]["higher_order"]["persistence"]["intervals"]
+            .as_array()
+            .expect("native higher-order intervals")
+            .is_empty()
+    );
+    assert_eq!(
+        higher_order_json["result"]["topology"]["higher_order"]["filtration_source"],
+        json!("native_morphism_log")
+    );
+    assert!(
+        higher_order_json["result"]["topology"]["higher_order"]["stage_sources"]
+            .as_array()
+            .expect("native stage sources")
+            .iter()
+            .any(|stage| stage["source_type"] == json!("native_morphism_log_entry"))
+    );
 
     fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn native_case_topology_diff_compares_store_replays() {
+    let left_directory = unique_temp_dir();
+    let right_directory = unique_temp_dir();
+    fs::create_dir_all(&left_directory).expect("create left temp directory");
+    fs::create_dir_all(&right_directory).expect("create right temp directory");
+    import_native_case_space(&left_directory, "revision:native-cli-left");
+    import_native_case_space(&right_directory, "revision:native-cli-right");
+
+    let output = run_cli(&[
+        "case",
+        "history",
+        "topology",
+        "diff",
+        "--left-store",
+        left_directory.to_str().expect("left temp path"),
+        "--left-case-space-id",
+        native_case_space_id(),
+        "--right-store",
+        right_directory.to_str().expect("right temp path"),
+        "--right-case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+        "--higher-order",
+        "--max-dimension",
+        "1",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let value = stdout_json(&output);
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("casegraphen case history topology diff")
+    );
+    assert_eq!(
+        value["result"]["topology_diff"]["right_space_id"],
+        json!("space:higher-graphen-casegraphen")
+    );
+    assert!(value["result"]["topology_diff"]
+        .get("higher_order")
+        .is_some());
+
+    fs::remove_dir_all(left_directory).expect("remove left temp directory");
+    fs::remove_dir_all(right_directory).expect("remove right temp directory");
 }
 
 #[test]

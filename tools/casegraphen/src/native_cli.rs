@@ -1,4 +1,5 @@
 use crate::native_store::{NativeCaseStore, NativeStoreError};
+use crate::topology::TopologyReportOptions;
 use higher_graphen_core::Id;
 use serde_json::{json, Value};
 use std::{
@@ -8,10 +9,18 @@ use std::{
 };
 
 mod ops;
+#[path = "native_cli_options.rs"]
+mod options;
+#[path = "native_cli_path.rs"]
+mod path_helpers;
+#[path = "native_cli_reporting.rs"]
+mod reporting;
 use ops::{
-    case_close_check, case_import, case_new, case_reason, case_topology, morphism_apply,
-    morphism_check, morphism_propose, morphism_reject, report,
+    case_close_check, case_import, case_new, case_reason, case_topology, case_topology_diff,
+    morphism_apply, morphism_check, morphism_propose, morphism_reject,
 };
+use options::{required_segment, NativeOptions};
+use reporting::report;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum NativeCliCommand {
@@ -69,6 +78,15 @@ pub enum NativeCliCommand {
     CaseTopology {
         store: PathBuf,
         case_space_id: Id,
+        topology_options: TopologyReportOptions,
+        output: Option<PathBuf>,
+    },
+    CaseTopologyDiff {
+        left_store: PathBuf,
+        left_case_space_id: Id,
+        right_store: PathBuf,
+        right_case_space_id: Id,
+        topology_options: TopologyReportOptions,
         output: Option<PathBuf>,
     },
     MorphismPropose {
@@ -140,6 +158,7 @@ impl NativeCliCommand {
             | Self::CaseReason { output, .. }
             | Self::CaseCloseCheck { output, .. }
             | Self::CaseTopology { output, .. }
+            | Self::CaseTopologyDiff { output, .. }
             | Self::MorphismPropose { output, .. }
             | Self::MorphismCheck { output, .. }
             | Self::MorphismApply { output, .. }
@@ -162,7 +181,8 @@ impl NativeCliCommand {
             | Self::CaseValidate { .. }
             | Self::CaseReason { .. }
             | Self::CaseCloseCheck { .. }
-            | Self::CaseTopology { .. } => self.run_case_value(),
+            | Self::CaseTopology { .. }
+            | Self::CaseTopologyDiff { .. } => self.run_case_value(),
             Self::MorphismPropose { .. }
             | Self::MorphismCheck { .. }
             | Self::MorphismApply { .. }
@@ -228,8 +248,23 @@ impl NativeCliCommand {
             Self::CaseTopology {
                 store,
                 case_space_id,
+                topology_options,
                 ..
-            } => case_topology(store, case_space_id)?,
+            } => case_topology(store, case_space_id, *topology_options)?,
+            Self::CaseTopologyDiff {
+                left_store,
+                left_case_space_id,
+                right_store,
+                right_case_space_id,
+                topology_options,
+                ..
+            } => case_topology_diff(
+                left_store,
+                left_case_space_id,
+                right_store,
+                right_case_space_id,
+                *topology_options,
+            )?,
             _ => unreachable!("run_case_value called for morphism command"),
         })
     }
@@ -296,6 +331,14 @@ impl NativeCliCommand {
         if history_topology {
             args.remove(0);
         }
+        let history_topology_diff = history_topology
+            && args
+                .first()
+                .and_then(|argument| argument.to_str())
+                .is_some_and(|argument| argument == "diff");
+        if history_topology_diff {
+            args.remove(0);
+        }
         let options = NativeOptions::parse(args)?;
         match operation {
             "new" | "create" => Ok(Self::CaseNew {
@@ -321,16 +364,7 @@ impl NativeCliCommand {
                 case_space_id: options.require_id("--case-space-id")?,
                 output: options.output,
             }),
-            "history" if history_topology => Ok(Self::CaseTopology {
-                store: options.require_store()?,
-                case_space_id: options.require_id("--case-space-id")?,
-                output: options.output,
-            }),
-            "history" => Ok(Self::CaseHistory {
-                store: options.require_store()?,
-                case_space_id: options.require_id("--case-space-id")?,
-                output: options.output,
-            }),
+            "history" => Self::parse_history_case(options, history_topology, history_topology_diff),
             "replay" => Ok(Self::CaseReplay {
                 store: options.require_store()?,
                 case_space_id: options.require_id("--case-space-id")?,
@@ -360,6 +394,36 @@ impl NativeCliCommand {
             }),
             _ => Err(NativeCliError::usage("unsupported native case command")),
         }
+    }
+
+    fn parse_history_case(
+        options: NativeOptions,
+        history_topology: bool,
+        history_topology_diff: bool,
+    ) -> Result<Self, NativeCliError> {
+        if history_topology_diff {
+            return Ok(Self::CaseTopologyDiff {
+                left_store: options.require_path("--left-store")?,
+                left_case_space_id: options.require_id("--left-case-space-id")?,
+                right_store: options.require_path("--right-store")?,
+                right_case_space_id: options.require_id("--right-case-space-id")?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            });
+        }
+        if history_topology {
+            return Ok(Self::CaseTopology {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            });
+        }
+        Ok(Self::CaseHistory {
+            store: options.require_store()?,
+            case_space_id: options.require_id("--case-space-id")?,
+            output: options.output,
+        })
     }
 
     fn parse_reason(
@@ -470,151 +534,6 @@ fn is_history_topology(operation: &str, args: &[OsString]) -> bool {
             .first()
             .and_then(|argument| argument.to_str())
             .is_some_and(|argument| argument == "topology")
-}
-
-#[derive(Default)]
-struct NativeOptions {
-    store: Option<PathBuf>,
-    input: Option<PathBuf>,
-    output: Option<PathBuf>,
-    case_space_id: Option<Id>,
-    space_id: Option<Id>,
-    revision_id: Option<Id>,
-    base_revision_id: Option<Id>,
-    morphism_id: Option<Id>,
-    reviewer_id: Option<Id>,
-    title: Option<String>,
-    reason: Option<String>,
-    validation_evidence_ids: Vec<Id>,
-}
-
-impl NativeOptions {
-    fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Self, NativeCliError> {
-        let mut options = Self::default();
-        let mut format_seen = false;
-        let mut args = args.into_iter();
-        while let Some(arg) = args.next() {
-            match arg.to_str() {
-                Some("--format") => {
-                    require_json_format(&mut args)?;
-                    format_seen = true;
-                }
-                Some("--store") => options.store = Some(require_path(&mut args, "--store")?),
-                Some("--input") => options.input = Some(require_path(&mut args, "--input")?),
-                Some("--output") => options.output = Some(require_path(&mut args, "--output")?),
-                Some("--case-space-id") => {
-                    options.case_space_id = Some(require_id(&mut args, "--case-space-id")?)
-                }
-                Some("--space-id") => options.space_id = Some(require_id(&mut args, "--space-id")?),
-                Some("--revision-id") => {
-                    options.revision_id = Some(require_id(&mut args, "--revision-id")?)
-                }
-                Some("--base-revision") | Some("--base-revision-id") => {
-                    options.base_revision_id = Some(require_id(&mut args, "--base-revision-id")?)
-                }
-                Some("--morphism-id") => {
-                    options.morphism_id = Some(require_id(&mut args, "--morphism-id")?)
-                }
-                Some("--reviewer-id") => {
-                    options.reviewer_id = Some(require_id(&mut args, "--reviewer-id")?)
-                }
-                Some("--title") => options.title = Some(require_string(&mut args, "--title")?),
-                Some("--reason") => options.reason = Some(require_string(&mut args, "--reason")?),
-                Some("--validation-evidence-id") => options
-                    .validation_evidence_ids
-                    .push(require_id(&mut args, "--validation-evidence-id")?),
-                Some(_) | None => {
-                    return Err(NativeCliError::usage(format!(
-                        "unsupported native argument {arg:?}"
-                    )))
-                }
-            }
-        }
-        if !format_seen {
-            return Err(NativeCliError::usage("--format json is required"));
-        }
-        Ok(options)
-    }
-
-    fn require_store(&self) -> Result<PathBuf, NativeCliError> {
-        self.store
-            .clone()
-            .ok_or_else(|| NativeCliError::usage("--store <dir> is required"))
-    }
-
-    fn require_path(&self, flag: &str) -> Result<PathBuf, NativeCliError> {
-        match flag {
-            "--input" => self.input.clone(),
-            _ => None,
-        }
-        .ok_or_else(|| NativeCliError::usage(format!("{flag} <path> is required")))
-    }
-
-    fn require_id(&self, flag: &str) -> Result<Id, NativeCliError> {
-        match flag {
-            "--case-space-id" => self.case_space_id.clone(),
-            "--space-id" => self.space_id.clone(),
-            "--revision-id" => self.revision_id.clone(),
-            "--reviewer-id" => self.reviewer_id.clone(),
-            "--morphism-id" => self.morphism_id.clone(),
-            _ => None,
-        }
-        .ok_or_else(|| NativeCliError::usage(format!("{flag} <id> is required")))
-    }
-
-    fn require_string(&self, flag: &str) -> Result<String, NativeCliError> {
-        match flag {
-            "--title" => self.title.clone(),
-            "--reason" => self.reason.clone(),
-            _ => None,
-        }
-        .ok_or_else(|| NativeCliError::usage(format!("{flag} <text> is required")))
-    }
-}
-
-fn required_segment(
-    args: &mut impl Iterator<Item = OsString>,
-    label: &str,
-) -> Result<OsString, NativeCliError> {
-    args.next()
-        .ok_or_else(|| NativeCliError::usage(format!("{label} is required")))
-}
-
-fn require_json_format(args: &mut impl Iterator<Item = OsString>) -> Result<(), NativeCliError> {
-    match required_segment(args, "--format value")?.to_str() {
-        Some("json") => Ok(()),
-        Some(_) | None => Err(NativeCliError::usage("--format json is required")),
-    }
-}
-
-fn require_path(
-    args: &mut impl Iterator<Item = OsString>,
-    flag: &str,
-) -> Result<PathBuf, NativeCliError> {
-    let value = required_segment(args, flag)?;
-    let path = PathBuf::from(value);
-    reject_unsafe_path(flag, &path)?;
-    Ok(path)
-}
-
-fn require_string(
-    args: &mut impl Iterator<Item = OsString>,
-    flag: &str,
-) -> Result<String, NativeCliError> {
-    required_segment(args, flag)?
-        .into_string()
-        .map_err(|_| NativeCliError::usage(format!("{flag} must be UTF-8")))
-}
-
-fn require_id(args: &mut impl Iterator<Item = OsString>, flag: &str) -> Result<Id, NativeCliError> {
-    Ok(Id::new(require_string(args, flag)?)?)
-}
-
-fn reject_unsafe_path(flag: &str, path: &Path) -> Result<(), NativeCliError> {
-    if path.as_os_str().is_empty() {
-        return Err(NativeCliError::usage(format!("{flag} must not be empty")));
-    }
-    Ok(())
 }
 
 #[derive(Debug)]
