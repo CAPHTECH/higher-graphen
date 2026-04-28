@@ -71,8 +71,11 @@ This command deterministically converts a local git commit range into a bounded
 `highergraphen.pr_review_target.input.v1` snapshot. It shells out to local git
 for changed files, numstat, and commit summaries, then applies fixed path rules
 for owners, contexts, tests, dependency edges, evidence, and risk signals. It
-does not use LLM inference, GitHub API payloads, or working-tree heuristics.
-Use the generated input with `highergraphen pr-review targets recommend`.
+also maps Rust boundary, incidence, and composition diff observations through
+`higher-graphen-space` structural analysis so parent-module wiring changes can
+be reviewed as deterministic dependency risks. It does not use LLM inference,
+GitHub API payloads, or working-tree heuristics. Use the generated input with
+`highergraphen pr-review targets recommend`.
 
 ```sh
 highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
@@ -374,7 +377,7 @@ The git input adapter emits the same input schema from local commit history:
 | Command | `highergraphen pr-review input from-git --base <ref> --head <ref> --format json` |
 | Output schema | `highergraphen.pr_review_target.input.v1` |
 | Deterministic facts | Changed files, additions/deletions, commit evidence, path-derived owners/contexts/tests/dependency edges |
-| Deterministic signals | Large change, ownership boundary, dependency coupling, schema validation coverage, docs/agent guidance boundary, security-sensitive paths |
+| Deterministic signals | Large change, ownership boundary, dependency coupling, schema validation coverage, docs/agent guidance boundary, security-sensitive paths, structural boundary change |
 
 The adapter intentionally creates a bounded snapshot rather than a review
 report. Run `pr-review targets recommend` afterward to produce unreviewed

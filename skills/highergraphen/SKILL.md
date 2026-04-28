@@ -132,6 +132,9 @@ cargo test -p highergraphen-cli pr_review_targets_recommend
 - For local repositories, prefer `highergraphen pr-review input from-git` to
   create the bounded snapshot deterministically from commit history before
   running `pr-review targets recommend`.
+- Interpret `signal:structural-boundary-change` as a deterministic dependency
+  prompt derived from finite boundary, incidence, or composition observations;
+  use it to inspect parent-module wiring and command dispatch targets.
 - Treat git-derived risk signals as deterministic review prompts, not as final
   review decisions.
 - Treat PR review targets, obstructions, and completion candidates created by
