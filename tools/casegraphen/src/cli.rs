@@ -1,6 +1,6 @@
 use crate::{
     eval::{detect_conflicts, detect_missing_cases, evaluate_coverage, validate_case_graph},
-    model::{CaseGraph, ProjectionDefinition},
+    model::ProjectionDefinition,
     native_cli::{NativeCliCommand, NativeCliError},
     report,
     store::{read_case_graph, read_coverage_policy, read_projection, write_report, LocalCaseStore},
@@ -13,12 +13,14 @@ use crate::{
     },
     workflow_workspace::cli_bridge::{CgWorkflowBridgeCommand, WorkflowBridgeError},
 };
+#[path = "cli_legacy_reports.rs"]
+mod cli_legacy_reports;
 #[path = "cli_required.rs"]
 mod cli_required;
 mod options;
 
+use cli_legacy_reports::run_create;
 use cli_required::required_segment;
-use higher_graphen_core::Id;
 use options::Options;
 use std::{
     env,
@@ -55,6 +57,7 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
 
 #[derive(Debug, Eq, PartialEq)]
 enum Command {
+    Version,
     Create {
         case_graph_id: String,
         space_id: String,
@@ -166,6 +169,7 @@ impl Command {
     fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Self, CliError> {
         let mut args = args.into_iter();
         match required_segment(&mut args, "command")?.to_str() {
+            Some("version") | Some("--version") | Some("-V") => Ok(Self::Version),
             Some("create") => Self::parse_create(args),
             Some("inspect") => {
                 Self::parse_one_input(args, |input, output| Self::Inspect { input, output })
@@ -441,6 +445,7 @@ impl Command {
 
     fn output(&self) -> Option<&PathBuf> {
         match self {
+            Self::Version => None,
             Self::Create { output, .. }
             | Self::Inspect { output, .. }
             | Self::List { output, .. }
@@ -470,6 +475,7 @@ impl Command {
 
     fn run_json(&self) -> Result<String, CliError> {
         match self {
+            Self::Version => Ok(format!("casegraphen {}", env!("CARGO_PKG_VERSION"))),
             Self::Create {
                 case_graph_id,
                 space_id,
@@ -545,15 +551,6 @@ impl Command {
             Self::Native(command) => command.run_json().map_err(CliError::from),
         }
     }
-}
-
-fn run_create(case_graph_id: &str, space_id: &str, store: &Path) -> Result<String, CliError> {
-    let graph = CaseGraph::empty(
-        Id::new(case_graph_id.to_owned())?,
-        Id::new(space_id.to_owned())?,
-    );
-    let path = LocalCaseStore::new(store.to_path_buf()).create_graph(&graph)?;
-    serialize(&report::create_report("casegraphen create", &path, &graph))
 }
 
 fn run_inspect(input: &Path) -> Result<String, CliError> {

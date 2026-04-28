@@ -24,6 +24,7 @@ cargo build -p highergraphen-cli
 After building, invoke the binary from `target/debug`:
 
 ```sh
+./target/debug/highergraphen version
 ./target/debug/highergraphen architecture smoke direct-db-access --format json
 ```
 
@@ -34,6 +35,13 @@ cargo run -p highergraphen-cli -- architecture smoke direct-db-access --format j
 ```
 
 ## Commands
+
+```sh
+highergraphen version
+highergraphen --version
+```
+
+These commands print the CLI binary name and package version.
 
 ```sh
 highergraphen architecture smoke direct-db-access --format json [--output <path>]

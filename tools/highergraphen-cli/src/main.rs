@@ -21,6 +21,8 @@ use std::{
 };
 
 const USAGE: &str = "usage:
+  highergraphen version
+  highergraphen --version
   highergraphen architecture smoke direct-db-access --format json [--output <path>]
   highergraphen architecture input lift --input <path> --format json [--output <path>]
   highergraphen feed reader run --input <path> --format json [--output <path>]
@@ -41,6 +43,11 @@ fn main() -> ExitCode {
 
 fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
     let command = Command::parse(args)?;
+    if matches!(&command, Command::Version) {
+        println!("highergraphen {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     let output = command.output().cloned();
     let json = command.run_json()?;
 
@@ -55,6 +62,7 @@ fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
 
 #[derive(Debug, Eq, PartialEq)]
 enum Command {
+    Version,
     ArchitectureSmokeDirectDbAccess {
         output: Option<PathBuf>,
     },
@@ -93,11 +101,21 @@ impl Command {
         let root = required_segment(&mut args, "command")?;
 
         match root.to_str() {
+            Some("version") | Some("--version") | Some("-V") => Self::parse_version(args),
             Some("architecture") => Self::parse_architecture(args),
             Some("feed") => Self::parse_feed(args),
             Some("pr-review") => Self::parse_pr_review(args),
             Some("completion") => Self::parse_completion(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
+        }
+    }
+
+    fn parse_version(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        match args.next() {
+            Some(arg) => Err(CliError::usage(format!(
+                "unsupported argument {arg:?} for version"
+            ))),
+            None => Ok(Self::Version),
         }
     }
 
@@ -209,6 +227,7 @@ impl Command {
 
     fn output(&self) -> Option<&PathBuf> {
         match self {
+            Self::Version => None,
             Self::ArchitectureSmokeDirectDbAccess { output }
             | Self::ArchitectureInputLift { output, .. }
             | Self::FeedReaderRun { output, .. }
@@ -220,6 +239,7 @@ impl Command {
 
     fn run_json(&self) -> Result<String, CliError> {
         match self {
+            Self::Version => unreachable!("version command is handled before JSON execution"),
             Self::ArchitectureSmokeDirectDbAccess { .. } => {
                 let report = run_architecture_direct_db_access_smoke()?;
                 serde_json::to_string(&report)

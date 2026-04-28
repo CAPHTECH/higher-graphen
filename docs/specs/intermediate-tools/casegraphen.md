@@ -115,6 +115,8 @@ pub fn detect_conflicts(
 Minimum CLI commands:
 
 ```sh
+casegraphen version
+casegraphen --version
 casegraphen validate --input case.graph.json --format json
 casegraphen coverage --input case.graph.json --coverage coverage.policy.json --format json [--output <path>]
 casegraphen missing --input case.graph.json --coverage coverage.policy.json --format json [--output <path>]
@@ -125,8 +127,9 @@ casegraphen history topology --input case.graph.json --format json [--higher-ord
 casegraphen history topology diff --left left.case.graph.json --right right.case.graph.json --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
 ```
 
-All CLI commands must accept `--format json`. Human-readable text output may be
-added later, but it must derive from the same report data.
+Report-producing CLI commands must accept `--format json`. Human-readable text
+report output may be added later, but it must derive from the same report data.
+The `version` command is a plain text metadata command.
 
 Domain findings are successful command results. Missing cases, partial
 coverage, no coverage, and conflicting cases should produce `ok` reports and

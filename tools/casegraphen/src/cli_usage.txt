@@ -1,4 +1,6 @@
 usage:
+  casegraphen version
+  casegraphen --version
   casegraphen create --case-graph-id <id> --space-id <id> --store <dir> --format json [--output <path>]
   casegraphen inspect --input <path> --format json [--output <path>]
   casegraphen list --store <dir> --format json [--output <path>]

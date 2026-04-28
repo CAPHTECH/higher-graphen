@@ -333,6 +333,7 @@ free-form payloads into full workflow records.
 Existing non-workflow commands keep their compatibility surface:
 
 ```sh
+casegraphen version
 casegraphen create --case-graph-id <id> --space-id <id> --store <dir> --format json
 casegraphen inspect --input <case.graph.json> --format json
 casegraphen list --store <dir> --format json

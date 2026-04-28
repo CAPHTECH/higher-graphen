@@ -42,6 +42,12 @@ Preferred local validation:
 python3 scripts/validate-cli-report-contract.py
 ```
 
+Check the installed CLI version:
+
+```sh
+highergraphen version
+```
+
 Generate the report to stdout:
 
 ```sh

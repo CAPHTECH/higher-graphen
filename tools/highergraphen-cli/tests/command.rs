@@ -19,6 +19,20 @@ const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn version_command_reports_package_version() {
+    for args in [["version"], ["--version"], ["-V"]] {
+        let output = run_cli(&args);
+
+        assert!(output.status.success(), "stderr: {}", stderr(&output));
+        assert_eq!(
+            stdout(&output).trim_end(),
+            format!("highergraphen {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert!(stderr(&output).is_empty());
+    }
+}
+
+#[test]
 fn smoke_command_writes_one_json_report_to_stdout() {
     let output = run_cli(&[
         "architecture",

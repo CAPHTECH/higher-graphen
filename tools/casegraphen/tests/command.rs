@@ -12,6 +12,20 @@ use std::{
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn version_command_reports_package_version() {
+    for args in [["version"], ["--version"], ["-V"]] {
+        let output = run_cli(&args);
+
+        assert!(output.status.success(), "stderr: {}", stderr(&output));
+        assert_eq!(
+            stdout(&output).trim_end(),
+            format!("casegraphen {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert!(stderr(&output).is_empty());
+    }
+}
+
+#[test]
 fn validate_command_emits_report_for_graph_fixture() {
     let output = run_cli(&[
         "validate",

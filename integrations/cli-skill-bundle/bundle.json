@@ -6,6 +6,12 @@
   "provider_neutral": true,
   "distribution_mode": "cli_skill_bundle",
   "entrypoints": {
+    "version_commands": [
+      "highergraphen version",
+      "highergraphen --version",
+      "casegraphen version",
+      "casegraphen --version"
+    ],
     "cli_command": "highergraphen architecture smoke direct-db-access --format json",
     "cargo_command": "cargo run -q -p highergraphen-cli -- architecture smoke direct-db-access --format json",
     "casegraphen_workflow_command": "casegraphen workflow reason --input workflow.graph.json --format json",
