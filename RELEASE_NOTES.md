@@ -1,5 +1,25 @@
 # Release Notes
 
+## v0.2.1
+
+Release scope:
+
+- Patch release for the HigherGraphen Rust workspace at `0.2.1`.
+- CLI binaries: `casegraphen` and `highergraphen`.
+- Provider-neutral CLI skill bundle at `0.5.1`.
+
+Highlights:
+
+- Added plain text version commands for both CLIs: `casegraphen version`, `casegraphen --version`, `highergraphen version`, and `highergraphen --version`.
+- Updated CLI usage, documentation, repository skills, and CLI skill bundle metadata so agents can verify installed binary versions before running report workflows.
+- Kept report-producing command behavior unchanged; JSON workflow reports still require `--format json`.
+
+Publication decisions:
+
+- Cargo packages are not published to crates.io in this release because workspace packages currently set `publish = false`.
+- Provider marketplace publication, MCP server publication, and provider-specific manifests remain out of scope.
+- This release publishes a Git tag, GitHub Release, and Darwin arm64 binary artifacts after explicit maintainer approval.
+
 ## v0.2.0
 
 Release scope:

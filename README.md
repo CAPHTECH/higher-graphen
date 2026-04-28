@@ -163,7 +163,7 @@ objects rather than hidden implementation details.
 ## Release And Install
 
 The latest release is
-[`v0.2.0`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.2.0).
+[`v0.2.1`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.2.1).
 It includes Darwin arm64 binaries for:
 
 - `casegraphen`

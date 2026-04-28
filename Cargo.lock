@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "casegraphen"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-projection",
@@ -16,7 +16,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-abstract-interpretation"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-architecture-smoke"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "casegraphen",
  "higher-graphen-completion",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-causal"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -49,7 +49,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-completion"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-obstruction",
@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-confidence-model"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-context"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-feed-example"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-runtime",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-interpretation"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-invariant"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-morphism",
@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-model-checking"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-space",
@@ -126,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-morphism"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -135,7 +135,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-obstruction"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -144,7 +144,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-projection"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-prover"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -162,7 +162,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-runtime"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-completion",
  "higher-graphen-core",
@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-space"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-topology"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-space",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "highergraphen-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-runtime",
