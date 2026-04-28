@@ -556,4 +556,6 @@ fn malformed(field: &str, reason: impl Into<String>) -> CoreError {
 }
 
 #[cfg(test)]
+mod structural_tests;
+#[cfg(test)]
 mod tests;

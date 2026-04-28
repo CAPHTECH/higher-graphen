@@ -1,6 +1,7 @@
 //! Command-line entry point for HigherGraphen workflows.
 
 mod pr_review_git;
+mod pr_review_structural;
 
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
