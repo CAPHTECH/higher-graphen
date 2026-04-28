@@ -320,6 +320,7 @@ fn pr_review_input_from_git_emits_bounded_snapshot() {
     assert!(signal_ids.contains(&json!("signal:external-effect-surface-change")));
     assert!(signal_ids.contains(&json!("signal:test-assertion-weakened")));
     assert!(signal_ids.contains(&json!("signal:ai-review-boundary-change")));
+    assert!(signal_ids.contains(&json!("signal:structural-boundary-change")));
     let public_api_signal = value["signals"]
         .as_array()
         .expect("signals")
@@ -335,6 +336,16 @@ fn pr_review_input_from_git_emits_bounded_snapshot() {
     assert!(public_api_source_ids.contains(&json!(
         "file:tools-highergraphen-cli-src-path-with-space-rs"
     )));
+    let structural_signal = value["signals"]
+        .as_array()
+        .expect("signals")
+        .iter()
+        .find(|signal| signal["id"] == json!("signal:structural-boundary-change"))
+        .expect("structural boundary signal");
+    assert!(structural_signal["source_ids"]
+        .as_array()
+        .expect("structural source ids")
+        .contains(&json!("file:tools-highergraphen-cli-src-main-rs")));
     let large_signal = value["signals"]
         .as_array()
         .expect("signals")
@@ -447,6 +458,9 @@ fn pr_review_input_from_git_output_feeds_recommender() {
     assert!(review_targets
         .iter()
         .any(|target| target["target_ref"] == json!(".github/workflows/ci.yml")));
+    assert!(review_targets
+        .iter()
+        .any(|target| target["target_ref"] == json!("tools/highergraphen-cli/src/main.rs")));
     assert_eq!(
         review_targets
             .iter()
@@ -801,7 +815,7 @@ fn write_git_fixture() -> PathBuf {
     write_repo_file(
         &repository,
         "tools/highergraphen-cli/src/main.rs",
-        "fn main() {}\n",
+        "use higher_graphen_runtime::{run_alpha, run_beta};\n\nenum Command {\n    Alpha,\n    Beta,\n}\n\nfn run(command: Command) {\n    match command {\n        Command::Alpha => run_alpha(),\n        Command::Beta => run_beta(),\n    }\n}\n",
     );
     write_repo_file(
         &repository,

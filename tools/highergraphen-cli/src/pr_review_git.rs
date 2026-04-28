@@ -170,6 +170,7 @@ struct GitDiffAnalysis {
     external_effect_ids: Vec<Id>,
     weakened_test_ids: Vec<Id>,
     review_boundary_ids: Vec<Id>,
+    structural_boundary_ids: Vec<Id>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -615,6 +616,15 @@ fn push_diff_analysis_signals(
         &diff_analysis.review_boundary_ids,
         Severity::Medium,
         0.72,
+    )?;
+    push_diff_signal(
+        signals,
+        "signal:structural-boundary-change",
+        PrReviewTargetRiskSignalType::DependencyChange,
+        "Diff changes boundary, incidence, or composition structure between finite code elements.",
+        &diff_analysis.structural_boundary_ids,
+        Severity::High,
+        0.73,
     )
 }
 
