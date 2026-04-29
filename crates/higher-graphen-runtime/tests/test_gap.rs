@@ -2,8 +2,9 @@
 
 use higher_graphen_core::{Id, ReviewStatus};
 use higher_graphen_runtime::{
-    run_test_gap_detect, TestGapDetectorContext, TestGapInputDocument, TestGapInputTest,
-    TestGapObstructionType, TestGapStatus, TestGapTestType,
+    run_test_gap_detect, TestGapDetectorContext, TestGapHigherOrderCell, TestGapInputDocument,
+    TestGapInputLaw, TestGapInputMorphism, TestGapInputTest, TestGapObstructionType, TestGapStatus,
+    TestGapTestType, TestGapVerificationCell,
 };
 use serde_json::{json, Value};
 
@@ -114,6 +115,55 @@ fn detector_context_allows_integration_tests_as_verification_policy() {
 }
 
 #[test]
+fn semantic_delta_without_verification_is_counterexample_and_ai_record() {
+    let mut input = fixture();
+    add_semantic_delta(&mut input, false);
+
+    let report = run_test_gap_detect(input).expect("workflow should run");
+
+    assert!(report.result.counterexamples.iter().any(|counterexample| {
+        counterexample
+            .morphism_ids
+            .contains(&id("morphism:test-gap:semantic-preservation:pricing"))
+    }));
+    assert!(report.projection.ai_view.records.iter().any(|record| {
+        record.id
+            == id(
+                "counterexample:test-gap:morphism:morphism-test-gap-semantic-preservation-pricing",
+            )
+            && record.review_status == Some(ReviewStatus::Unreviewed)
+    }));
+    assert!(report
+        .scenario
+        .source_boundary
+        .information_loss
+        .iter()
+        .any(|loss| loss.contains("typed MIR-level equivalence")));
+}
+
+#[test]
+fn semantic_delta_with_verification_emits_proof_object() {
+    let mut input = fixture();
+    add_semantic_delta(&mut input, true);
+
+    let report = run_test_gap_detect(input).expect("workflow should run");
+
+    assert!(report.result.proof_objects.iter().any(|proof| {
+        proof
+            .morphism_ids
+            .contains(&id("morphism:test-gap:semantic-preservation:pricing"))
+            && proof
+                .verified_by_ids
+                .contains(&id("verification:test-gap:semantic-pricing"))
+    }));
+    assert!(!report.result.counterexamples.iter().any(|counterexample| {
+        counterexample
+            .morphism_ids
+            .contains(&id("morphism:test-gap:semantic-preservation:pricing"))
+    }));
+}
+
+#[test]
 fn report_serializes_lower_snake_case_values_and_round_trips() {
     let report = run_test_gap_detect(fixture()).expect("workflow should run");
     let value = serde_json::to_value(&report).expect("serialize report");
@@ -145,6 +195,60 @@ fn fixture() -> TestGapInputDocument {
         "../../../schemas/inputs/test-gap.input.example.json"
     ))
     .expect("fixture should parse")
+}
+
+fn add_semantic_delta(input: &mut TestGapInputDocument, verified: bool) {
+    input.higher_order_cells.push(TestGapHigherOrderCell {
+        id: id("semantic:rust:function:pricing:base:calculate-discount"),
+        cell_type: "rust_function".to_owned(),
+        label: "Rust function calculate_discount at base".to_owned(),
+        dimension: 0,
+        context_ids: Vec::new(),
+        source_ids: Vec::new(),
+        confidence: None,
+    });
+    input.higher_order_cells.push(TestGapHigherOrderCell {
+        id: id("semantic:rust:function:pricing:head:calculate-discount"),
+        cell_type: "rust_function".to_owned(),
+        label: "Rust function calculate_discount at head".to_owned(),
+        dimension: 0,
+        context_ids: Vec::new(),
+        source_ids: Vec::new(),
+        confidence: None,
+    });
+    input.laws.push(TestGapInputLaw {
+        id: id("law:test-gap:semantic-delta-has-verification"),
+        summary: "changed semantic delta morphisms require accepted verification cells".to_owned(),
+        applies_to_ids: vec![id("morphism:test-gap:semantic-preservation:pricing")],
+        requirement_ids: Vec::new(),
+        source_ids: Vec::new(),
+        expected_verification: Some("policy_accepted_verification".to_owned()),
+        confidence: None,
+    });
+    input.morphisms.push(TestGapInputMorphism {
+        id: id("morphism:test-gap:semantic-preservation:pricing"),
+        morphism_type: "semantic_preservation".to_owned(),
+        source_ids: vec![id("semantic:rust:function:pricing:base:calculate-discount")],
+        target_ids: vec![id("semantic:rust:function:pricing:head:calculate-discount")],
+        law_ids: vec![id("law:test-gap:semantic-delta-has-verification")],
+        requirement_ids: Vec::new(),
+        expected_verification: Some("policy_accepted_verification".to_owned()),
+        confidence: None,
+    });
+    if verified {
+        input.verification_cells.push(TestGapVerificationCell {
+            id: id("verification:test-gap:semantic-pricing"),
+            name: "Semantic pricing verification".to_owned(),
+            verification_type: "automated_test".to_owned(),
+            test_type: TestGapTestType::Unit,
+            target_ids: Vec::new(),
+            requirement_ids: Vec::new(),
+            law_ids: vec![id("law:test-gap:semantic-delta-has-verification")],
+            morphism_ids: vec![id("morphism:test-gap:semantic-preservation:pricing")],
+            source_ids: Vec::new(),
+            confidence: None,
+        });
+    }
 }
 
 fn id(value: &str) -> Id {

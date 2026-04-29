@@ -120,9 +120,13 @@ missing-test candidates.
 For HigherGraphen-owned test-gap surfaces, the adapter also lifts higher-order
 structure: CLI command cells, runtime runner cells, public export cells,
 workflow registry cells, schema and fixture contract cells, report projection
-cells, and incidence edges between them. The detector then evaluates missing
-tests as verification gaps for those morphisms instead of treating every
-changed file as an isolated obligation.
+cells, base/head Rust AST and JSON Schema semantic cells, semantic delta
+morphisms, and incidence edges between them. The detector then evaluates
+missing tests as verification gaps for those morphisms instead of treating
+every changed file as an isolated obligation. Semantic delta morphisms expose
+preservation, addition, and deletion at the parsed AST/schema level; typed
+MIR-level equivalence and full behavior proofs remain explicit information
+loss.
 
 ```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]
@@ -542,7 +546,9 @@ Consumers must preserve these semantics:
   snapshots, including `schemas/inputs/test-gap.input.example.json`.
 - The test-gap git input adapter may create those snapshots from local commit
   history, but it only supplies deterministic file-level obligations and
-  evidence; it does not prove semantic coverage.
+  evidence. For HigherGraphen-owned test-gap surfaces it also supplies parsed
+  base/head Rust AST and JSON Schema semantic delta morphisms, but it does not
+  prove typed semantic equivalence or full behavior coverage.
 - Test-gap accepted facts are limited to the supplied snapshot. Domain findings
   such as missing-test obstructions, insufficient evidence, `gaps_detected`,
   and `no_gaps_in_snapshot` are successful report data, not CLI failures.
@@ -570,7 +576,7 @@ When an agent reports a test-gap result, include:
   provenance/source IDs, and `review_status`;
 - projection `information_loss` from human, AI, and audit views when present;
 - unsupported or deferred scope, especially full repository crawling, generated
-  test acceptance, semantic coverage inference, or global proof of complete
+  test acceptance, typed semantic equivalence, or global proof of complete
   tests.
 
 ## Unsupported Usage

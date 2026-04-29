@@ -46,6 +46,11 @@ only laws relevant to the changed surface.
   and deterministic path/structure rules.
 - `law:input-from-git-does-not-prove-semantic-coverage`: git adapters do not
   execute tests, crawl the full repository, or infer full semantic coverage.
+- `law:semantic-delta-is-explicit`: parsed base/head semantic cells expose
+  preservation, addition, and deletion morphisms instead of hiding source
+  changes behind file-level obligations.
+- `law:semantic-delta-has-verification`: changed semantic delta morphisms
+  require accepted verification cells under the detector policy.
 
 ## Projection And Information Loss
 

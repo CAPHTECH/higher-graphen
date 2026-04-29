@@ -74,14 +74,15 @@ highergraphen test-gap detect \
 
 `highergraphen test-gap input from-git` creates a deterministic bounded
 `highergraphen.test_gap.input.v1` snapshot from a local git range. It does not
-execute tests, crawl the full repository, or prove semantic coverage. Its
-`detector_context.test_kinds` field is the verification policy; changed
+execute tests, crawl the full repository, or prove typed semantic equivalence.
+Its `detector_context.test_kinds` field is the verification policy; changed
 integration tests may be accepted as verification without rewriting their
 observed test type.
 For HigherGraphen-owned test-gap surfaces, the adapter also emits higher-order
-command, runner, export, registry, schema, fixture, projection, incidence, and
-`requirement:morphism:*` records so tests verify structure instead of isolated
-files.
+command, runner, export, registry, schema, fixture, projection, base/head
+Rust AST and JSON Schema semantic cells, semantic delta morphisms, incidence,
+and `requirement:morphism:*` records so tests verify structure instead of
+isolated files.
 
 The stable CaseGraphen workflow reasoning command is:
 

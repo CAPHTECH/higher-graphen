@@ -61,6 +61,8 @@ changed file has no test
    - registry contains runner
    - runtime shape supports schema
    - fixture supports schema
+   - base semantic cell preserves to head semantic cell
+   - changed semantic cell adds or deletes behavior
    - projection preserves report shape
    - test verifies law or morphism
 
@@ -68,6 +70,10 @@ changed file has no test
    Convert important incidences into requirements. Use IDs like:
    - `requirement:morphism:<surface>:<from>-to-<to>`
    - `requirement:law:<surface>:<law-name>`
+   For semantic diffs, prefer morphism types:
+   - `semantic_preservation`
+   - `semantic_addition`
+   - `semantic_deletion`
 
 5. Map verification cells.
    For each test, fixture validation, schema validation, or CLI smoke, list the
@@ -80,7 +86,7 @@ changed file has no test
 
 7. Report information loss.
    Always state what the structure does not prove: semantic branch coverage,
-   full repository coverage, unparsed source bodies, path/name heuristic
+   full repository coverage, typed MIR-level equivalence, path/name heuristic
    mappings, or any laws not extracted.
 
 ## Minimum Output

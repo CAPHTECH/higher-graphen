@@ -1954,6 +1954,30 @@ fn ai_projection_records(
             provenance: None,
         });
     }
+    for proof in &result.proof_objects {
+        records.push(AiProjectionRecord {
+            id: proof.id.clone(),
+            record_type: AiProjectionRecordType::CheckResult,
+            summary: proof.summary.clone(),
+            source_ids: proof.witness_ids.clone(),
+            confidence: Some(proof.confidence),
+            review_status: Some(proof.review_status),
+            severity: None,
+            provenance: None,
+        });
+    }
+    for counterexample in &result.counterexamples {
+        records.push(AiProjectionRecord {
+            id: counterexample.id.clone(),
+            record_type: AiProjectionRecordType::Obstruction,
+            summary: counterexample.summary.clone(),
+            source_ids: counterexample.path_ids.clone(),
+            confidence: Some(counterexample.confidence),
+            review_status: Some(counterexample.review_status),
+            severity: Some(Severity::High),
+            provenance: None,
+        });
+    }
     for obstruction in &result.obstructions {
         records.push(AiProjectionRecord {
             id: obstruction.id.clone(),
@@ -2042,6 +2066,14 @@ fn source_boundary_information_loss(input: &TestGapInputDocument) -> Vec<String>
     }
     if input.branches.is_empty() {
         loss.push("branch extraction unavailable in bounded snapshot".to_owned());
+    }
+    if input.higher_order_cells.iter().any(|cell| {
+        cell.cell_type.starts_with("rust_") || cell.cell_type.starts_with("json_schema")
+    }) {
+        loss.push(
+            "semantic cells are AST/schema structural observations; typed MIR-level equivalence and full behavior proofs are not embedded"
+                .to_owned(),
+        );
     }
     if input
         .tests

@@ -531,6 +531,15 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
         .iter()
         .any(|cell| cell["cell_type"] == json!("rust_function")
             && cell["id"]
+                == json!(
+                    "semantic:rust:function:tools-highergraphen-cli-src-main-rs:base:parse-test-gap-detect"
+                )));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("rust_function")
+            && cell["id"]
                 .as_str()
                 .expect("semantic rust function id")
                 .contains("run-test-gap-detect")));
@@ -553,6 +562,11 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
         .expect("laws")
         .iter()
         .any(|law| law["id"] == json!("law:test-gap:json-format-required")));
+    assert!(value["laws"]
+        .as_array()
+        .expect("laws")
+        .iter()
+        .any(|law| law["id"] == json!("law:test-gap:semantic-delta-has-verification")));
     assert!(value["morphisms"]
         .as_array()
         .expect("morphisms")
@@ -560,6 +574,16 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
         .any(
             |morphism| morphism["id"] == json!("morphism:test-gap:input-from-git-to-input-schema")
         ));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(|morphism| morphism["morphism_type"] == json!("semantic_preservation")));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(|morphism| morphism["morphism_type"] == json!("semantic_addition")));
     assert!(value["verification_cells"]
         .as_array()
         .expect("verification cells")
@@ -676,6 +700,20 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
             .as_array()
             .expect("law ids")
             .contains(&json!("law:test-gap:json-format-required"))));
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| {
+                morphism_ids.iter().any(|morphism_id| {
+                    morphism_id
+                        .as_str()
+                        .expect("morphism id")
+                        .contains("semantic_addition")
+                })
+            })));
     assert!(report["result"]["counterexamples"]
         .as_array()
         .map(|counterexamples| counterexamples.is_empty())
@@ -1330,6 +1368,11 @@ fn write_test_gap_structural_git_fixture() -> PathBuf {
     run_git(&repository, &["config", "user.name", "Test User"]);
 
     fs::write(repository.join("README.md"), "# fixture\n").expect("write base file");
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_test_gap_detect() {}\n",
+    );
     run_git(&repository, &["add", "."]);
     run_git(&repository, &["commit", "-m", "base"]);
 

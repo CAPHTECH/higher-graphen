@@ -53,6 +53,7 @@ pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDoc
     let mut structural = structural_model_for_changes(&changes, &diff_evidence_id)?;
     structural.extend(semantic_model_for_changes(
         &metadata.repo_path,
+        &request.base,
         &request.head,
         &changes,
         &diff_evidence_id,
@@ -757,26 +758,74 @@ fn structural_model_for_changes(
 
 fn semantic_model_for_changes(
     repo: &Path,
+    base_ref: &str,
     head_ref: &str,
     changes: &[GitChange],
     diff_evidence_id: &Id,
 ) -> Result<StructuralModel, String> {
     let mut model = StructuralModel::default();
-    for change in changes
-        .iter()
-        .filter(|change| change.change_type != PrReviewTargetChangeType::Deleted)
-    {
+    for change in changes {
+        let base_path = change.old_path.as_deref().unwrap_or(&change.path);
+        let mut base_cells = Vec::new();
+        let mut head_cells = Vec::new();
         if change.path.ends_with(".rs") && is_source_code_path(&change.path) {
-            let Some(contents) = git_show_file(repo, head_ref, &change.path) else {
-                continue;
-            };
-            push_rust_semantic_cells(&mut model, change, &contents, diff_evidence_id)?;
+            if change.change_type != PrReviewTargetChangeType::Added {
+                if let Some(contents) = git_show_file(repo, base_ref, base_path) {
+                    base_cells = push_rust_semantic_cells(
+                        &mut model,
+                        change,
+                        SemanticRevision::Base,
+                        base_path,
+                        &contents,
+                        diff_evidence_id,
+                    )?;
+                }
+            }
+            if change.change_type != PrReviewTargetChangeType::Deleted {
+                if let Some(contents) = git_show_file(repo, head_ref, &change.path) {
+                    head_cells = push_rust_semantic_cells(
+                        &mut model,
+                        change,
+                        SemanticRevision::Head,
+                        &change.path,
+                        &contents,
+                        diff_evidence_id,
+                    )?;
+                }
+            }
         } else if change.path.ends_with(".schema.json") {
-            let Some(contents) = git_show_file(repo, head_ref, &change.path) else {
-                continue;
-            };
-            push_json_schema_semantic_cells(&mut model, change, &contents, diff_evidence_id)?;
+            if change.change_type != PrReviewTargetChangeType::Added {
+                if let Some(contents) = git_show_file(repo, base_ref, base_path) {
+                    base_cells = push_json_schema_semantic_cells(
+                        &mut model,
+                        change,
+                        SemanticRevision::Base,
+                        base_path,
+                        &contents,
+                        diff_evidence_id,
+                    )?;
+                }
+            }
+            if change.change_type != PrReviewTargetChangeType::Deleted {
+                if let Some(contents) = git_show_file(repo, head_ref, &change.path) {
+                    head_cells = push_json_schema_semantic_cells(
+                        &mut model,
+                        change,
+                        SemanticRevision::Head,
+                        &change.path,
+                        &contents,
+                        diff_evidence_id,
+                    )?;
+                }
+            }
         }
+        push_semantic_delta_structure(
+            &mut model,
+            change,
+            &base_cells,
+            &head_cells,
+            diff_evidence_id,
+        )?;
     }
     Ok(model)
 }
@@ -786,33 +835,73 @@ fn git_show_file(repo: &Path, rev: &str, path: &str) -> Option<String> {
     optional_git(repo, &["show", &rev_path])
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SemanticRevision {
+    Base,
+    Head,
+}
+
+impl SemanticRevision {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Base => "base",
+            Self::Head => "head",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SemanticCell {
+    id: Id,
+    key: String,
+    cell_type: String,
+}
+
 fn push_rust_semantic_cells(
     model: &mut StructuralModel,
     change: &GitChange,
+    revision: SemanticRevision,
+    source_path: &str,
     contents: &str,
     diff_evidence_id: &Id,
-) -> Result<(), String> {
+) -> Result<Vec<SemanticCell>, String> {
     let Ok(file) = syn::parse_file(contents) else {
-        return Ok(());
+        return Ok(Vec::new());
     };
-    let file_cell_id = id(format!("semantic:rust:file:{}", slug(&change.path)))?;
+    let mut semantic_cells = Vec::new();
+    let file_cell_id = id(format!(
+        "semantic:rust:file:{}:{}",
+        slug(&change.path),
+        revision.as_str()
+    ))?;
     push_higher_order_cell(
         model,
         file_cell_id.clone(),
-        "rust_file",
-        format!("Rust semantic file {}", change.path),
+        "rust_file_revision",
+        format!(
+            "Rust semantic file {} at {} from {}",
+            change.path,
+            revision.as_str(),
+            source_path
+        ),
         0,
         change,
         diff_evidence_id,
         0.7,
     )?;
+    semantic_cells.push(SemanticCell {
+        id: file_cell_id.clone(),
+        key: format!("rust:file:{}", slug(&change.path)),
+        cell_type: "rust_file_revision".to_owned(),
+    });
 
     for item in &file.items {
         match item {
             syn::Item::Fn(item_fn) => {
                 let function_id = id(format!(
-                    "semantic:rust:function:{}:{}",
+                    "semantic:rust:function:{}:{}:{}",
                     slug(&change.path),
+                    revision.as_str(),
                     slug(&item_fn.sig.ident.to_string())
                 ))?;
                 push_higher_order_cell(
@@ -825,11 +914,21 @@ fn push_rust_semantic_cells(
                     diff_evidence_id,
                     0.72,
                 )?;
+                semantic_cells.push(SemanticCell {
+                    id: function_id.clone(),
+                    key: format!(
+                        "rust:function:{}:{}",
+                        slug(&change.path),
+                        slug(&item_fn.sig.ident.to_string())
+                    ),
+                    cell_type: "rust_function".to_owned(),
+                });
                 push_higher_order_incidence(
                     model,
                     format!(
-                        "incidence:semantic:rust:file-contains-function:{}:{}",
+                        "incidence:semantic:rust:file-contains-function:{}:{}:{}",
                         slug(&change.path),
+                        revision.as_str(),
                         slug(&item_fn.sig.ident.to_string())
                     ),
                     file_cell_id.clone(),
@@ -838,14 +937,22 @@ fn push_rust_semantic_cells(
                     diff_evidence_id,
                     0.72,
                 )?;
-                let mut visitor = RustSemanticVisitor::new(change, &function_id, diff_evidence_id);
+                let mut visitor = RustSemanticVisitor::new(
+                    change,
+                    revision,
+                    &function_id,
+                    &slug(&item_fn.sig.ident.to_string()),
+                    diff_evidence_id,
+                );
                 visitor.visit_block(&item_fn.block);
+                semantic_cells.extend(visitor.semantic_cells);
                 model.extend(visitor.model);
             }
             syn::Item::Struct(item_struct) => {
                 let struct_id = id(format!(
-                    "semantic:rust:struct:{}:{}",
+                    "semantic:rust:struct:{}:{}:{}",
                     slug(&change.path),
+                    revision.as_str(),
                     slug(&item_struct.ident.to_string())
                 ))?;
                 push_higher_order_cell(
@@ -858,11 +965,21 @@ fn push_rust_semantic_cells(
                     diff_evidence_id,
                     0.72,
                 )?;
+                semantic_cells.push(SemanticCell {
+                    id: struct_id.clone(),
+                    key: format!(
+                        "rust:struct:{}:{}",
+                        slug(&change.path),
+                        slug(&item_struct.ident.to_string())
+                    ),
+                    cell_type: "rust_struct".to_owned(),
+                });
                 push_higher_order_incidence(
                     model,
                     format!(
-                        "incidence:semantic:rust:file-contains-struct:{}:{}",
+                        "incidence:semantic:rust:file-contains-struct:{}:{}:{}",
                         slug(&change.path),
+                        revision.as_str(),
                         slug(&item_struct.ident.to_string())
                     ),
                     file_cell_id.clone(),
@@ -874,8 +991,9 @@ fn push_rust_semantic_cells(
             }
             syn::Item::Enum(item_enum) => {
                 let enum_id = id(format!(
-                    "semantic:rust:enum:{}:{}",
+                    "semantic:rust:enum:{}:{}:{}",
                     slug(&change.path),
+                    revision.as_str(),
                     slug(&item_enum.ident.to_string())
                 ))?;
                 push_higher_order_cell(
@@ -888,11 +1006,21 @@ fn push_rust_semantic_cells(
                     diff_evidence_id,
                     0.72,
                 )?;
+                semantic_cells.push(SemanticCell {
+                    id: enum_id.clone(),
+                    key: format!(
+                        "rust:enum:{}:{}",
+                        slug(&change.path),
+                        slug(&item_enum.ident.to_string())
+                    ),
+                    cell_type: "rust_enum".to_owned(),
+                });
                 push_higher_order_incidence(
                     model,
                     format!(
-                        "incidence:semantic:rust:file-contains-enum:{}:{}",
+                        "incidence:semantic:rust:file-contains-enum:{}:{}:{}",
                         slug(&change.path),
+                        revision.as_str(),
                         slug(&item_enum.ident.to_string())
                     ),
                     file_cell_id.clone(),
@@ -903,8 +1031,9 @@ fn push_rust_semantic_cells(
                 )?;
                 for variant in &item_enum.variants {
                     let variant_id = id(format!(
-                        "semantic:rust:enum-variant:{}:{}:{}",
+                        "semantic:rust:enum-variant:{}:{}:{}:{}",
                         slug(&change.path),
+                        revision.as_str(),
                         slug(&item_enum.ident.to_string()),
                         slug(&variant.ident.to_string())
                     ))?;
@@ -918,11 +1047,22 @@ fn push_rust_semantic_cells(
                         diff_evidence_id,
                         0.7,
                     )?;
+                    semantic_cells.push(SemanticCell {
+                        id: variant_id.clone(),
+                        key: format!(
+                            "rust:enum-variant:{}:{}:{}",
+                            slug(&change.path),
+                            slug(&item_enum.ident.to_string()),
+                            slug(&variant.ident.to_string())
+                        ),
+                        cell_type: "rust_enum_variant".to_owned(),
+                    });
                     push_higher_order_incidence(
                         model,
                         format!(
-                            "incidence:semantic:rust:enum-contains-variant:{}:{}:{}",
+                            "incidence:semantic:rust:enum-contains-variant:{}:{}:{}:{}",
                             slug(&change.path),
+                            revision.as_str(),
                             slug(&item_enum.ident.to_string()),
                             slug(&variant.ident.to_string())
                         ),
@@ -934,52 +1074,168 @@ fn push_rust_semantic_cells(
                     )?;
                 }
             }
+            syn::Item::Impl(item_impl) => {
+                let impl_index = semantic_cells
+                    .iter()
+                    .filter(|cell| cell.cell_type == "rust_impl")
+                    .count()
+                    + 1;
+                let impl_id = id(format!(
+                    "semantic:rust:impl:{}:{}:{}",
+                    slug(&change.path),
+                    revision.as_str(),
+                    impl_index
+                ))?;
+                push_higher_order_cell(
+                    model,
+                    impl_id.clone(),
+                    "rust_impl",
+                    format!("Rust impl block {impl_index}"),
+                    0,
+                    change,
+                    diff_evidence_id,
+                    0.68,
+                )?;
+                semantic_cells.push(SemanticCell {
+                    id: impl_id.clone(),
+                    key: format!("rust:impl:{}:{}", slug(&change.path), impl_index),
+                    cell_type: "rust_impl".to_owned(),
+                });
+                push_higher_order_incidence(
+                    model,
+                    format!(
+                        "incidence:semantic:rust:file-contains-impl:{}:{}:{}",
+                        slug(&change.path),
+                        revision.as_str(),
+                        impl_index
+                    ),
+                    file_cell_id.clone(),
+                    impl_id.clone(),
+                    "contains_impl",
+                    diff_evidence_id,
+                    0.68,
+                )?;
+                for impl_item in &item_impl.items {
+                    if let syn::ImplItem::Fn(method) = impl_item {
+                        let method_id = id(format!(
+                            "semantic:rust:method:{}:{}:{}:{}",
+                            slug(&change.path),
+                            revision.as_str(),
+                            impl_index,
+                            slug(&method.sig.ident.to_string())
+                        ))?;
+                        push_higher_order_cell(
+                            model,
+                            method_id.clone(),
+                            "rust_method",
+                            format!("Rust method {}", method.sig.ident),
+                            0,
+                            change,
+                            diff_evidence_id,
+                            0.7,
+                        )?;
+                        semantic_cells.push(SemanticCell {
+                            id: method_id.clone(),
+                            key: format!(
+                                "rust:method:{}:{}:{}",
+                                slug(&change.path),
+                                impl_index,
+                                slug(&method.sig.ident.to_string())
+                            ),
+                            cell_type: "rust_method".to_owned(),
+                        });
+                        push_higher_order_incidence(
+                            model,
+                            format!(
+                                "incidence:semantic:rust:impl-contains-method:{}:{}:{}:{}",
+                                slug(&change.path),
+                                revision.as_str(),
+                                impl_index,
+                                slug(&method.sig.ident.to_string())
+                            ),
+                            impl_id.clone(),
+                            method_id.clone(),
+                            "contains_method",
+                            diff_evidence_id,
+                            0.7,
+                        )?;
+                        let mut visitor = RustSemanticVisitor::new(
+                            change,
+                            revision,
+                            &method_id,
+                            &format!("impl-{impl_index}-{}", slug(&method.sig.ident.to_string())),
+                            diff_evidence_id,
+                        );
+                        visitor.visit_block(&method.block);
+                        semantic_cells.extend(visitor.semantic_cells);
+                        model.extend(visitor.model);
+                    }
+                }
+            }
             _ => {}
         }
     }
-    Ok(())
+    Ok(semantic_cells)
 }
 
 fn push_json_schema_semantic_cells(
     model: &mut StructuralModel,
     change: &GitChange,
+    revision: SemanticRevision,
+    source_path: &str,
     contents: &str,
     diff_evidence_id: &Id,
-) -> Result<(), String> {
+) -> Result<Vec<SemanticCell>, String> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(contents) else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let schema_id = id(format!(
-        "semantic:json-schema:document:{}",
-        slug(&change.path)
+        "semantic:json-schema:document:{}:{}",
+        slug(&change.path),
+        revision.as_str()
     ))?;
     push_higher_order_cell(
         model,
         schema_id.clone(),
-        "json_schema",
-        format!("JSON schema {}", change.path),
+        "json_schema_revision",
+        format!(
+            "JSON schema {} at {} from {}",
+            change.path,
+            revision.as_str(),
+            source_path
+        ),
         0,
         change,
         diff_evidence_id,
         0.74,
     )?;
+    let mut semantic_cells = vec![SemanticCell {
+        id: schema_id.clone(),
+        key: format!("json-schema:document:{}", slug(&change.path)),
+        cell_type: "json_schema_revision".to_owned(),
+    }];
     push_json_schema_properties(
         model,
         change,
+        revision,
         &schema_id,
         "#".to_owned(),
         &value,
         diff_evidence_id,
-    )
+        &mut semantic_cells,
+    )?;
+    Ok(semantic_cells)
 }
 
 fn push_json_schema_properties(
     model: &mut StructuralModel,
     change: &GitChange,
+    revision: SemanticRevision,
     schema_id: &Id,
     pointer: String,
     value: &serde_json::Value,
     diff_evidence_id: &Id,
+    semantic_cells: &mut Vec<SemanticCell>,
 ) -> Result<(), String> {
     let Some(object) = value.as_object() else {
         return Ok(());
@@ -987,8 +1243,9 @@ fn push_json_schema_properties(
     if let Some(properties) = object.get("properties").and_then(|value| value.as_object()) {
         for property_name in properties.keys() {
             let property_id = id(format!(
-                "semantic:json-schema:property:{}:{}:{}",
+                "semantic:json-schema:property:{}:{}:{}:{}",
                 slug(&change.path),
+                revision.as_str(),
                 slug(&pointer),
                 slug(property_name)
             ))?;
@@ -1002,11 +1259,22 @@ fn push_json_schema_properties(
                 diff_evidence_id,
                 0.74,
             )?;
+            semantic_cells.push(SemanticCell {
+                id: property_id.clone(),
+                key: format!(
+                    "json-schema:property:{}:{}:{}",
+                    slug(&change.path),
+                    slug(&pointer),
+                    slug(property_name)
+                ),
+                cell_type: "json_schema_property".to_owned(),
+            });
             push_higher_order_incidence(
                 model,
                 format!(
-                    "incidence:semantic:json-schema:declares-property:{}:{}:{}",
+                    "incidence:semantic:json-schema:declares-property:{}:{}:{}:{}",
                     slug(&change.path),
+                    revision.as_str(),
                     slug(&pointer),
                     slug(property_name)
                 ),
@@ -1023,9 +1291,90 @@ fn push_json_schema_properties(
             push_json_schema_properties(
                 model,
                 change,
+                revision,
                 schema_id,
                 format!("{pointer}/$defs/{def_name}"),
                 def_value,
+                diff_evidence_id,
+                semantic_cells,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn push_semantic_delta_structure(
+    model: &mut StructuralModel,
+    change: &GitChange,
+    base_cells: &[SemanticCell],
+    head_cells: &[SemanticCell],
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
+    if base_cells.is_empty() && head_cells.is_empty() {
+        return Ok(());
+    }
+    push_semantic_law(
+        model,
+        "law:test-gap:semantic-delta-is-explicit",
+        "base/head semantic cells expose preservation, addition, and deletion morphisms",
+        diff_evidence_id,
+    )?;
+    push_semantic_law(
+        model,
+        "law:test-gap:semantic-delta-has-verification",
+        "changed semantic delta morphisms require accepted verification cells",
+        diff_evidence_id,
+    )?;
+
+    let base_by_key = base_cells
+        .iter()
+        .map(|cell| (cell.key.as_str(), cell))
+        .collect::<BTreeMap<_, _>>();
+    let head_by_key = head_cells
+        .iter()
+        .map(|cell| (cell.key.as_str(), cell))
+        .collect::<BTreeMap<_, _>>();
+    for (key, base_cell) in &base_by_key {
+        if let Some(head_cell) = head_by_key.get(key) {
+            push_semantic_morphism(
+                model,
+                change,
+                "semantic_preservation",
+                base_cell,
+                Some(head_cell),
+                &[
+                    "law:test-gap:semantic-delta-is-explicit",
+                    "law:test-gap:semantic-delta-has-verification",
+                ],
+                diff_evidence_id,
+            )?;
+        } else {
+            push_semantic_morphism(
+                model,
+                change,
+                "semantic_deletion",
+                base_cell,
+                None,
+                &[
+                    "law:test-gap:semantic-delta-is-explicit",
+                    "law:test-gap:semantic-delta-has-verification",
+                ],
+                diff_evidence_id,
+            )?;
+        }
+    }
+    for (key, head_cell) in &head_by_key {
+        if !base_by_key.contains_key(key) {
+            push_semantic_morphism(
+                model,
+                change,
+                "semantic_addition",
+                head_cell,
+                None,
+                &[
+                    "law:test-gap:semantic-delta-is-explicit",
+                    "law:test-gap:semantic-delta-has-verification",
+                ],
                 diff_evidence_id,
             )?;
         }
@@ -1033,22 +1382,110 @@ fn push_json_schema_properties(
     Ok(())
 }
 
+fn push_semantic_law(
+    model: &mut StructuralModel,
+    law_id: &str,
+    summary: &str,
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
+    let law_id = id(law_id)?;
+    if model.laws.iter().any(|law| law.id == law_id) {
+        return Ok(());
+    }
+    model.laws.push(TestGapInputLaw {
+        id: law_id,
+        summary: summary.to_owned(),
+        applies_to_ids: Vec::new(),
+        requirement_ids: Vec::new(),
+        source_ids: vec![diff_evidence_id.clone()],
+        expected_verification: Some("policy_accepted_verification".to_owned()),
+        confidence: Some(confidence(0.76)?),
+    });
+    Ok(())
+}
+
+fn push_semantic_morphism(
+    model: &mut StructuralModel,
+    change: &GitChange,
+    morphism_type: &str,
+    source_cell: &SemanticCell,
+    target_cell: Option<&SemanticCell>,
+    law_ids: &[&str],
+    _diff_evidence_id: &Id,
+) -> Result<(), String> {
+    let morphism_id = id(format!(
+        "morphism:test-gap:{}:{}:{}",
+        morphism_type,
+        slug(&change.path),
+        slug(&source_cell.key)
+    ))?;
+    if model
+        .morphisms
+        .iter()
+        .any(|morphism| morphism.id == morphism_id)
+    {
+        return Ok(());
+    }
+    let mut source_ids = vec![source_cell.id.clone()];
+    let target_ids = if let Some(target_cell) = target_cell {
+        vec![target_cell.id.clone()]
+    } else if morphism_type == "semantic_addition" {
+        source_ids = vec![file_id(&change.path)?];
+        vec![source_cell.id.clone()]
+    } else {
+        vec![file_id(&change.path)?]
+    };
+    let law_ids = law_ids
+        .iter()
+        .filter_map(|law_id| id(*law_id).ok())
+        .filter(|law_id| model.laws.iter().any(|law| &law.id == law_id))
+        .collect::<Vec<_>>();
+    model.morphisms.push(TestGapInputMorphism {
+        id: morphism_id.clone(),
+        morphism_type: morphism_type.to_owned(),
+        source_ids,
+        target_ids,
+        law_ids: law_ids.clone(),
+        requirement_ids: Vec::new(),
+        expected_verification: Some("policy_accepted_verification".to_owned()),
+        confidence: Some(confidence(0.7)?),
+    });
+    for law_id in law_ids {
+        if let Some(law) = model.laws.iter_mut().find(|law| law.id == law_id) {
+            push_unique_id(&mut law.applies_to_ids, morphism_id.clone());
+        }
+    }
+    Ok(())
+}
+
 struct RustSemanticVisitor<'a> {
     change: &'a GitChange,
+    revision: SemanticRevision,
     parent_id: &'a Id,
+    parent_slug: String,
     diff_evidence_id: &'a Id,
     model: StructuralModel,
+    semantic_cells: Vec<SemanticCell>,
     match_index: usize,
     error_index: usize,
 }
 
 impl<'a> RustSemanticVisitor<'a> {
-    fn new(change: &'a GitChange, parent_id: &'a Id, diff_evidence_id: &'a Id) -> Self {
+    fn new(
+        change: &'a GitChange,
+        revision: SemanticRevision,
+        parent_id: &'a Id,
+        parent_slug: &str,
+        diff_evidence_id: &'a Id,
+    ) -> Self {
         Self {
             change,
+            revision,
             parent_id,
+            parent_slug: parent_slug.to_owned(),
             diff_evidence_id,
             model: StructuralModel::default(),
+            semantic_cells: Vec::new(),
             match_index: 0,
             error_index: 0,
         }
@@ -1059,8 +1496,10 @@ impl Visit<'_> for RustSemanticVisitor<'_> {
     fn visit_expr_match(&mut self, node: &syn::ExprMatch) {
         self.match_index += 1;
         let match_id = match id(format!(
-            "semantic:rust:match:{}:{}",
+            "semantic:rust:match:{}:{}:{}:{}",
             slug(&self.change.path),
+            self.revision.as_str(),
+            self.parent_slug,
             self.match_index
         )) {
             Ok(value) => value,
@@ -1080,11 +1519,23 @@ impl Visit<'_> for RustSemanticVisitor<'_> {
         {
             return;
         }
+        self.semantic_cells.push(SemanticCell {
+            id: match_id.clone(),
+            key: format!(
+                "rust:match:{}:{}:{}",
+                slug(&self.change.path),
+                self.parent_slug,
+                self.match_index
+            ),
+            cell_type: "rust_match".to_owned(),
+        });
         let _ = push_higher_order_incidence(
             &mut self.model,
             format!(
-                "incidence:semantic:rust:function-contains-match:{}:{}",
+                "incidence:semantic:rust:function-contains-match:{}:{}:{}:{}",
                 slug(&self.change.path),
+                self.revision.as_str(),
+                self.parent_slug,
                 self.match_index
             ),
             self.parent_id.clone(),
@@ -1096,8 +1547,10 @@ impl Visit<'_> for RustSemanticVisitor<'_> {
         for (arm_index, _) in node.arms.iter().enumerate() {
             let arm_number = arm_index + 1;
             let Ok(arm_id) = id(format!(
-                "semantic:rust:match-arm:{}:{}:{}",
+                "semantic:rust:match-arm:{}:{}:{}:{}:{}",
                 slug(&self.change.path),
+                self.revision.as_str(),
+                self.parent_slug,
                 self.match_index,
                 arm_number
             )) else {
@@ -1113,11 +1566,24 @@ impl Visit<'_> for RustSemanticVisitor<'_> {
                 self.diff_evidence_id,
                 0.66,
             );
+            self.semantic_cells.push(SemanticCell {
+                id: arm_id.clone(),
+                key: format!(
+                    "rust:match-arm:{}:{}:{}:{}",
+                    slug(&self.change.path),
+                    self.parent_slug,
+                    self.match_index,
+                    arm_number
+                ),
+                cell_type: "rust_match_arm".to_owned(),
+            });
             let _ = push_higher_order_incidence(
                 &mut self.model,
                 format!(
-                    "incidence:semantic:rust:match-contains-arm:{}:{}:{}",
+                    "incidence:semantic:rust:match-contains-arm:{}:{}:{}:{}:{}",
                     slug(&self.change.path),
+                    self.revision.as_str(),
+                    self.parent_slug,
                     self.match_index,
                     arm_number
                 ),
@@ -1164,8 +1630,10 @@ impl RustSemanticVisitor<'_> {
     fn push_error_path_cell(&mut self) {
         self.error_index += 1;
         let Ok(error_id) = id(format!(
-            "semantic:rust:error-path:{}:{}",
+            "semantic:rust:error-path:{}:{}:{}:{}",
             slug(&self.change.path),
+            self.revision.as_str(),
+            self.parent_slug,
             self.error_index
         )) else {
             return;
@@ -1180,11 +1648,23 @@ impl RustSemanticVisitor<'_> {
             self.diff_evidence_id,
             0.64,
         );
+        self.semantic_cells.push(SemanticCell {
+            id: error_id.clone(),
+            key: format!(
+                "rust:error-path:{}:{}:{}",
+                slug(&self.change.path),
+                self.parent_slug,
+                self.error_index
+            ),
+            cell_type: "rust_error_path".to_owned(),
+        });
         let _ = push_higher_order_incidence(
             &mut self.model,
             format!(
-                "incidence:semantic:rust:function-contains-error-path:{}:{}",
+                "incidence:semantic:rust:function-contains-error-path:{}:{}:{}:{}",
                 slug(&self.change.path),
+                self.revision.as_str(),
+                self.parent_slug,
                 self.error_index
             ),
             self.parent_id.clone(),
@@ -1872,6 +2352,7 @@ fn verification_cells_for_tests(
                                 || morphism.target_ids.contains(target_id)
                                 || morphism.law_ids.contains(target_id)
                         })
+                        || test_semantically_covers_morphism(test, morphism)
                         || test.requirement_ids.iter().any(|requirement_id| {
                             requirement_id.as_str()
                                 == format!(
@@ -1882,6 +2363,16 @@ fn verification_cells_for_tests(
                 })
                 .map(|morphism| morphism.id.clone())
                 .collect::<Vec<_>>();
+            let mut law_ids = law_ids;
+            for morphism in structural
+                .morphisms
+                .iter()
+                .filter(|morphism| morphism_ids.contains(&morphism.id))
+            {
+                for law_id in &morphism.law_ids {
+                    push_unique_id(&mut law_ids, law_id.clone());
+                }
+            }
             Ok(TestGapVerificationCell {
                 id: id(format!("verification:{}", slug(test.id.as_str())))?,
                 name: format!("Verification cell for {}", test.name),
@@ -1900,6 +2391,81 @@ fn verification_cells_for_tests(
             })
         })
         .collect()
+}
+
+fn test_semantically_covers_morphism(
+    test: &TestGapInputTest,
+    morphism: &TestGapInputMorphism,
+) -> bool {
+    if !morphism.morphism_type.starts_with("semantic_") {
+        return false;
+    }
+    let target_path_slugs = test
+        .target_ids
+        .iter()
+        .filter_map(test_target_path_slug)
+        .collect::<BTreeSet<_>>();
+    if !target_path_slugs.is_empty()
+        && morphism
+            .source_ids
+            .iter()
+            .chain(morphism.target_ids.iter())
+            .filter_map(semantic_endpoint_path_slug)
+            .any(|path_slug| target_path_slugs.contains(path_slug))
+    {
+        return true;
+    }
+    let targets_json_contracts = test
+        .target_ids
+        .iter()
+        .any(|target_id| target_id.as_str() == "validator:test-gap:json-contracts");
+    targets_json_contracts
+        && morphism
+            .source_ids
+            .iter()
+            .chain(morphism.target_ids.iter())
+            .any(|endpoint_id| endpoint_id.as_str().starts_with("semantic:json-schema:"))
+}
+
+fn test_target_path_slug(target_id: &Id) -> Option<&str> {
+    let value = target_id.as_str();
+    value
+        .strip_prefix("symbol:")
+        .and_then(|value| value.strip_suffix(":changed-behavior"))
+        .or_else(|| structural_cell_path_slug(value))
+}
+
+fn structural_cell_path_slug(target_id: &str) -> Option<&'static str> {
+    match target_id {
+        "command:highergraphen:test-gap:detect"
+        | "command:highergraphen:test-gap:input-from-git" => {
+            Some("tools-highergraphen-cli-src-main-rs")
+        }
+        "adapter:test-gap:git-input" => Some("tools-highergraphen-cli-src-test-gap-git-rs"),
+        "runner:test-gap:detect" => Some("crates-higher-graphen-runtime-src-workflows-test-gap-rs"),
+        "export:test-gap:runtime-api" => Some("crates-higher-graphen-runtime-src-lib-rs"),
+        "registry:test-gap:workflow-module" => {
+            Some("crates-higher-graphen-runtime-src-workflows-mod-rs")
+        }
+        "contract:test-gap:runtime-report-shapes" => {
+            Some("crates-higher-graphen-runtime-src-test-gap-reports-rs")
+        }
+        "projection:test-gap:report-envelope" => {
+            Some("crates-higher-graphen-runtime-src-reports-rs")
+        }
+        "schema:test-gap:input" => Some("schemas-inputs-test-gap-input-schema-json"),
+        "schema:test-gap:report" => Some("schemas-reports-test-gap-report-schema-json"),
+        _ => None,
+    }
+}
+
+fn semantic_endpoint_path_slug(endpoint_id: &Id) -> Option<&str> {
+    let mut parts = endpoint_id.as_str().split(':');
+    match (parts.next(), parts.next(), parts.next(), parts.next()) {
+        (Some("semantic"), Some("rust"), Some(_), Some(path_slug))
+        | (Some("semantic"), Some("json-schema"), Some(_), Some(path_slug)) => Some(path_slug),
+        _ => None,
+    }
 }
 
 fn link_tests_to_requirements(

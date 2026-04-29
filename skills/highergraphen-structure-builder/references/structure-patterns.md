@@ -88,6 +88,8 @@ Incidences:
 Cells:
 
 - changed behavior symbol
+- base/head Rust AST semantic cell
+- base/head JSON Schema semantic cell
 - branch or boundary condition
 - requirement
 - test
@@ -98,6 +100,8 @@ Cells:
 Incidences:
 
 - symbol implements requirement
+- semantic file contains semantic function, type, match, branch arm, error path,
+  schema property, or required property
 - symbol has branch
 - test verifies requirement
 - test covers symbol or branch
@@ -112,6 +116,9 @@ Prefer high-order obligations for HigherGraphen-owned surfaces:
 - runtime shape-schema morphism
 - fixture-schema morphism
 - projection-runtime shape morphism
+- semantic preservation morphism
+- semantic addition morphism
+- semantic deletion morphism
 
 Use file-level obligations only when no meaningful high-order cell can be
 extracted.

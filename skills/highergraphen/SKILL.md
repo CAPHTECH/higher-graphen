@@ -204,13 +204,15 @@ cargo test -p highergraphen-cli test_gap_detect
 - For local repositories, prefer `highergraphen test-gap input from-git` to
   create the bounded test-gap snapshot deterministically from commit history
   before running `test-gap detect`.
-- Treat test-gap git-derived symbols, requirements, evidence, and risk signals
-  as file-level deterministic prompts, not semantic proof of test coverage.
+- Treat test-gap git-derived symbols, requirements, evidence, risk signals,
+  base/head semantic cells, and semantic delta morphisms as deterministic
+  bounded structure, not typed proof of full behavior coverage.
 - Interpret `detector_context.test_kinds` as the verification policy for the
   bounded snapshot. A git-derived snapshot may accept both `unit` and
   `integration` tests while preserving each observed test's actual type.
 - For HigherGraphen-owned test-gap surfaces, interpret generated command,
-  runner, export, registry, schema, fixture, projection, incidence, and
+  runner, export, registry, schema, fixture, projection, base/head Rust AST and
+  JSON Schema semantic cells, semantic delta morphisms, incidence, and
   `requirement:morphism:*` records as the primary high-order verification
   structure.
 - Treat test-gap statuses such as `gaps_detected` and
@@ -261,7 +263,8 @@ When reporting results to a user, include:
 - Do not present `no_gaps_in_snapshot` as proof that all repository tests are
   complete.
 - Do not claim `highergraphen test-gap input from-git` executes tests, crawls
-  the full repository, or proves semantic coverage.
+  the full repository, proves typed semantic equivalence, or proves complete
+  behavior coverage.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user
