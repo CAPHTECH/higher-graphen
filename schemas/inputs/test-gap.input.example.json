@@ -1,0 +1,216 @@
+{
+  "schema": "highergraphen.test_gap.input.v1",
+  "source": {
+    "kind": "code",
+    "uri": "fixture://highergraphen/test-gap/minimal",
+    "title": "Minimal missing unit test detector fixture",
+    "captured_at": "2026-04-29T00:00:00Z",
+    "confidence": 0.92,
+    "adapters": [
+      "fixture.v1",
+      "test_metadata.v1",
+      "coverage_branch.v1"
+    ]
+  },
+  "repository": {
+    "id": "repo:higher-graphen",
+    "name": "higher-graphen",
+    "default_branch": "main"
+  },
+  "change_set": {
+    "id": "change:pricing-zero-discount",
+    "base_ref": "main",
+    "head_ref": "HEAD",
+    "boundary": "bounded fixture for pricing discount behavior",
+    "excluded_paths": [
+      "docs/"
+    ]
+  },
+  "changed_files": [
+    {
+      "id": "file:pricing/src/discount.rs",
+      "path": "pricing/src/discount.rs",
+      "change_type": "modified",
+      "language": "rust",
+      "additions": 8,
+      "deletions": 2,
+      "symbol_ids": [
+        "function:pricing:calculate_discount"
+      ],
+      "context_ids": [
+        "context:pricing-module"
+      ],
+      "source_ids": []
+    }
+  ],
+  "symbols": [
+    {
+      "id": "function:pricing:calculate_discount",
+      "file_id": "file:pricing/src/discount.rs",
+      "name": "calculate_discount",
+      "kind": "function",
+      "visibility": "public",
+      "public_api": true,
+      "path": "pricing::calculate_discount",
+      "line_start": 12,
+      "line_end": 32,
+      "branch_ids": [
+        "branch:pricing:calculate_discount:discount_percent_zero"
+      ],
+      "requirement_ids": [
+        "requirement:pricing:zero-discount-regression"
+      ],
+      "context_ids": [
+        "context:pricing-module"
+      ],
+      "source_ids": [
+        "file:pricing/src/discount.rs"
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "id": "branch:pricing:calculate_discount:discount_percent_zero",
+      "symbol_id": "function:pricing:calculate_discount",
+      "branch_type": "boundary",
+      "summary": "discount_percent == 0 returns the original price",
+      "boundary_kind": "zero",
+      "representative_value": {
+        "discount_percent": 0,
+        "price": "nonzero positive price"
+      },
+      "requirement_ids": [
+        "requirement:pricing:zero-discount-regression"
+      ],
+      "source_ids": [
+        "function:pricing:calculate_discount"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "requirement:pricing:zero-discount-regression",
+      "requirement_type": "bug_fix",
+      "summary": "Zero percent discount must return the original price without rounding drift.",
+      "in_scope": true,
+      "bug_fix": true,
+      "implementation_ids": [
+        "function:pricing:calculate_discount"
+      ],
+      "source_ids": [
+        "evidence:pricing:bug-report"
+      ],
+      "expected_verification": "unit regression test"
+    }
+  ],
+  "tests": [
+    {
+      "id": "test:pricing:normal-discount",
+      "name": "applies_normal_discount",
+      "test_type": "unit",
+      "target_ids": [
+        "function:pricing:calculate_discount"
+      ],
+      "branch_ids": [],
+      "requirement_ids": [],
+      "is_regression": false,
+      "context_ids": [
+        "context:pricing-unit-tests"
+      ],
+      "source_ids": [
+        "evidence:pricing:test-metadata"
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "id": "coverage:pricing:zero-discount-branch",
+      "coverage_type": "branch",
+      "target_id": "branch:pricing:calculate_discount:discount_percent_zero",
+      "status": "uncovered",
+      "covered_by_test_ids": [],
+      "source_ids": [
+        "evidence:pricing:branch-coverage"
+      ],
+      "summary": "Branch coverage reports the zero-discount branch as not exercised.",
+      "confidence": 0.9
+    }
+  ],
+  "contexts": [
+    {
+      "id": "context:pricing-module",
+      "name": "Pricing module",
+      "context_type": "module",
+      "source_ids": [
+        "file:pricing/src/discount.rs"
+      ]
+    },
+    {
+      "id": "context:pricing-unit-tests",
+      "name": "Pricing unit tests",
+      "context_type": "test_scope",
+      "source_ids": [
+        "test:pricing:normal-discount"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:pricing:bug-report",
+      "evidence_type": "requirement_link",
+      "summary": "Bug report states zero discount should preserve original price.",
+      "source_ids": [
+        "requirement:pricing:zero-discount-regression"
+      ],
+      "confidence": 0.88
+    },
+    {
+      "id": "evidence:pricing:test-metadata",
+      "evidence_type": "test_result",
+      "summary": "Existing unit test metadata lists normal discount coverage only.",
+      "source_ids": [
+        "test:pricing:normal-discount"
+      ],
+      "confidence": 0.86
+    },
+    {
+      "id": "evidence:pricing:branch-coverage",
+      "evidence_type": "coverage",
+      "summary": "Branch coverage artifact marks zero-discount branch uncovered.",
+      "source_ids": [
+        "coverage:pricing:zero-discount-branch"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "signals": [
+    {
+      "id": "signal:pricing:boundary-test-gap",
+      "signal_type": "boundary_change",
+      "summary": "Boundary behavior changed but no unit test exercises the zero case.",
+      "source_ids": [
+        "branch:pricing:calculate_discount:discount_percent_zero",
+        "coverage:pricing:zero-discount-branch"
+      ],
+      "severity": "medium",
+      "confidence": 0.86
+    }
+  ],
+  "detector_context": {
+    "required_focus": [
+      "unit tests",
+      "boundary cases",
+      "regression tests"
+    ],
+    "excluded_paths": [
+      "target/"
+    ],
+    "test_kinds": [
+      "unit"
+    ],
+    "declared_obligation_ids": [
+      "requirement:pricing:zero-discount-regression",
+      "branch:pricing:calculate_discount:discount_percent_zero"
+    ]
+  }
+}

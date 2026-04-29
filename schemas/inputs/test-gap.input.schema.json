@@ -1,0 +1,723 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_gap.input.v1",
+  "title": "HigherGraphen Test Gap Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "repository",
+    "change_set",
+    "changed_files"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_gap.input.v1"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "repository": {
+      "$ref": "#/$defs/repository"
+    },
+    "change_set": {
+      "$ref": "#/$defs/change_set"
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/changed_file"
+      },
+      "minItems": 1
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/symbol"
+      }
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/branch"
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/test"
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coverage"
+      }
+    },
+    "dependency_edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dependency_edge"
+      }
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk_signal"
+      }
+    },
+    "detector_context": {
+      "$ref": "#/$defs/detector_context"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "confidence"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "document",
+            "log",
+            "api",
+            "human",
+            "ai",
+            "code",
+            "external"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "captured_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "adapters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_branch": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "change_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "base_ref",
+        "head_ref",
+        "boundary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "base_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head_commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "excluded_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "changed_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "change_type",
+        "additions",
+        "deletions"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "change_type": {
+          "enum": [
+            "added",
+            "modified",
+            "deleted",
+            "renamed"
+          ]
+        },
+        "old_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "additions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "symbol_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "file_id",
+        "name",
+        "kind",
+        "visibility"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "file_id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "function",
+            "method",
+            "type",
+            "module",
+            "public_api",
+            "unknown"
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "crate",
+            "protected",
+            "private",
+            "unknown"
+          ]
+        },
+        "public_api": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "branch_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "symbol_id",
+        "branch_type",
+        "summary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "symbol_id": {
+          "$ref": "#/$defs/id"
+        },
+        "branch_type": {
+          "enum": [
+            "branch",
+            "boundary",
+            "condition",
+            "error_path",
+            "state_transition",
+            "pattern_arm",
+            "unknown"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "representative_value": true,
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "requirement_type",
+        "summary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "requirement_type": {
+          "enum": [
+            "requirement",
+            "bug_fix",
+            "issue",
+            "acceptance_criterion",
+            "adr_constraint",
+            "custom"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "in_scope": {
+          "type": "boolean"
+        },
+        "bug_fix": {
+          "type": "boolean"
+        },
+        "implementation_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "expected_verification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "test_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "test_type": {
+          "$ref": "#/$defs/test_type"
+        },
+        "file_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "branch_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "is_regression": {
+          "type": "boolean"
+        },
+        "context_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "coverage_type",
+        "target_id",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "coverage_type": {
+          "enum": [
+            "line",
+            "branch",
+            "function",
+            "condition",
+            "mutation"
+          ]
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "covered",
+            "partial",
+            "uncovered",
+            "unknown"
+          ]
+        },
+        "covered_by_test_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "dependency_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from_id",
+        "to_id",
+        "relation_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "enum": [
+            "contains",
+            "implements_requirement",
+            "has_branch",
+            "covered_by_test",
+            "exercises_condition",
+            "depends_on",
+            "supports",
+            "in_context",
+            "custom"
+          ]
+        },
+        "orientation": {
+          "enum": [
+            "directed",
+            "undirected"
+          ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "context_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_type": {
+          "enum": [
+            "repository",
+            "module",
+            "package",
+            "symbol_scope",
+            "test_scope",
+            "domain",
+            "requirement_scope",
+            "coverage_scope",
+            "review_focus",
+            "custom"
+          ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "evidence_type",
+        "summary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_type": {
+          "enum": [
+            "diff_hunk",
+            "coverage",
+            "test_result",
+            "static_analysis",
+            "requirement_link",
+            "mutation_result",
+            "human_note",
+            "custom"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "risk_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "signal_type",
+        "summary",
+        "source_ids",
+        "severity",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "signal_type": {
+          "enum": [
+            "test_gap",
+            "boundary_change",
+            "error_path_change",
+            "bug_fix",
+            "public_api_change",
+            "custom"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "detector_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_focus": {
+          "$ref": "#/$defs/string_array"
+        },
+        "excluded_paths": {
+          "$ref": "#/$defs/string_array"
+        },
+        "test_kinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/test_type"
+          }
+        },
+        "declared_obligation_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "test_type": {
+      "enum": [
+        "unit",
+        "property",
+        "integration",
+        "smoke",
+        "e2e",
+        "manual",
+        "unknown"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  }
+}

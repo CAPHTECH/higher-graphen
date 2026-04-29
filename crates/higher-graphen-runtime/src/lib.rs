@@ -4,6 +4,7 @@ pub mod error;
 mod feed_reports;
 mod pr_review_reports;
 pub mod reports;
+mod test_gap_reports;
 pub mod workflows;
 
 pub use error::{RuntimeError, RuntimeResult};
@@ -51,7 +52,25 @@ pub use reports::{
     HumanReviewProjectionView, ProjectionAudience, ProjectionPurpose, ProjectionTrace,
     ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
+pub use test_gap_reports::{
+    TestGapBranchType, TestGapCandidateProvenance, TestGapChangeSet, TestGapChangeType,
+    TestGapCompletionCandidate, TestGapContextType, TestGapCoverageStatus, TestGapCoverageType,
+    TestGapDependencyRelationType, TestGapDetectorContext, TestGapEvidenceType, TestGapFactSource,
+    TestGapInputBranch, TestGapInputChangedFile, TestGapInputContext, TestGapInputCoverage,
+    TestGapInputDependencyEdge, TestGapInputDocument, TestGapInputEvidence,
+    TestGapInputRequirement, TestGapInputRiskSignal, TestGapInputSymbol, TestGapInputTest,
+    TestGapLiftedCell, TestGapLiftedContext, TestGapLiftedIncidence, TestGapLiftedSpace,
+    TestGapLiftedStructure, TestGapMissingType, TestGapMorphismSummary, TestGapMorphismType,
+    TestGapObservedBranch, TestGapObservedChangedFile, TestGapObservedContext,
+    TestGapObservedCoverage, TestGapObservedDependencyEdge, TestGapObservedEvidence,
+    TestGapObservedRequirement, TestGapObservedRiskSignal, TestGapObservedSymbol,
+    TestGapObservedTest, TestGapObstruction, TestGapObstructionType, TestGapPreservationStatus,
+    TestGapProjection, TestGapReport, TestGapRepository, TestGapRequirementType, TestGapResult,
+    TestGapRiskSignalType, TestGapScenario, TestGapSource, TestGapSourceBoundary, TestGapStatus,
+    TestGapStructuralSummary, TestGapSuggestedTestShape, TestGapSymbolKind, TestGapTestType,
+    TestGapVisibility,
+};
 pub use workflows::{
     architecture::{run_architecture_direct_db_access_smoke, run_architecture_input_lift},
-    run_completion_review, run_feed_reader, run_pr_review_target_recommend,
+    run_completion_review, run_feed_reader, run_pr_review_target_recommend, run_test_gap_detect,
 };

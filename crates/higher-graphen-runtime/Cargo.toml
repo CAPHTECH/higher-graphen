@@ -19,6 +19,7 @@ higher-graphen-obstruction.workspace = true
 higher-graphen-projection.workspace = true
 higher-graphen-space.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

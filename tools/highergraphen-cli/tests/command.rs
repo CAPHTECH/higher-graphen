@@ -13,6 +13,7 @@ const REPORT_SCHEMA: &str = "highergraphen.architecture.direct_db_access_smoke.r
 const INPUT_LIFT_REPORT_SCHEMA: &str = "highergraphen.architecture.input_lift.report.v1";
 const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
+const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
@@ -269,6 +270,77 @@ fn pr_review_targets_recommend_writes_output_file_without_stdout() {
     let value: Value = serde_json::from_str(&text).expect("file should be JSON");
     assert_eq!(value["schema"], json!(PR_REVIEW_TARGET_REPORT_SCHEMA));
     assert_eq!(value["projection"]["purpose"], json!("pr_review_targeting"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn test_gap_detect_reads_fixture_and_writes_one_json_report_to_stdout() {
+    let fixture = test_gap_fixture();
+    let output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let stdout = stdout(&output);
+    assert_eq!(stdout.lines().count(), 1);
+
+    let value: Value = serde_json::from_str(stdout.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(TEST_GAP_REPORT_SCHEMA));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("highergraphen test-gap detect")
+    );
+    assert_eq!(value["result"]["status"], json!("gaps_detected"));
+    assert!(value["result"]["obstructions"]
+        .as_array()
+        .expect("obstructions")
+        .iter()
+        .any(|obstruction| obstruction["obstruction_type"]
+            == json!("missing_boundary_case_unit_test")));
+    assert!(value["result"]["completion_candidates"]
+        .as_array()
+        .expect("completion candidates")
+        .iter()
+        .all(
+            |candidate| candidate["candidate_type"] == json!("missing_test")
+                && candidate["review_status"] == json!("unreviewed")
+        ));
+}
+
+#[test]
+fn test_gap_detect_writes_output_file_without_stdout() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let output_path = directory.join("test-gap.report.json");
+    let fixture = test_gap_fixture();
+
+    let output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+        "--output",
+        output_path.to_str().expect("temp path should be utf-8"),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+
+    let text = fs::read_to_string(&output_path).expect("read JSON report file");
+    let value: Value = serde_json::from_str(&text).expect("file should be JSON");
+    assert_eq!(value["schema"], json!(TEST_GAP_REPORT_SCHEMA));
+    assert_eq!(value["projection"]["purpose"], json!("test_gap_detection"));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
 }
@@ -664,6 +736,15 @@ fn pr_review_targets_recommend_requires_input_path() {
 }
 
 #[test]
+fn test_gap_detect_requires_input_path() {
+    let output = run_cli(&["test-gap", "detect", "--format", "json"]);
+
+    assert!(!output.status.success());
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).contains("--input <path> is required"));
+}
+
+#[test]
 fn pr_review_input_from_git_requires_base_and_head() {
     let missing_base = run_cli(&[
         "pr-review",
@@ -763,6 +844,12 @@ fn pr_review_target_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/pr-review-target.input.example.json")
+}
+
+fn test_gap_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/inputs/test-gap.input.example.json")
 }
 
 fn write_smoke_report(directory: &std::path::Path) -> PathBuf {

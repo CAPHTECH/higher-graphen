@@ -86,6 +86,17 @@ impl ReportMetadata {
             cli_package: "highergraphen-cli".to_owned(),
         }
     }
+
+    /// Creates metadata for the bounded missing unit test detector workflow.
+    #[must_use]
+    pub fn test_gap_detection() -> Self {
+        Self {
+            command: "highergraphen test-gap detect".to_owned(),
+            runtime_package: "higher-graphen-runtime".to_owned(),
+            runtime_crate: "higher_graphen_runtime".to_owned(),
+            cli_package: "highergraphen-cli".to_owned(),
+        }
+    }
 }
 
 /// Architecture smoke workflow report envelope.
@@ -573,4 +584,6 @@ pub enum ProjectionPurpose {
     AuditTrace,
     /// PR review target recommendation workflow.
     PrReviewTargeting,
+    /// Missing unit test detector workflow.
+    TestGapDetection,
 }

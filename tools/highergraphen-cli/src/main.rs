@@ -6,10 +6,10 @@ mod pr_review_structural;
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
     run_architecture_direct_db_access_smoke, run_architecture_input_lift, run_completion_review,
-    run_feed_reader, run_pr_review_target_recommend, ArchitectureInputLiftDocument,
-    CompletionReviewDecision, CompletionReviewRequest, CompletionReviewSnapshot,
-    CompletionReviewSourceReport, FeedReaderInputDocument, PrReviewTargetInputDocument,
-    RuntimeError,
+    run_feed_reader, run_pr_review_target_recommend, run_test_gap_detect,
+    ArchitectureInputLiftDocument, CompletionReviewDecision, CompletionReviewRequest,
+    CompletionReviewSnapshot, CompletionReviewSourceReport, FeedReaderInputDocument,
+    PrReviewTargetInputDocument, RuntimeError, TestGapInputDocument,
 };
 use serde_json::Value;
 use std::{
@@ -28,6 +28,7 @@ const USAGE: &str = "usage:
   highergraphen feed reader run --input <path> --format json [--output <path>]
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
+  highergraphen test-gap detect --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
 
@@ -84,6 +85,10 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    TestGapDetect {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
     CompletionReview {
         decision: CompletionReviewDecision,
         input: PathBuf,
@@ -105,6 +110,7 @@ impl Command {
             Some("architecture") => Self::parse_architecture(args),
             Some("feed") => Self::parse_feed(args),
             Some("pr-review") => Self::parse_pr_review(args),
+            Some("test-gap") => Self::parse_test_gap(args),
             Some("completion") => Self::parse_completion(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
         }
@@ -197,6 +203,18 @@ impl Command {
         })
     }
 
+    fn parse_test_gap(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "detect")?;
+        let options = ReportOptions::parse(args, true)?;
+        let input = options
+            .input
+            .ok_or_else(|| CliError::usage("--input <path> is required"))?;
+        Ok(Self::TestGapDetect {
+            input,
+            output: options.output,
+        })
+    }
+
     fn parse_completion(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         require_token(&mut args, "review")?;
         let decision = match required_segment(&mut args, "completion review action")?.to_str() {
@@ -233,6 +251,7 @@ impl Command {
             | Self::FeedReaderRun { output, .. }
             | Self::PrReviewInputFromGit { output, .. }
             | Self::PrReviewTargetsRecommend { output, .. }
+            | Self::TestGapDetect { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
     }
@@ -272,6 +291,12 @@ impl Command {
             Self::PrReviewTargetsRecommend { input, .. } => {
                 let document = read_pr_review_target_input_document(input)?;
                 let report = run_pr_review_target_recommend(document)?;
+                serde_json::to_string(&report)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestGapDetect { input, .. } => {
+                let document = read_test_gap_input_document(input)?;
+                let report = run_test_gap_detect(document)?;
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -574,6 +599,17 @@ fn read_feed_reader_input_document(path: &Path) -> Result<FeedReaderInputDocumen
 fn read_pr_review_target_input_document(
     path: &Path,
 ) -> Result<PrReviewTargetInputDocument, CliError> {
+    let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    serde_json::from_str(&text).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn read_test_gap_input_document(path: &Path) -> Result<TestGapInputDocument, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
         source,

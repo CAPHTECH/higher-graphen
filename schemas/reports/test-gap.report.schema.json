@@ -1,0 +1,399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_gap.report.v1",
+  "title": "HigherGraphen Test Gap Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_gap.report.v1"
+    },
+    "report_type": {
+      "const": "test_gap"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "runtime_package",
+        "runtime_crate",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "const": "highergraphen test-gap detect"
+        },
+        "runtime_package": {
+          "const": "higher-graphen-runtime"
+        },
+        "runtime_crate": {
+          "const": "higher_graphen_runtime"
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "input_schema",
+        "source_boundary",
+        "source",
+        "repository",
+        "change_set",
+        "changed_files",
+        "lifted_structure"
+      ],
+      "properties": {
+        "input_schema": {
+          "const": "highergraphen.test_gap.input.v1"
+        },
+        "source_boundary": {
+          "type": "object",
+          "required": [
+            "repository_id",
+            "change_set_id",
+            "coverage_dimensions",
+            "information_loss"
+          ],
+          "properties": {
+            "repository_id": {
+              "$ref": "#/$defs/id"
+            },
+            "change_set_id": {
+              "$ref": "#/$defs/id"
+            },
+            "coverage_dimensions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "line",
+                  "branch",
+                  "function",
+                  "condition",
+                  "mutation"
+                ]
+              }
+            },
+            "information_loss": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "source": {
+          "type": "object"
+        },
+        "repository": {
+          "type": "object"
+        },
+        "change_set": {
+          "type": "object"
+        },
+        "changed_files": {
+          "type": "array",
+          "minItems": 1
+        },
+        "lifted_structure": {
+          "type": "object",
+          "required": [
+            "space",
+            "structural_summary",
+            "contexts",
+            "cells"
+          ]
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "accepted_fact_ids",
+        "evaluated_invariant_ids",
+        "morphism_summaries",
+        "obstructions",
+        "completion_candidates",
+        "source_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "gaps_detected",
+            "no_gaps_in_snapshot",
+            "unsupported_input"
+          ]
+        },
+        "accepted_fact_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "evaluated_invariant_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "morphism_summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "morphism_type",
+              "preservation_status",
+              "review_status"
+            ]
+          }
+        },
+        "obstructions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/obstruction"
+          }
+        },
+        "completion_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/completion_candidate"
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "obstruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "obstruction_type",
+        "title",
+        "target_ids",
+        "witness",
+        "invariant_ids",
+        "evidence_ids",
+        "severity",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "obstruction_type": {
+          "enum": [
+            "missing_requirement_verification",
+            "missing_public_behavior_unit_test",
+            "missing_branch_unit_test",
+            "missing_boundary_case_unit_test",
+            "missing_error_case_unit_test",
+            "missing_regression_test",
+            "stale_or_mismatched_test_mapping",
+            "insufficient_test_evidence",
+            "projection_information_loss_missing"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "witness": true,
+        "invariant_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "evidence_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "completion_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_type",
+        "missing_type",
+        "target_ids",
+        "obstruction_ids",
+        "suggested_test_shape",
+        "rationale",
+        "provenance",
+        "severity",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_type": {
+          "const": "missing_test"
+        },
+        "missing_type": {
+          "const": "unit_test"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "obstruction_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "suggested_test_shape": {
+          "type": "object",
+          "required": [
+            "test_name",
+            "test_kind",
+            "setup",
+            "inputs",
+            "expected_behavior",
+            "assertions"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "source_ids",
+            "extraction_method"
+          ],
+          "properties": {
+            "source_ids": {
+              "$ref": "#/$defs/id_array"
+            },
+            "extraction_method": {
+              "const": "test_gap_detect.v1"
+            }
+          }
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "human_review",
+        "ai_view",
+        "audit_trace",
+        "information_loss",
+        "source_ids"
+      ],
+      "properties": {
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "minItems": 1
+        },
+        "human_review": {
+          "type": "object",
+          "required": [
+            "source_ids",
+            "information_loss"
+          ]
+        },
+        "ai_view": {
+          "type": "object",
+          "required": [
+            "source_ids",
+            "information_loss"
+          ]
+        },
+        "audit_trace": {
+          "type": "object",
+          "required": [
+            "source_ids",
+            "information_loss"
+          ]
+        }
+      }
+    }
+  }
+}
