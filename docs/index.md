@@ -68,6 +68,7 @@ The original proposal remains available as source material:
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |
 | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
 | [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md) | Defines the bounded PR review target input and report contract, including unreviewed AI target semantics and projection records. |
+| [`specs/test-gap-detector.md`](specs/test-gap-detector.md) | Defines the pre-implementation contract for a bounded missing unit test detector, including structural lift, invariants, obstructions, completion candidates, and projections. |
 | [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for `highergraphen` runtime workflows, including PR review target recommendation. |
 | [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using HigherGraphen report contracts, including PR review target reports. |
 | [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md) | Provides the repository-owned release preparation, verification, packaging, and publication workflow. |
