@@ -4,6 +4,7 @@ pub mod error;
 mod feed_reports;
 mod pr_review_reports;
 pub mod reports;
+mod semantic_proof_reports;
 mod test_gap_reports;
 pub mod workflows;
 
@@ -52,6 +53,13 @@ pub use reports::{
     HumanReviewProjectionView, ProjectionAudience, ProjectionPurpose, ProjectionTrace,
     ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
+pub use semantic_proof_reports::{
+    SemanticProofCell, SemanticProofCertificate, SemanticProofCounterexample,
+    SemanticProofInputDocument, SemanticProofIssue, SemanticProofLaw, SemanticProofMorphism,
+    SemanticProofObject, SemanticProofReport, SemanticProofResult, SemanticProofScenario,
+    SemanticProofSource, SemanticProofStatus, SemanticProofTheorem,
+    SemanticProofVerificationPolicy,
+};
 pub use test_gap_reports::{
     TestGapBranchType, TestGapCandidateProvenance, TestGapChangeSet, TestGapChangeType,
     TestGapCompletionCandidate, TestGapContextType, TestGapCounterexample, TestGapCoverageStatus,
@@ -75,5 +83,6 @@ pub use test_gap_reports::{
 };
 pub use workflows::{
     architecture::{run_architecture_direct_db_access_smoke, run_architecture_input_lift},
-    run_completion_review, run_feed_reader, run_pr_review_target_recommend, run_test_gap_detect,
+    run_completion_review, run_feed_reader, run_pr_review_target_recommend,
+    run_semantic_proof_verify, run_test_gap_detect,
 };

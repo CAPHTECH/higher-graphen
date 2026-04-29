@@ -15,6 +15,7 @@ const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
 const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
+const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
@@ -344,6 +345,37 @@ fn test_gap_detect_writes_output_file_without_stdout() {
     assert_eq!(value["projection"]["purpose"], json!("test_gap_detection"));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_verify_reads_fixture_and_writes_one_json_report_to_stdout() {
+    let fixture = semantic_proof_fixture();
+    let output = run_cli(&[
+        "semantic-proof",
+        "verify",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let stdout = stdout(&output);
+    assert_eq!(stdout.lines().count(), 1);
+    let value: Value = serde_json::from_str(stdout.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(SEMANTIC_PROOF_REPORT_SCHEMA));
+    assert_eq!(value["result"]["status"], json!("proved"));
+    assert!(value["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["certificate_ids"]
+            .as_array()
+            .is_some_and(
+                |certificate_ids| certificate_ids.contains(&json!("certificate:semantic:pricing"))
+            )));
 }
 
 #[test]
@@ -1255,6 +1287,12 @@ fn test_gap_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/test-gap.input.example.json")
+}
+
+fn semantic_proof_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/inputs/semantic-proof.input.example.json")
 }
 
 fn write_smoke_report(directory: &std::path::Path) -> PathBuf {

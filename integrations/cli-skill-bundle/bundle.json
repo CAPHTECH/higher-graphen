@@ -18,6 +18,8 @@
     "test_gap_input_from_git_cargo_command": "cargo run -q -p highergraphen-cli -- test-gap input from-git --base main --head HEAD --format json --output test-gap.input.json",
     "test_gap_command": "highergraphen test-gap detect --input schemas/inputs/test-gap.input.example.json --format json",
     "test_gap_cargo_command": "cargo run -q -p highergraphen-cli -- test-gap detect --input schemas/inputs/test-gap.input.example.json --format json",
+    "semantic_proof_command": "highergraphen semantic-proof verify --input schemas/inputs/semantic-proof.input.example.json --format json",
+    "semantic_proof_cargo_command": "cargo run -q -p highergraphen-cli -- semantic-proof verify --input schemas/inputs/semantic-proof.input.example.json --format json",
     "casegraphen_workflow_command": "casegraphen workflow reason --input workflow.graph.json --format json",
     "casegraphen_workflow_cargo_command": "cargo run -q -p casegraphen -- workflow reason --input schemas/casegraphen/workflow.graph.example.json --format json",
     "casegraphen_workflow_focused_commands": [

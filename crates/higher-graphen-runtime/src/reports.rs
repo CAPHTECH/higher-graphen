@@ -97,6 +97,17 @@ impl ReportMetadata {
             cli_package: "highergraphen-cli".to_owned(),
         }
     }
+
+    /// Creates metadata for semantic proof certificate verification.
+    #[must_use]
+    pub fn semantic_proof_verify() -> Self {
+        Self {
+            command: "highergraphen semantic-proof verify".to_owned(),
+            runtime_package: "higher-graphen-runtime".to_owned(),
+            runtime_crate: "higher_graphen_runtime".to_owned(),
+            cli_package: "highergraphen-cli".to_owned(),
+        }
+    }
 }
 
 /// Architecture smoke workflow report envelope.

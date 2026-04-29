@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.semantic_proof.report.v1",
+  "title": "HigherGraphen Semantic Proof Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": { "const": "highergraphen.semantic_proof.report.v1" },
+    "report_type": { "const": "semantic_proof" },
+    "report_version": { "const": 1 },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "scenario": { "$ref": "#/$defs/scenario" },
+    "result": { "$ref": "#/$defs/result" },
+    "projection": { "type": "object" }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "runtime_package", "runtime_crate", "cli_package"],
+      "properties": {
+        "command": { "const": "highergraphen semantic-proof verify" },
+        "runtime_package": { "const": "higher-graphen-runtime" },
+        "runtime_crate": { "const": "higher_graphen_runtime" },
+        "cli_package": { "const": "highergraphen-cli" }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": [
+        "input_schema",
+        "source",
+        "theorem",
+        "verification_policy"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status",
+        "accepted_certificate_ids",
+        "proof_objects",
+        "source_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["proved", "counterexample_found", "insufficient_proof"]
+        },
+        "accepted_certificate_ids": { "$ref": "#/$defs/id_array" },
+        "rejected_certificate_ids": { "$ref": "#/$defs/id_array" },
+        "proof_objects": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "counterexamples": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "issues": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "source_ids": { "$ref": "#/$defs/id_array" }
+      }
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+\\-]*$"
+      }
+    }
+  }
+}

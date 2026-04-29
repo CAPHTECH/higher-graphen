@@ -143,6 +143,16 @@ cargo run -q -p highergraphen-cli -- \
   --output test-gap.report.json
 ```
 
+Verify a semantic proof certificate bundle:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  semantic-proof verify \
+  --input schemas/inputs/semantic-proof.input.example.json \
+  --format json \
+  --output semantic-proof.report.json
+```
+
 Validate all checked-in schema-bearing fixtures:
 
 ```sh
@@ -161,8 +171,10 @@ Run focused test-gap runtime and CLI coverage:
 
 ```sh
 cargo test -p higher-graphen-runtime --test test_gap
+cargo test -p higher-graphen-runtime --test semantic_proof
 cargo test -p highergraphen-cli test_gap_input_from_git
 cargo test -p highergraphen-cli test_gap_detect
+cargo test -p highergraphen-cli semantic_proof
 ```
 
 ## Interpretation Rules
@@ -215,6 +227,10 @@ cargo test -p highergraphen-cli test_gap_detect
   JSON Schema semantic cells, semantic delta morphisms, incidence, and
   `requirement:morphism:*` records as the primary high-order verification
   structure.
+- For `highergraphen semantic-proof verify`, treat accepted proof certificates
+  as formal verification cells only inside the bounded certificate snapshot and
+  verification policy. The command checks certificate references and policy; it
+  does not run Kani, Prusti, SMT, MIR extraction, or symbolic execution itself.
 - Treat test-gap statuses such as `gaps_detected` and
   `no_gaps_in_snapshot` as successful report data. `no_gaps_in_snapshot` is
   bounded to the supplied snapshot and is not global proof that the repository
@@ -247,8 +263,8 @@ When reporting results to a user, include:
 - Projection information loss for human, AI-agent, and audit views when
   present.
 - Any unsupported scope the user requested, especially full repository
-  crawling, semantic coverage inference, candidate acceptance, MCP, plugin
-  packaging, or marketplace work.
+  crawling, external proof backend execution, semantic coverage inference,
+  candidate acceptance, MCP, plugin packaging, or marketplace work.
 
 ## Safety Rules
 
@@ -265,6 +281,8 @@ When reporting results to a user, include:
 - Do not claim `highergraphen test-gap input from-git` executes tests, crawls
   the full repository, proves typed semantic equivalence, or proves complete
   behavior coverage.
+- Do not claim `highergraphen semantic-proof verify` runs external proof
+  backends. It verifies supplied proof certificates and counterexamples.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user

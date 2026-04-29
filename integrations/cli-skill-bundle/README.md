@@ -84,6 +84,18 @@ Rust AST and JSON Schema semantic cells, semantic delta morphisms, incidence,
 and `requirement:morphism:*` records so tests verify structure instead of
 isolated files.
 
+The bounded semantic proof certificate command is:
+
+```sh
+highergraphen semantic-proof verify \
+  --input schemas/inputs/semantic-proof.input.example.json \
+  --format json
+```
+
+`semantic-proof verify` validates supplied proof certificates and
+counterexamples against theorem, law, morphism, backend, hash, and review
+policy. External proof backend execution happens before this command.
+
 The stable CaseGraphen workflow reasoning command is:
 
 ```sh

@@ -141,6 +141,20 @@ candidates remain `review_status: "unreviewed"` until a later explicit review
 workflow accepts or rejects them.
 
 ```sh
+highergraphen semantic-proof verify --input <path> --format json [--output <path>]
+```
+
+This command verifies a bounded `highergraphen.semantic_proof.input.v1`
+certificate bundle. It is the HG-facing layer for formal verification
+backends: Kani, Prusti, Creusot, SMT, symbolic execution, model checking, or
+property-test adapters can emit proof certificates or counterexamples, and this
+workflow validates their references and verification policy before emitting
+`proof_objects`, `counterexamples`, and issues. It does not itself run rustc
+MIR extraction, SMT solving, model checking, or symbolic execution; those
+backend runs occur before the bounded input is supplied. The report preserves
+that boundary as projection information loss.
+
+```sh
 highergraphen completion review accept \
   --input <path> \
   --candidate <id> \
@@ -178,6 +192,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
+| `--input <path>` | For `semantic-proof verify` | Reads the bounded semantic proof certificate snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
 | `--reviewer <id>` | For `completion review` | Records the explicit reviewer or workflow identifier. |
@@ -314,6 +329,15 @@ Write a test-gap report to a file:
   --input test-gap.input.json \
   --format json \
   --output test-gap.report.json
+```
+
+Verify a semantic proof certificate bundle:
+
+```sh
+./target/debug/highergraphen semantic-proof verify \
+  --input schemas/inputs/semantic-proof.input.example.json \
+  --format json \
+  --output semantic-proof.report.json
 ```
 
 Accept a completion candidate from a generated report:
@@ -549,6 +573,10 @@ Consumers must preserve these semantics:
   evidence. For HigherGraphen-owned test-gap surfaces it also supplies parsed
   base/head Rust AST and JSON Schema semantic delta morphisms, but it does not
   prove typed semantic equivalence or full behavior coverage.
+- The semantic-proof path consumes bounded proof certificate snapshots. It
+  checks theorem/law/morphism/certificate/counterexample references and
+  certificate policy, then emits accepted `proof_objects` or unreviewed issues.
+  It does not execute the external proof backend.
 - Test-gap accepted facts are limited to the supplied snapshot. Domain findings
   such as missing-test obstructions, insufficient evidence, `gaps_detected`,
   and `no_gaps_in_snapshot` are successful report data, not CLI failures.
@@ -576,8 +604,8 @@ When an agent reports a test-gap result, include:
   provenance/source IDs, and `review_status`;
 - projection `information_loss` from human, AI, and audit views when present;
 - unsupported or deferred scope, especially full repository crawling, generated
-  test acceptance, typed semantic equivalence, or global proof of complete
-  tests.
+  test acceptance, external proof backend execution, typed semantic equivalence
+  beyond supplied certificates, or global proof of complete tests.
 
 ## Unsupported Usage
 
@@ -603,4 +631,5 @@ These are intentionally unsupported in the current CLI:
 - Additional `highergraphen` subcommands beyond `architecture smoke
   direct-db-access`, `architecture input lift`, `feed reader run`,
   `pr-review input from-git`, `pr-review targets recommend`, `test-gap
-  input from-git`, `test-gap detect`, and `completion review`.
+  input from-git`, `test-gap detect`, `semantic-proof verify`, and
+  `completion review`.

@@ -1,0 +1,71 @@
+{
+  "schema": "highergraphen.semantic_proof.input.v1",
+  "source": {
+    "kind": "code",
+    "uri": "git:fixture",
+    "title": "semantic proof fixture",
+    "confidence": 1.0,
+    "adapters": ["semantic-proof-fixture.v1"]
+  },
+  "theorem": {
+    "id": "theorem:semantic:pricing",
+    "summary": "Pricing typed signature is preserved.",
+    "law_ids": ["law:semantic:signature-preserved"],
+    "morphism_ids": ["morphism:semantic:pricing-signature"]
+  },
+  "semantic_cells": [
+    {
+      "id": "cell:semantic:pricing:base",
+      "cell_type": "mir_function",
+      "label": "base calculate_discount MIR",
+      "confidence": 0.9
+    },
+    {
+      "id": "cell:semantic:pricing:head",
+      "cell_type": "mir_function",
+      "label": "head calculate_discount MIR",
+      "confidence": 0.9
+    }
+  ],
+  "morphisms": [
+    {
+      "id": "morphism:semantic:pricing-signature",
+      "morphism_type": "typed_signature_preservation",
+      "source_ids": ["cell:semantic:pricing:base"],
+      "target_ids": ["cell:semantic:pricing:head"],
+      "law_ids": ["law:semantic:signature-preserved"],
+      "confidence": 0.86
+    }
+  ],
+  "laws": [
+    {
+      "id": "law:semantic:signature-preserved",
+      "summary": "Public typed signature is preserved.",
+      "applies_to_ids": ["morphism:semantic:pricing-signature"],
+      "confidence": 0.88
+    }
+  ],
+  "proof_certificates": [
+    {
+      "id": "certificate:semantic:pricing",
+      "certificate_type": "formal_proof",
+      "backend": "kani",
+      "backend_version": "1.0.0",
+      "theorem_id": "theorem:semantic:pricing",
+      "law_ids": ["law:semantic:signature-preserved"],
+      "morphism_ids": ["morphism:semantic:pricing-signature"],
+      "witness_ids": ["cell:semantic:pricing:base", "cell:semantic:pricing:head"],
+      "input_hash": "sha256:input",
+      "proof_hash": "sha256:proof",
+      "confidence": 0.91,
+      "review_status": "accepted"
+    }
+  ],
+  "counterexamples": [],
+  "verification_policy": {
+    "accepted_backends": ["kani", "prusti"],
+    "require_input_hash": true,
+    "require_proof_hash": true,
+    "require_accepted_review": true
+  }
+}
