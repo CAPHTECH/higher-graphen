@@ -129,6 +129,15 @@ preservation, addition, and deletion at the parsed AST/schema level; typed
 MIR-level equivalence and full behavior proofs remain explicit information
 loss.
 
+For changed Rust test files, the adapter also parses test bodies and lifts
+test functions, assertions, observed CLI invocations, and observed JSON fields
+as semantic evidence cells. Those cells can create
+`rust_test_content_evidence` morphisms to the law or morphism that the test
+body names, such as a `test-gap input from-path` command or the test-gap input
+schema ID. This makes the detector distinguish content-backed verification
+from path-only test-file presence, while still avoiding test execution or
+unbounded proof of behavioral equivalence.
+
 For HigherGraphen semantic-proof artifact adapter changes, the adapter lifts
 the change into theorem/law/morphism structure rather than leaving helper
 functions as isolated obligations. It creates semantic-proof artifact adapter
@@ -158,6 +167,9 @@ become `head` semantic cells, and path-only semantic additions become explicit
 morphisms. It is useful for broad folder or file audits when no meaningful git
 range exists, but it remains a bounded snapshot: it does not execute tests,
 prove full behavior equivalence, or accept generated candidates.
+When selected Rust tests are present directly or through `--include-tests`,
+their test functions, assertions, CLI observations, and JSON observations are
+also lifted into content-backed verification evidence.
 
 ```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]

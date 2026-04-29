@@ -1310,6 +1310,43 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
 }
 
 #[test]
+fn test_gap_input_from_git_maps_rust_test_content_to_laws_and_morphisms() {
+    let repository = write_test_gap_content_mapping_git_fixture();
+    let output = run_cli(&[
+        "test-gap",
+        "input",
+        "from-git",
+        "--repo",
+        repository.to_str().expect("repo path should be utf-8"),
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+
+    assert_rust_test_content_mapping(
+        &value,
+        "highergraphen test-gap input from-git",
+        "morphism:test-gap:input-from-git-to-input-schema",
+        "law:test-gap:input-from-git-is-deterministic",
+    );
+    assert_test_gap_detector_proves_content_target(
+        &value,
+        "morphism:test-gap:input-from-git-to-input-schema",
+        "law:test-gap:input-from-git-is-deterministic",
+    );
+
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
 fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
     let repository = write_semantic_proof_structural_git_fixture();
     let output = run_cli(&[
@@ -1603,6 +1640,49 @@ fn test_gap_input_from_path_emits_current_tree_snapshot_and_feeds_detector() {
             )));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
+fn test_gap_input_from_path_maps_rust_test_content_to_laws_and_morphisms() {
+    let repository = write_test_gap_content_mapping_git_fixture();
+    let output = run_cli_owned(&[
+        "test-gap".to_owned(),
+        "input".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/main.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_gap_git.rs".to_owned(),
+        "--path".to_owned(),
+        "schemas/inputs/test-gap.input.schema.json".to_owned(),
+        "--include-tests".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+
+    assert_rust_test_content_mapping(
+        &value,
+        "highergraphen test-gap input from-path",
+        "morphism:test-gap:input-from-path-to-input-schema",
+        "law:test-gap:input-from-path-is-deterministic",
+    );
+    assert_test_gap_detector_proves_content_target(
+        &value,
+        "morphism:test-gap:input-from-path-to-input-schema",
+        "law:test-gap:input-from-path-is-deterministic",
+    );
+
     fs::remove_dir_all(repository).expect("remove temp test repository");
 }
 
@@ -2097,6 +2177,127 @@ fn unsupported_command_exits_nonzero() {
     assert!(stderr(&output).contains("unsupported command segment"));
 }
 
+fn assert_rust_test_content_mapping(
+    value: &Value,
+    expected_cli_label: &str,
+    expected_morphism_id: &str,
+    expected_law_id: &str,
+) {
+    let cells = value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells");
+    assert!(cells
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("rust_test_function")));
+    assert!(cells
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("rust_test_assertion")));
+    assert!(cells.iter().any(|cell| {
+        cell["cell_type"] == json!("rust_test_cli_invocation")
+            && cell["label"]
+                .as_str()
+                .expect("CLI observation label")
+                .contains(expected_cli_label)
+    }));
+    assert!(cells.iter().any(
+        |cell| cell["cell_type"] == json!("rust_test_json_observation")
+            && cell["label"]
+                .as_str()
+                .expect("JSON observation label")
+                .contains("highergraphen.test_gap.input.v1")
+    ));
+
+    let incidences = value["higher_order_incidences"]
+        .as_array()
+        .expect("higher order incidences");
+    assert!(incidences
+        .iter()
+        .any(|incidence| incidence["relation_type"] == json!("observes_cli_invocation")));
+    assert!(incidences
+        .iter()
+        .any(|incidence| incidence["relation_type"] == json!("observes_json_contract")));
+
+    assert!(value["tests"]
+        .as_array()
+        .expect("tests")
+        .iter()
+        .any(|test| {
+            test["file_id"] == json!("file:tools-highergraphen-cli-tests-content-mapping-rs")
+                && test["target_ids"]
+                    .as_array()
+                    .expect("target ids")
+                    .contains(&json!(expected_morphism_id))
+                && test["target_ids"]
+                    .as_array()
+                    .expect("target ids")
+                    .contains(&json!(expected_law_id))
+        }));
+    assert!(value["verification_cells"]
+        .as_array()
+        .expect("verification cells")
+        .iter()
+        .any(|verification| verification["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids.contains(&json!(expected_morphism_id)))
+            && verification["law_ids"]
+                .as_array()
+                .is_some_and(|law_ids| law_ids.contains(&json!(expected_law_id)))));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(
+            |morphism| morphism["morphism_type"] == json!("rust_test_content_evidence")
+                && morphism["target_ids"]
+                    .as_array()
+                    .expect("target ids")
+                    .contains(&json!(expected_morphism_id))
+        ));
+}
+
+fn assert_test_gap_detector_proves_content_target(
+    input_value: &Value,
+    expected_morphism_id: &str,
+    expected_law_id: &str,
+) {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-gap-content.input.json");
+    fs::write(
+        &input_path,
+        serde_json::to_string(input_value).expect("serialize content input"),
+    )
+    .expect("write content input");
+
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        input_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    let report: Value =
+        serde_json::from_str(stdout(&report_output).trim_end()).expect("stdout should be JSON");
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids.contains(&json!(expected_morphism_id)))
+            && proof["law_ids"]
+                .as_array()
+                .is_some_and(|law_ids| law_ids.contains(&json!(expected_law_id)))));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
 fn run_cli(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_highergraphen"))
         .args(args)
@@ -2403,6 +2604,91 @@ fn write_test_gap_structural_git_fixture() -> PathBuf {
     run_git(
         &repository,
         &["commit", "-m", "add structural test-gap surface"],
+    );
+
+    repository
+}
+
+fn write_test_gap_content_mapping_git_fixture() -> PathBuf {
+    let repository = unique_temp_dir();
+    fs::create_dir_all(&repository).expect("create temp git repository");
+    run_git(&repository, &["init"]);
+    run_git(
+        &repository,
+        &["config", "user.email", "test@example.invalid"],
+    );
+    run_git(&repository, &["config", "user.name", "Test User"]);
+
+    fs::write(repository.join("README.md"), "# fixture\n").expect("write base file");
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_test_gap_input_from_git() {}\n",
+    );
+    run_git(&repository, &["add", "."]);
+    run_git(&repository, &["commit", "-m", "base"]);
+
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_test_gap_input_from_git() {}\nfn parse_test_gap_input_from_path() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_gap_git.rs",
+        "pub(crate) fn input_from_git() {}\npub(crate) fn input_from_path() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/inputs/test-gap.input.schema.json",
+        "{\"$id\":\"highergraphen.test_gap.input.v1\",\"type\":\"object\",\"properties\":{\"schema\":{\"const\":\"highergraphen.test_gap.input.v1\"}}}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/tests/content_mapping.rs",
+        r#"use serde_json::json;
+
+#[test]
+fn from_git_observes_input_schema_morphism_by_content() {
+    let output = run_cli(&["test-gap", "input", "from-git", "--format", "json"]);
+    assert!(output.status.success());
+    let value = json!({
+        "schema": "highergraphen.test_gap.input.v1",
+        "morphisms": [
+            {"id": "morphism:test-gap:input-from-git-to-input-schema"}
+        ],
+        "laws": [
+            {"id": "law:test-gap:input-from-git-is-deterministic"}
+        ]
+    });
+    assert_eq!(value["schema"], json!("highergraphen.test_gap.input.v1"));
+    assert_eq!(value["morphisms"][0]["id"], json!("morphism:test-gap:input-from-git-to-input-schema"));
+    assert_eq!(value["laws"][0]["id"], json!("law:test-gap:input-from-git-is-deterministic"));
+}
+
+#[test]
+fn from_path_observes_input_schema_morphism_by_content() {
+    let output = run_cli(&["test-gap", "input", "from-path", "--include-tests", "--format", "json"]);
+    assert!(output.status.success());
+    let value = json!({
+        "schema": "highergraphen.test_gap.input.v1",
+        "morphisms": [
+            {"id": "morphism:test-gap:input-from-path-to-input-schema"}
+        ],
+        "laws": [
+            {"id": "law:test-gap:input-from-path-is-deterministic"}
+        ]
+    });
+    assert_eq!(value["schema"], json!("highergraphen.test_gap.input.v1"));
+    assert_eq!(value["morphisms"][0]["id"], json!("morphism:test-gap:input-from-path-to-input-schema"));
+    assert_eq!(value["laws"][0]["id"], json!("law:test-gap:input-from-path-is-deterministic"));
+}
+"#,
+    );
+    run_git(&repository, &["add", "."]);
+    run_git(
+        &repository,
+        &["commit", "-m", "add content mapped test-gap tests"],
     );
 
     repository

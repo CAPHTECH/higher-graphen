@@ -66,8 +66,17 @@ pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDoc
         &changes,
         &diff_evidence_id,
     )?);
+    let test_content = rust_test_content_model_for_changes(
+        &metadata.repo_path,
+        &request.head,
+        &changes,
+        &structural,
+        &diff_evidence_id,
+    )?;
+    let content_test_targets = test_content.target_ids_by_file;
+    structural.extend(test_content.structural);
     symbols.extend(structural.symbols.clone());
-    let tests = tests_for_changes(&changes, &symbols, &diff_evidence_id)?;
+    let tests = tests_for_changes(&changes, &symbols, &content_test_targets, &diff_evidence_id)?;
     let accepted_test_kinds = accepted_test_kinds_for_tests(&tests);
     let mut requirements =
         requirements_for_symbols(&symbols, &diff_evidence_id, &accepted_test_kinds)?;
@@ -192,8 +201,16 @@ pub(crate) fn input_from_path(request: PathInputRequest) -> Result<TestGapInputD
         &changes,
         &diff_evidence_id,
     )?);
+    let test_content = rust_test_content_model_for_paths(
+        &metadata.repo_path,
+        &changes,
+        &structural,
+        &diff_evidence_id,
+    )?;
+    let content_test_targets = test_content.target_ids_by_file;
+    structural.extend(test_content.structural);
     symbols.extend(structural.symbols.clone());
-    let tests = tests_for_changes(&changes, &symbols, &diff_evidence_id)?;
+    let tests = tests_for_changes(&changes, &symbols, &content_test_targets, &diff_evidence_id)?;
     let accepted_test_kinds = accepted_test_kinds_for_tests(&tests);
     let mut requirements =
         requirements_for_symbols(&symbols, &diff_evidence_id, &accepted_test_kinds)?;
@@ -1675,6 +1692,63 @@ fn semantic_model_for_paths(
     Ok(model)
 }
 
+fn rust_test_content_model_for_changes(
+    repo: &Path,
+    head_ref: &str,
+    changes: &[GitChange],
+    target_model: &StructuralModel,
+    diff_evidence_id: &Id,
+) -> Result<RustTestContentModel, String> {
+    let mut content_model = RustTestContentModel::default();
+    for change in changes {
+        if !is_rust_test_path(&change.path)
+            || change.change_type == PrReviewTargetChangeType::Deleted
+        {
+            continue;
+        }
+        if let Some(contents) = git_show_file(repo, head_ref, &change.path) {
+            push_rust_test_content_cells(
+                &mut content_model,
+                target_model,
+                change,
+                SemanticRevision::Head,
+                &change.path,
+                &contents,
+                diff_evidence_id,
+            )?;
+        }
+    }
+    Ok(content_model)
+}
+
+fn rust_test_content_model_for_paths(
+    repo: &Path,
+    changes: &[GitChange],
+    target_model: &StructuralModel,
+    diff_evidence_id: &Id,
+) -> Result<RustTestContentModel, String> {
+    let mut content_model = RustTestContentModel::default();
+    for change in changes {
+        if !is_rust_test_path(&change.path) {
+            continue;
+        }
+        let path = repo.join(&change.path);
+        let Ok(contents) = fs::read_to_string(&path) else {
+            continue;
+        };
+        push_rust_test_content_cells(
+            &mut content_model,
+            target_model,
+            change,
+            SemanticRevision::Head,
+            &change.path,
+            &contents,
+            diff_evidence_id,
+        )?;
+    }
+    Ok(content_model)
+}
+
 fn git_show_file(repo: &Path, rev: &str, path: &str) -> Option<String> {
     let rev_path = format!("{rev}:{path}");
     optional_git(repo, &["show", &rev_path])
@@ -1700,6 +1774,512 @@ struct SemanticCell {
     id: Id,
     key: String,
     cell_type: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct RustTestContentModel {
+    structural: StructuralModel,
+    target_ids_by_file: BTreeMap<String, Vec<Id>>,
+}
+
+fn push_rust_test_content_cells(
+    content_model: &mut RustTestContentModel,
+    target_model: &StructuralModel,
+    change: &GitChange,
+    revision: SemanticRevision,
+    source_path: &str,
+    contents: &str,
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
+    let Ok(file) = syn::parse_file(contents) else {
+        return Ok(());
+    };
+    let file_cell_id = id(format!(
+        "semantic:rust-test:file:{}:{}",
+        slug(&change.path),
+        revision.as_str()
+    ))?;
+    push_higher_order_cell(
+        &mut content_model.structural,
+        file_cell_id.clone(),
+        "rust_test_file_revision",
+        format!(
+            "Rust test file {} at {} from {}",
+            change.path,
+            revision.as_str(),
+            source_path
+        ),
+        0,
+        change,
+        diff_evidence_id,
+        0.74,
+    )?;
+
+    for item in &file.items {
+        let syn::Item::Fn(item_fn) = item else {
+            continue;
+        };
+        if !has_rust_test_attribute(&item_fn.attrs) {
+            continue;
+        }
+
+        let function_slug = slug(&item_fn.sig.ident.to_string());
+        let function_id = id(format!(
+            "semantic:rust-test:function:{}:{}:{}",
+            slug(&change.path),
+            revision.as_str(),
+            function_slug
+        ))?;
+        push_higher_order_cell(
+            &mut content_model.structural,
+            function_id.clone(),
+            "rust_test_function",
+            format!("Rust test function {}", item_fn.sig.ident),
+            0,
+            change,
+            diff_evidence_id,
+            0.76,
+        )?;
+        push_higher_order_incidence(
+            &mut content_model.structural,
+            format!(
+                "incidence:semantic:rust-test:file-contains-test:{}:{}:{}",
+                slug(&change.path),
+                revision.as_str(),
+                function_slug
+            ),
+            file_cell_id.clone(),
+            function_id.clone(),
+            "contains_test_function",
+            diff_evidence_id,
+            0.76,
+        )?;
+
+        let mut visitor = RustTestContentVisitor::default();
+        visitor.visit_block(&item_fn.block);
+
+        let mut evidence_cell_ids = vec![function_id.clone()];
+        for (index, macro_name) in visitor.assertion_macros.iter().enumerate() {
+            let assertion_number = index + 1;
+            let assertion_id = id(format!(
+                "semantic:rust-test:assertion:{}:{}:{}:{}",
+                slug(&change.path),
+                revision.as_str(),
+                function_slug,
+                assertion_number
+            ))?;
+            push_higher_order_cell(
+                &mut content_model.structural,
+                assertion_id.clone(),
+                "rust_test_assertion",
+                format!("Rust test assertion {macro_name}! in {}", item_fn.sig.ident),
+                0,
+                change,
+                diff_evidence_id,
+                0.72,
+            )?;
+            push_higher_order_incidence(
+                &mut content_model.structural,
+                format!(
+                    "incidence:semantic:rust-test:test-contains-assertion:{}:{}:{}:{}",
+                    slug(&change.path),
+                    revision.as_str(),
+                    function_slug,
+                    assertion_number
+                ),
+                function_id.clone(),
+                assertion_id.clone(),
+                "contains_assertion",
+                diff_evidence_id,
+                0.72,
+            )?;
+            evidence_cell_ids.push(assertion_id);
+        }
+
+        for observation in rust_test_cli_observations(&visitor.string_literals) {
+            let cli_id = id(format!(
+                "semantic:rust-test:cli-invocation:{}:{}:{}:{}",
+                slug(&change.path),
+                revision.as_str(),
+                function_slug,
+                slug(&observation)
+            ))?;
+            push_higher_order_cell(
+                &mut content_model.structural,
+                cli_id.clone(),
+                "rust_test_cli_invocation",
+                format!("Rust test observes CLI invocation {observation}"),
+                0,
+                change,
+                diff_evidence_id,
+                0.74,
+            )?;
+            push_higher_order_incidence(
+                &mut content_model.structural,
+                format!(
+                    "incidence:semantic:rust-test:test-observes-cli:{}:{}:{}:{}",
+                    slug(&change.path),
+                    revision.as_str(),
+                    function_slug,
+                    slug(&observation)
+                ),
+                function_id.clone(),
+                cli_id.clone(),
+                "observes_cli_invocation",
+                diff_evidence_id,
+                0.74,
+            )?;
+            evidence_cell_ids.push(cli_id);
+        }
+
+        for observation in rust_test_json_observations(&visitor.string_literals) {
+            let observation_id = id(format!(
+                "semantic:rust-test:json-observation:{}:{}:{}:{}",
+                slug(&change.path),
+                revision.as_str(),
+                function_slug,
+                slug(&observation)
+            ))?;
+            push_higher_order_cell(
+                &mut content_model.structural,
+                observation_id.clone(),
+                "rust_test_json_observation",
+                format!("Rust test observes JSON {observation}"),
+                0,
+                change,
+                diff_evidence_id,
+                0.74,
+            )?;
+            push_higher_order_incidence(
+                &mut content_model.structural,
+                format!(
+                    "incidence:semantic:rust-test:test-observes-json:{}:{}:{}:{}",
+                    slug(&change.path),
+                    revision.as_str(),
+                    function_slug,
+                    slug(&observation)
+                ),
+                function_id.clone(),
+                observation_id.clone(),
+                "observes_json_contract",
+                diff_evidence_id,
+                0.74,
+            )?;
+            evidence_cell_ids.push(observation_id);
+        }
+
+        let target_ids = rust_test_content_target_ids(target_model, &visitor.string_literals)?;
+        for target_id in target_ids {
+            push_unique_id(
+                content_model
+                    .target_ids_by_file
+                    .entry(change.path.clone())
+                    .or_default(),
+                target_id.clone(),
+            );
+            push_rust_test_content_morphism(
+                &mut content_model.structural,
+                target_model,
+                change,
+                &function_slug,
+                &evidence_cell_ids,
+                target_id,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn has_rust_test_attribute(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        let segments = attr
+            .path()
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>();
+        segments == ["test"] || segments == ["tokio", "test"] || segments == ["async_std", "test"]
+    })
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct RustTestContentVisitor {
+    assertion_macros: Vec<String>,
+    string_literals: BTreeSet<String>,
+}
+
+impl Visit<'_> for RustTestContentVisitor {
+    fn visit_expr_lit(&mut self, node: &syn::ExprLit) {
+        if let syn::Lit::Str(lit_str) = &node.lit {
+            self.string_literals.insert(lit_str.value());
+        }
+        syn::visit::visit_expr_lit(self, node);
+    }
+
+    fn visit_macro(&mut self, node: &syn::Macro) {
+        self.record_macro(node);
+        syn::visit::visit_macro(self, node);
+    }
+}
+
+impl RustTestContentVisitor {
+    fn record_macro(&mut self, node: &syn::Macro) {
+        let macro_name = node
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident.to_string())
+            .unwrap_or_default();
+        if matches!(
+            macro_name.as_str(),
+            "assert" | "assert_eq" | "assert_ne" | "assert_matches" | "matches"
+        ) {
+            self.assertion_macros.push(macro_name);
+        }
+        for literal in quoted_strings_from_token_text(&node.tokens.to_string()) {
+            self.string_literals.insert(literal);
+        }
+    }
+}
+
+fn quoted_strings_from_token_text(text: &str) -> Vec<String> {
+    let mut strings = Vec::new();
+    let mut chars = text.chars().peekable();
+    while let Some(character) = chars.next() {
+        if character != '"' {
+            continue;
+        }
+        let mut value = String::new();
+        let mut escaped = false;
+        for next in chars.by_ref() {
+            if escaped {
+                value.push(next);
+                escaped = false;
+                continue;
+            }
+            if next == '\\' {
+                escaped = true;
+                continue;
+            }
+            if next == '"' {
+                strings.push(value);
+                break;
+            }
+            value.push(next);
+        }
+    }
+    strings
+}
+
+fn rust_test_cli_observations(strings: &BTreeSet<String>) -> Vec<String> {
+    let mut observations = Vec::new();
+    if contains_all_strings(strings, &["test-gap", "input", "from-git"]) {
+        observations.push("highergraphen test-gap input from-git".to_owned());
+    }
+    if contains_all_strings(strings, &["test-gap", "input", "from-path"]) {
+        observations.push("highergraphen test-gap input from-path".to_owned());
+    }
+    if contains_all_strings(strings, &["test-gap", "detect"]) {
+        observations.push("highergraphen test-gap detect".to_owned());
+    }
+    observations
+}
+
+fn rust_test_json_observations(strings: &BTreeSet<String>) -> Vec<String> {
+    let mut observations = Vec::new();
+    for field in [
+        "schema",
+        "source",
+        "adapters",
+        "morphisms",
+        "laws",
+        "higher_order_cells",
+        "higher_order_incidences",
+        "detector_context",
+    ] {
+        if strings.contains(field) {
+            observations.push(format!("field:{field}"));
+        }
+    }
+    if strings.contains("highergraphen.test_gap.input.v1") {
+        observations.push("schema:highergraphen.test_gap.input.v1".to_owned());
+    }
+    observations
+}
+
+fn rust_test_content_target_ids(
+    target_model: &StructuralModel,
+    strings: &BTreeSet<String>,
+) -> Result<Vec<Id>, String> {
+    let mut target_ids = Vec::new();
+    for value in strings {
+        push_model_id_if_present(target_model, &mut target_ids, value)?;
+    }
+
+    if contains_all_strings(strings, &["test-gap", "input", "from-git"]) {
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "command:highergraphen:test-gap:input-from-git",
+        )?;
+        push_model_id_if_present(target_model, &mut target_ids, "adapter:test-gap:git-input")?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "morphism:test-gap:input-from-git-to-input-schema",
+        )?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:input-from-git-is-deterministic",
+        )?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+        )?;
+    }
+    if contains_all_strings(strings, &["test-gap", "input", "from-path"]) {
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "command:highergraphen:test-gap:input-from-path",
+        )?;
+        push_model_id_if_present(target_model, &mut target_ids, "adapter:test-gap:path-input")?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "morphism:test-gap:input-from-path-to-input-schema",
+        )?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:input-from-path-is-deterministic",
+        )?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:input-from-path-declares-snapshot-boundary",
+        )?;
+    }
+    if contains_all_strings(strings, &["test-gap", "detect"]) {
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "command:highergraphen:test-gap:detect",
+        )?;
+        push_model_id_if_present(target_model, &mut target_ids, "runner:test-gap:detect")?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "morphism:test-gap:command-detect-to-runner",
+        )?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:command-routes-to-runner",
+        )?;
+    }
+    if contains_all_strings(strings, &["--format", "json"]) {
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:json-format-required",
+        )?;
+    }
+    if strings.contains("highergraphen.test_gap.input.v1") || strings.contains("schema") {
+        push_model_id_if_present(target_model, &mut target_ids, "schema:test-gap:input")?;
+        push_model_id_if_present(
+            target_model,
+            &mut target_ids,
+            "law:test-gap:schema-id-preserved",
+        )?;
+    }
+    Ok(target_ids)
+}
+
+fn push_rust_test_content_morphism(
+    model: &mut StructuralModel,
+    target_model: &StructuralModel,
+    change: &GitChange,
+    function_slug: &str,
+    evidence_cell_ids: &[Id],
+    target_id: Id,
+) -> Result<(), String> {
+    let morphism_id = id(format!(
+        "morphism:test-gap:rust-test-content:{}:{}:{}",
+        slug(&change.path),
+        function_slug,
+        slug(target_id.as_str())
+    ))?;
+    if model
+        .morphisms
+        .iter()
+        .any(|morphism| morphism.id == morphism_id)
+    {
+        return Ok(());
+    }
+    let law_ids = law_ids_for_content_target(target_model, &target_id);
+    model.morphisms.push(TestGapInputMorphism {
+        id: morphism_id.clone(),
+        morphism_type: "rust_test_content_evidence".to_owned(),
+        source_ids: evidence_cell_ids.to_vec(),
+        target_ids: vec![target_id.clone()],
+        law_ids,
+        requirement_ids: Vec::new(),
+        expected_verification: None,
+        confidence: Some(confidence(0.68)?),
+    });
+    Ok(())
+}
+
+fn law_ids_for_content_target(target_model: &StructuralModel, target_id: &Id) -> Vec<Id> {
+    if target_model.laws.iter().any(|law| &law.id == target_id) {
+        return vec![target_id.clone()];
+    }
+    target_model
+        .morphisms
+        .iter()
+        .find(|morphism| &morphism.id == target_id)
+        .map(|morphism| morphism.law_ids.clone())
+        .unwrap_or_default()
+}
+
+fn contains_all_strings(strings: &BTreeSet<String>, expected: &[&str]) -> bool {
+    expected.iter().all(|value| strings.contains(*value))
+        || expected
+            .iter()
+            .all(|value| strings.iter().any(|string| string.contains(value)))
+}
+
+fn push_model_id_if_present(
+    target_model: &StructuralModel,
+    target_ids: &mut Vec<Id>,
+    candidate: &str,
+) -> Result<(), String> {
+    let Ok(candidate_id) = id(candidate) else {
+        return Ok(());
+    };
+    if model_contains_id(target_model, &candidate_id) {
+        push_unique_id(target_ids, candidate_id);
+    }
+    Ok(())
+}
+
+fn model_contains_id(model: &StructuralModel, candidate_id: &Id) -> bool {
+    model
+        .symbols
+        .iter()
+        .any(|symbol| &symbol.id == candidate_id)
+        || model.laws.iter().any(|law| &law.id == candidate_id)
+        || model
+            .morphisms
+            .iter()
+            .any(|morphism| &morphism.id == candidate_id)
+        || model
+            .higher_order_cells
+            .iter()
+            .any(|cell| &cell.id == candidate_id)
 }
 
 fn push_rust_semantic_cells(
@@ -3339,6 +3919,7 @@ fn push_law_requirement(
 fn tests_for_changes(
     changes: &[GitChange],
     symbols: &[TestGapInputSymbol],
+    content_test_targets: &BTreeMap<String, Vec<Id>>,
     diff_evidence_id: &Id,
 ) -> Result<Vec<TestGapInputTest>, String> {
     let mut tests = changes
@@ -3346,7 +3927,12 @@ fn tests_for_changes(
         .filter(|change| is_test_path(&change.path))
         .map(|change| {
             let file_id = file_id(&change.path)?;
-            let target_ids = matching_symbol_ids(&change.path, symbols);
+            let mut target_ids = matching_symbol_ids(&change.path, symbols);
+            if let Some(content_target_ids) = content_test_targets.get(&change.path) {
+                for target_id in content_target_ids {
+                    push_unique_id(&mut target_ids, target_id.clone());
+                }
+            }
             Ok::<TestGapInputTest, String>(TestGapInputTest {
                 id: id(format!("test:{}", slug(&change.path)))?,
                 name: format!("Changed test file {}", change.path),
@@ -4080,6 +4666,10 @@ fn test_gap_test_type_for_path(path: &str) -> TestGapTestType {
     } else {
         TestGapTestType::Unknown
     }
+}
+
+fn is_rust_test_path(path: &str) -> bool {
+    is_test_path(path) && path.ends_with(".rs")
 }
 
 fn is_source_code_path(path: &str) -> bool {
