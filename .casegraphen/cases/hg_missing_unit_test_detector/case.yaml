@@ -1,12 +1,12 @@
 case_id: hg_missing_unit_test_detector
 title: Build HigherGraphen missing unit test detector
 description: ''
-state: open
+state: closed
 labels: []
 metadata: {}
 extensions: {}
 created_at: 2026-04-29T09:57:00.850Z
-updated_at: 2026-04-29T10:43:00.075Z
+updated_at: 2026-04-29T10:45:51.606Z
 case_revision:
-  current: 30
-  last_event_id: 01KQCDBFVBVXJSYMJ97FEJGV41
+  current: 32
+  last_event_id: 01KQCDGQBP21FNM9DK1QR2J19H
