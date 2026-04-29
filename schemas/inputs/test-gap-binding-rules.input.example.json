@@ -1,0 +1,38 @@
+{
+  "schema": "highergraphen.test_gap.binding_rules.input.v1",
+  "rules": [
+    {
+      "trigger_terms": [
+        "test-gap",
+        "input",
+        "from-path"
+      ],
+      "cli_label": "highergraphen test-gap input from-path",
+      "target_ids": [
+        "command:highergraphen:test-gap:input-from-path",
+        "adapter:test-gap:path-input",
+        "morphism:test-gap:input-from-path-to-input-schema",
+        "law:test-gap:input-from-path-is-deterministic",
+        "law:test-gap:input-from-path-declares-snapshot-boundary"
+      ]
+    },
+    {
+      "trigger_terms": [
+        "--format",
+        "json"
+      ],
+      "target_ids": [
+        "law:test-gap:json-format-required"
+      ]
+    },
+    {
+      "trigger_terms": [
+        "highergraphen.test_gap.input.v1"
+      ],
+      "target_ids": [
+        "schema:test-gap:input",
+        "law:test-gap:schema-id-preserved"
+      ]
+    }
+  ]
+}

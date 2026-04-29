@@ -1688,6 +1688,76 @@ fn test_gap_input_from_path_maps_rust_test_content_to_laws_and_morphisms() {
 }
 
 #[test]
+fn test_gap_input_from_path_uses_external_rust_test_binding_rules() {
+    let repository = write_test_gap_content_mapping_git_fixture();
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let binding_rules_path = directory.join("test-gap-binding-rules.input.json");
+    fs::write(
+        &binding_rules_path,
+        serde_json::to_string(&json!({
+            "schema": "highergraphen.test_gap.binding_rules.input.v1",
+            "rules": [
+                {
+                    "trigger_terms": ["test-gap", "input", "from-path"],
+                    "cli_label": "project binding test-gap input from-path",
+                    "target_ids": [
+                        "morphism:test-gap:input-from-path-to-input-schema"
+                    ]
+                }
+            ]
+        }))
+        .expect("serialize binding rules"),
+    )
+    .expect("write binding rules");
+
+    let output = run_cli_owned(&[
+        "test-gap".to_owned(),
+        "input".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/main.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_gap_git.rs".to_owned(),
+        "--path".to_owned(),
+        "schemas/inputs/test-gap.input.schema.json".to_owned(),
+        "--include-tests".to_owned(),
+        "--binding-rules".to_owned(),
+        binding_rules_path
+            .to_str()
+            .expect("binding rules path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+
+    assert_rust_test_content_mapping(
+        &value,
+        "project binding test-gap input from-path",
+        "morphism:test-gap:input-from-path-to-input-schema",
+        "law:test-gap:input-from-path-is-deterministic",
+    );
+    assert_test_gap_detector_proves_content_target(
+        &value,
+        "morphism:test-gap:input-from-path-to-input-schema",
+        "law:test-gap:input-from-path-is-deterministic",
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
 fn rust_test_semantics_from_path_emits_generic_document_without_hg_binding() {
     let repository = unique_temp_dir();
     fs::create_dir_all(&repository).expect("create temp repository");
@@ -1705,6 +1775,8 @@ fn emits_json_contract() {
 }
 "##,
     );
+    let test_run_path = repository.join("test-run.txt");
+    fs::write(&test_run_path, "test tests::emits_json_contract ... ok\n").expect("write test run");
 
     let output = run_cli_owned(&[
         "rust-test".to_owned(),
@@ -1719,6 +1791,11 @@ fn emits_json_contract() {
         "tests".to_owned(),
         "--format".to_owned(),
         "json".to_owned(),
+        "--test-run".to_owned(),
+        test_run_path
+            .to_str()
+            .expect("test run path should be utf-8")
+            .to_owned(),
     ]);
 
     assert!(output.status.success(), "stderr: {}", stderr(&output));
@@ -1750,6 +1827,16 @@ fn emits_json_contract() {
         value.pointer("/files/0/functions/0/target_ids").is_none(),
         "generic semantics must not apply HigherGraphen target binding"
     );
+    assert_eq!(
+        value["execution_cases"],
+        json!([
+            {
+                "name": "tests::emits_json_contract",
+                "status": "passed",
+                "matched_functions": ["tests/generic_command.rs::emits_json_contract"]
+            }
+        ])
+    );
 
     let absolute_output = run_cli_owned(&[
         "rust-test".to_owned(),
@@ -1780,6 +1867,7 @@ fn emits_json_contract() {
         absolute_value["selected_paths"],
         json!(["tests/generic_command.rs"])
     );
+    assert_eq!(absolute_value["execution_cases"], json!([]));
 
     fs::remove_dir_all(repository).expect("remove temp repository");
 }

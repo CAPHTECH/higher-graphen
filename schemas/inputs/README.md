@@ -79,6 +79,12 @@ captures selected paths, Rust test functions, assertion macros, CLI-like token
 arrays, JSON field observations, and schema-shaped string identifiers without
 binding them to HigherGraphen-specific laws or morphisms.
 
+`test-semantics.input.schema.json` defines the language-neutral super-contract,
+`highergraphen.test_semantics.input.v1`, for adapters that normalize Rust,
+Jest, pytest, ExUnit, or other test frameworks into common test, command,
+data, and execution observations. The Rust-specific contract remains the
+repository-owned concrete adapter shape.
+
 The matching fixture is:
 
 ```sh
@@ -90,6 +96,28 @@ Create the same document from local files with:
 ```sh
 highergraphen rust-test semantics from-path \
   --path tools/highergraphen-cli/tests/command.rs \
+  --test-run test-run.txt \
+  --format json
+```
+
+`test-gap-binding-rules.input.schema.json` defines the project-specific binding
+contract, `highergraphen.test_gap.binding_rules.input.v1`. It maps extracted
+Rust test semantic trigger terms to CLI labels and HigherGraphen target IDs.
+When omitted, the CLI uses the built-in HigherGraphen binding rules. When
+provided, the file replaces the built-in rules for that input generation run.
+
+The matching fixture is:
+
+```sh
+schemas/inputs/test-gap-binding-rules.input.example.json
+```
+
+Use a binding file with local test-gap input generation:
+
+```sh
+highergraphen test-gap input from-path \
+  --path tools/highergraphen-cli/tests/command.rs \
+  --binding-rules schemas/inputs/test-gap-binding-rules.input.example.json \
   --format json
 ```
 

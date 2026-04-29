@@ -3,7 +3,7 @@
 mod pr_review_git_support;
 
 use self::pr_review_git_support::*;
-use crate::rust_test_semantics::{contains_all_strings, extract_rust_test_semantics};
+use crate::rust_test_semantics::extract_rust_test_semantics;
 use higher_graphen_core::{Id, Severity, SourceKind};
 use higher_graphen_runtime::{
     PrReviewTargetChangeType, TestGapChangeSet, TestGapChangeType, TestGapContextType,
@@ -16,18 +16,21 @@ use higher_graphen_runtime::{
     TestGapRiskSignalType, TestGapSource, TestGapSymbolKind, TestGapTestType,
     TestGapVerificationCell, TestGapVisibility,
 };
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use syn::visit::Visit;
 
 const INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
+const BINDING_RULES_SCHEMA: &str = "highergraphen.test_gap.binding_rules.input.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GitInputRequest {
     pub(crate) repo: PathBuf,
     pub(crate) base: String,
     pub(crate) head: String,
+    pub(crate) binding_rules: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,11 +38,13 @@ pub(crate) struct PathInputRequest {
     pub(crate) repo: PathBuf,
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) include_tests: bool,
+    pub(crate) binding_rules: Option<PathBuf>,
 }
 
 pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDocument, String> {
     let metadata = GitInputMetadata::read(&request)?;
     let range = format!("{}..{}", request.base, request.head);
+    let binding_rules = binding_rules_from_path(request.binding_rules.as_deref())?;
 
     let commits = commit_summaries(&metadata.repo_path, &range)?;
     let changes = changed_files(&metadata.repo_path, &range)?;
@@ -72,6 +77,7 @@ pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDoc
         &request.head,
         &changes,
         &structural,
+        &binding_rules,
         &diff_evidence_id,
     )?;
     let rust_test_files = test_content.test_files.clone();
@@ -185,6 +191,7 @@ pub(crate) fn input_from_path(request: PathInputRequest) -> Result<TestGapInputD
     if changes.is_empty() {
         return Err("path scan has no supported files".to_owned());
     }
+    let binding_rules = binding_rules_from_path(request.binding_rules.as_deref())?;
     let diff_analysis = current_tree_analysis(&metadata.repo_path, &changes)?;
 
     let repository_id = id(format!("repo:{}", slug(&metadata.repo_name)))?;
@@ -213,6 +220,7 @@ pub(crate) fn input_from_path(request: PathInputRequest) -> Result<TestGapInputD
         &metadata.repo_path,
         &changes,
         &structural,
+        &binding_rules,
         &diff_evidence_id,
     )?;
     let rust_test_files = test_content.test_files.clone();
@@ -1712,6 +1720,7 @@ fn rust_test_content_model_for_changes(
     head_ref: &str,
     changes: &[GitChange],
     target_model: &StructuralModel,
+    binding_rules: &HgRustTestBindingRules,
     diff_evidence_id: &Id,
 ) -> Result<RustTestContentModel, String> {
     let mut content_model = RustTestContentModel::default();
@@ -1729,6 +1738,7 @@ fn rust_test_content_model_for_changes(
                 SemanticRevision::Head,
                 &change.path,
                 &contents,
+                binding_rules,
                 diff_evidence_id,
             )?;
         }
@@ -1740,6 +1750,7 @@ fn rust_test_content_model_for_paths(
     repo: &Path,
     changes: &[GitChange],
     target_model: &StructuralModel,
+    binding_rules: &HgRustTestBindingRules,
     diff_evidence_id: &Id,
 ) -> Result<RustTestContentModel, String> {
     let mut content_model = RustTestContentModel::default();
@@ -1758,6 +1769,7 @@ fn rust_test_content_model_for_paths(
             SemanticRevision::Head,
             &change.path,
             &contents,
+            binding_rules,
             diff_evidence_id,
         )?;
     }
@@ -1798,15 +1810,27 @@ struct RustTestContentModel {
     test_files: BTreeSet<String>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct HgRustTestBindingRules {
+    rules: Vec<HgRustTestBindingRule>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct HgRustTestBindingRule {
+    trigger_terms: Vec<String>,
+    cli_label: Option<String>,
+    target_ids: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct DefaultHgRustTestBindingRule {
     trigger_terms: &'static [&'static str],
     cli_label: Option<&'static str>,
     target_ids: &'static [&'static str],
 }
 
-const HG_RUST_TEST_BINDING_RULES: &[HgRustTestBindingRule] = &[
-    HgRustTestBindingRule {
+const DEFAULT_HG_RUST_TEST_BINDING_RULES: &[DefaultHgRustTestBindingRule] = &[
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["test-gap", "input", "from-git"],
         cli_label: Some("highergraphen test-gap input from-git"),
         target_ids: &[
@@ -1817,7 +1841,7 @@ const HG_RUST_TEST_BINDING_RULES: &[HgRustTestBindingRule] = &[
             "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
         ],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["test-gap", "input", "from-path"],
         cli_label: Some("highergraphen test-gap input from-path"),
         target_ids: &[
@@ -1828,12 +1852,12 @@ const HG_RUST_TEST_BINDING_RULES: &[HgRustTestBindingRule] = &[
             "law:test-gap:input-from-path-declares-snapshot-boundary",
         ],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["test-gap", "evidence", "from-test-run"],
         cli_label: Some("highergraphen test-gap evidence from-test-run"),
         target_ids: &[],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["test-gap", "detect"],
         cli_label: Some("highergraphen test-gap detect"),
         target_ids: &[
@@ -1843,22 +1867,131 @@ const HG_RUST_TEST_BINDING_RULES: &[HgRustTestBindingRule] = &[
             "law:test-gap:command-routes-to-runner",
         ],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["--format", "json"],
         cli_label: None,
         target_ids: &["law:test-gap:json-format-required"],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["highergraphen.test_gap.input.v1"],
         cli_label: None,
         target_ids: &["schema:test-gap:input", "law:test-gap:schema-id-preserved"],
     },
-    HgRustTestBindingRule {
+    DefaultHgRustTestBindingRule {
         trigger_terms: &["schema"],
         cli_label: None,
         target_ids: &["schema:test-gap:input", "law:test-gap:schema-id-preserved"],
     },
 ];
+
+fn binding_rules_from_path(path: Option<&Path>) -> Result<HgRustTestBindingRules, String> {
+    match path {
+        Some(path) => read_binding_rules(path),
+        None => Ok(default_binding_rules()),
+    }
+}
+
+fn default_binding_rules() -> HgRustTestBindingRules {
+    HgRustTestBindingRules {
+        rules: DEFAULT_HG_RUST_TEST_BINDING_RULES
+            .iter()
+            .map(|rule| HgRustTestBindingRule {
+                trigger_terms: rule
+                    .trigger_terms
+                    .iter()
+                    .map(|term| (*term).to_owned())
+                    .collect(),
+                cli_label: rule.cli_label.map(str::to_owned),
+                target_ids: rule
+                    .target_ids
+                    .iter()
+                    .map(|target_id| (*target_id).to_owned())
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+fn read_binding_rules(path: &Path) -> Result<HgRustTestBindingRules, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read binding rules {}: {error}", path.display()))?;
+    let value: Value = serde_json::from_str(&contents)
+        .map_err(|error| format!("failed to parse binding rules {}: {error}", path.display()))?;
+    parse_binding_rules_value(&value)
+}
+
+fn parse_binding_rules_value(value: &Value) -> Result<HgRustTestBindingRules, String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| "binding rules document must be an object".to_owned())?;
+    let schema = object
+        .get("schema")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "binding rules document needs schema".to_owned())?;
+    if schema != BINDING_RULES_SCHEMA {
+        return Err(format!(
+            "binding rules schema must be {BINDING_RULES_SCHEMA}, got {schema}"
+        ));
+    }
+    let rules = object
+        .get("rules")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "binding rules document needs rules array".to_owned())?;
+    rules
+        .iter()
+        .enumerate()
+        .map(|(index, value)| parse_binding_rule(index, value))
+        .collect::<Result<Vec<_>, _>>()
+        .map(|rules| HgRustTestBindingRules { rules })
+}
+
+fn parse_binding_rule(index: usize, value: &Value) -> Result<HgRustTestBindingRule, String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| format!("rules[{index}] must be an object"))?;
+    let trigger_terms = string_array_field(object, "trigger_terms")
+        .map_err(|error| format!("rules[{index}].{error}"))?;
+    if trigger_terms.is_empty() {
+        return Err(format!("rules[{index}].trigger_terms must not be empty"));
+    }
+    let target_ids = string_array_field(object, "target_ids")
+        .map_err(|error| format!("rules[{index}].{error}"))?;
+    let cli_label = object
+        .get("cli_label")
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| format!("rules[{index}].cli_label must be a non-empty string"))
+        })
+        .transpose()?;
+    Ok(HgRustTestBindingRule {
+        trigger_terms,
+        cli_label,
+        target_ids,
+    })
+}
+
+fn string_array_field(
+    object: &serde_json::Map<String, Value>,
+    field: &str,
+) -> Result<Vec<String>, String> {
+    object
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{field} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            value
+                .as_str()
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| format!("{field}[{index}] must be a non-empty string"))
+        })
+        .collect()
+}
 
 fn push_rust_test_content_cells(
     content_model: &mut RustTestContentModel,
@@ -1867,6 +2000,7 @@ fn push_rust_test_content_cells(
     revision: SemanticRevision,
     source_path: &str,
     contents: &str,
+    binding_rules: &HgRustTestBindingRules,
     diff_evidence_id: &Id,
 ) -> Result<(), String> {
     let Some(document) = extract_rust_test_semantics(contents) else {
@@ -1970,7 +2104,7 @@ fn push_rust_test_content_cells(
 
         for observation in &function.cli_observations {
             let observation_label =
-                hg_cli_observation_label(&observation.tokens, &observation.label);
+                hg_cli_observation_label(binding_rules, &observation.tokens, &observation.label);
             let cli_id = id(format!(
                 "semantic:rust-test:cli-invocation:{}:{}:{}:{}",
                 slug(&change.path),
@@ -2042,7 +2176,11 @@ fn push_rust_test_content_cells(
             evidence_cell_ids.push(observation_id);
         }
 
-        let target_ids = hg_rust_test_content_target_ids(target_model, &function.string_literals)?;
+        let target_ids = hg_rust_test_content_target_ids(
+            target_model,
+            binding_rules,
+            &function.string_literals,
+        )?;
         for target_id in target_ids {
             push_unique_id(
                 content_model
@@ -2064,19 +2202,20 @@ fn push_rust_test_content_cells(
     Ok(())
 }
 
-fn hg_cli_observation_label(tokens: &[String], fallback: &str) -> String {
-    for rule in HG_RUST_TEST_BINDING_RULES {
-        if rule
-            .cli_label
-            .is_some_and(|_| contains_all_tokens(tokens, rule.trigger_terms))
-        {
-            return rule.cli_label.expect("checked label").to_owned();
+fn hg_cli_observation_label(
+    binding_rules: &HgRustTestBindingRules,
+    tokens: &[String],
+    fallback: &str,
+) -> String {
+    for rule in &binding_rules.rules {
+        if rule.cli_label.is_some() && contains_all_tokens(tokens, &rule.trigger_terms) {
+            return rule.cli_label.clone().expect("checked label");
         }
     }
     fallback.to_owned()
 }
 
-fn contains_all_tokens(tokens: &[String], expected: &[&str]) -> bool {
+fn contains_all_tokens(tokens: &[String], expected: &[String]) -> bool {
     expected
         .iter()
         .all(|value| tokens.iter().any(|token| token == value))
@@ -2084,6 +2223,7 @@ fn contains_all_tokens(tokens: &[String], expected: &[&str]) -> bool {
 
 fn hg_rust_test_content_target_ids(
     target_model: &StructuralModel,
+    binding_rules: &HgRustTestBindingRules,
     strings: &BTreeSet<String>,
 ) -> Result<Vec<Id>, String> {
     let mut target_ids = Vec::new();
@@ -2091,14 +2231,21 @@ fn hg_rust_test_content_target_ids(
         push_model_id_if_present(target_model, &mut target_ids, value)?;
     }
 
-    for rule in HG_RUST_TEST_BINDING_RULES {
-        if contains_all_strings(strings, rule.trigger_terms) {
-            for target_id in rule.target_ids {
+    for rule in &binding_rules.rules {
+        if contains_all_owned_strings(strings, &rule.trigger_terms) {
+            for target_id in &rule.target_ids {
                 push_model_id_if_present(target_model, &mut target_ids, target_id)?;
             }
         }
     }
     Ok(target_ids)
+}
+
+fn contains_all_owned_strings(strings: &BTreeSet<String>, expected: &[String]) -> bool {
+    expected.iter().all(|value| strings.contains(value))
+        || expected
+            .iter()
+            .all(|value| strings.iter().any(|string| string.contains(value)))
 }
 
 fn push_rust_test_content_morphism(

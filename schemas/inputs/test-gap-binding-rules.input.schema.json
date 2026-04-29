@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_gap.binding_rules.input.v1",
+  "title": "HigherGraphen Test Gap Binding Rules Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "rules"],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_gap.binding_rules.input.v1"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trigger_terms", "target_ids"],
+      "properties": {
+        "trigger_terms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "cli_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -36,11 +36,11 @@ const USAGE: &str = "usage:
   highergraphen feed reader run --input <path> --format json [--output <path>]
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
-  highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
-  highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
+  highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
+  highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
   highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
-  highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--output <path>]
+  highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--test-run <path>] [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
   highergraphen semantic-proof input from-report --report <path> --format json [--output <path>]
@@ -109,12 +109,14 @@ enum Command {
         repo: PathBuf,
         base: String,
         head: String,
+        binding_rules: Option<PathBuf>,
         output: Option<PathBuf>,
     },
     TestGapInputFromPath {
         repo: PathBuf,
         paths: Vec<PathBuf>,
         include_tests: bool,
+        binding_rules: Option<PathBuf>,
         output: Option<PathBuf>,
     },
     TestGapEvidenceFromTestRun {
@@ -125,6 +127,7 @@ enum Command {
     RustTestSemanticsFromPath {
         repo: PathBuf,
         paths: Vec<PathBuf>,
+        test_run: Option<PathBuf>,
         output: Option<PathBuf>,
     },
     SemanticProofVerify {
@@ -251,6 +254,11 @@ impl Command {
     fn parse_pr_review_input(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         require_token(&mut args, "from-git")?;
         let options = GitInputOptions::parse(args)?;
+        if options.binding_rules.is_some() {
+            return Err(CliError::usage(
+                "--binding-rules is not supported for pr-review input from-git",
+            ));
+        }
         Ok(Self::PrReviewInputFromGit {
             repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
             base: options
@@ -328,11 +336,17 @@ impl Command {
                     head: options
                         .head
                         .ok_or_else(|| CliError::usage("--head <ref> is required"))?,
+                    binding_rules: options.binding_rules,
                     output: options.output,
                 })
             }
             Some("from-path") => {
                 let options = PathInputOptions::parse(args)?;
+                if options.test_run.is_some() {
+                    return Err(CliError::usage(
+                        "--test-run is not supported for test-gap input from-path; use test-gap evidence from-test-run",
+                    ));
+                }
                 if options.paths.is_empty() {
                     return Err(CliError::usage("--path <path> is required"));
                 }
@@ -340,6 +354,7 @@ impl Command {
                     repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
                     paths: options.paths,
                     include_tests: options.include_tests,
+                    binding_rules: options.binding_rules,
                     output: options.output,
                 })
             }
@@ -358,12 +373,18 @@ impl Command {
                 "--include-tests is not supported for rust-test semantics from-path",
             ));
         }
+        if options.binding_rules.is_some() {
+            return Err(CliError::usage(
+                "--binding-rules is not supported for rust-test semantics from-path",
+            ));
+        }
         if options.paths.is_empty() {
             return Err(CliError::usage("--path <path> is required"));
         }
         Ok(Self::RustTestSemanticsFromPath {
             repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
             paths: options.paths,
+            test_run: options.test_run,
             output: options.output,
         })
     }
@@ -569,12 +590,17 @@ impl Command {
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::TestGapInputFromGit {
-                repo, base, head, ..
+                repo,
+                base,
+                head,
+                binding_rules,
+                ..
             } => {
                 let document = test_gap_git::input_from_git(test_gap_git::GitInputRequest {
                     repo: repo.clone(),
                     base: base.clone(),
                     head: head.clone(),
+                    binding_rules: binding_rules.clone(),
                 })
                 .map_err(CliError::GitInput)?;
                 serde_json::to_string(&document)
@@ -584,12 +610,14 @@ impl Command {
                 repo,
                 paths,
                 include_tests,
+                binding_rules,
                 ..
             } => {
                 let document = test_gap_git::input_from_path(test_gap_git::PathInputRequest {
                     repo: repo.clone(),
                     paths: paths.clone(),
                     include_tests: *include_tests,
+                    binding_rules: binding_rules.clone(),
                 })
                 .map_err(CliError::GitInput)?;
                 serde_json::to_string(&document)
@@ -609,11 +637,17 @@ impl Command {
                 serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
-            Self::RustTestSemanticsFromPath { repo, paths, .. } => {
+            Self::RustTestSemanticsFromPath {
+                repo,
+                paths,
+                test_run,
+                ..
+            } => {
                 let document =
                     rust_test_semantics::document_from_path(RustTestSemanticsPathRequest {
                         repo: repo.clone(),
                         paths: paths.clone(),
+                        test_run: test_run.clone(),
                     })
                     .map_err(CliError::RustTestSemantics)?;
                 serde_json::to_string(&document.to_json_value())
@@ -722,6 +756,7 @@ struct GitInputOptions {
     repo: Option<PathBuf>,
     base: Option<String>,
     head: Option<String>,
+    binding_rules: Option<PathBuf>,
     output: Option<PathBuf>,
 }
 
@@ -741,6 +776,8 @@ impl GitInputOptions {
                 options.base = Some(require_string(&mut args, "--base")?);
             } else if arg == "--head" {
                 options.head = Some(require_string(&mut args, "--head")?);
+            } else if arg == "--binding-rules" {
+                options.binding_rules = Some(require_path(&mut args, "--binding-rules")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -761,6 +798,8 @@ struct PathInputOptions {
     repo: Option<PathBuf>,
     paths: Vec<PathBuf>,
     include_tests: bool,
+    binding_rules: Option<PathBuf>,
+    test_run: Option<PathBuf>,
     output: Option<PathBuf>,
 }
 
@@ -780,6 +819,10 @@ impl PathInputOptions {
                 options.paths.push(require_path(&mut args, "--path")?);
             } else if arg == "--include-tests" {
                 options.include_tests = true;
+            } else if arg == "--binding-rules" {
+                options.binding_rules = Some(require_path(&mut args, "--binding-rules")?);
+            } else if arg == "--test-run" {
+                options.test_run = Some(require_path(&mut args, "--test-run")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {

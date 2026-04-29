@@ -13,12 +13,14 @@ const RUST_TEST_SEMANTICS_ADAPTER: &str = "rust-test-semantics-from-path.v1";
 pub(crate) struct RustTestSemanticsPathRequest {
     pub(crate) repo: PathBuf,
     pub(crate) paths: Vec<PathBuf>,
+    pub(crate) test_run: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RustTestSemanticPathDocument {
     pub(crate) selected_paths: Vec<String>,
     pub(crate) files: Vec<RustTestSemanticFile>,
+    pub(crate) execution_cases: Vec<RustTestExecutionCase>,
 }
 
 impl RustTestSemanticPathDocument {
@@ -32,6 +34,7 @@ impl RustTestSemanticPathDocument {
             },
             "selected_paths": self.selected_paths,
             "files": self.files.iter().map(RustTestSemanticFile::to_json_value).collect::<Vec<_>>(),
+            "execution_cases": self.execution_cases.iter().map(RustTestExecutionCase::to_json_value).collect::<Vec<_>>(),
         })
     }
 }
@@ -47,6 +50,23 @@ impl RustTestSemanticFile {
         json!({
             "path": self.path,
             "functions": self.functions.iter().map(RustTestSemanticFunction::to_json_value).collect::<Vec<_>>(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RustTestExecutionCase {
+    pub(crate) name: String,
+    pub(crate) status: String,
+    pub(crate) matched_functions: Vec<String>,
+}
+
+impl RustTestExecutionCase {
+    fn to_json_value(&self) -> Value {
+        json!({
+            "name": self.name,
+            "status": self.status,
+            "matched_functions": self.matched_functions,
         })
     }
 }
@@ -159,9 +179,15 @@ pub(crate) fn document_from_path(
         });
     }
 
+    let execution_cases = match &request.test_run {
+        Some(test_run) => execution_cases_from_test_run(test_run, &files)?,
+        None => Vec::new(),
+    };
+
     Ok(RustTestSemanticPathDocument {
         selected_paths,
         files,
+        execution_cases,
     })
 }
 
@@ -205,7 +231,11 @@ fn has_rust_test_attribute(attrs: &[syn::Attribute]) -> bool {
             .iter()
             .map(|segment| segment.ident.to_string())
             .collect::<Vec<_>>();
-        segments == ["test"] || segments == ["tokio", "test"] || segments == ["async_std", "test"]
+        segments == ["test"]
+            || segments == ["tokio", "test"]
+            || segments == ["async_std", "test"]
+            || segments == ["rstest"]
+            || segments == ["test_case"]
     })
 }
 
@@ -262,7 +292,18 @@ impl RustTestSemanticVisitor {
             .unwrap_or_default();
         if matches!(
             macro_name.as_str(),
-            "assert" | "assert_eq" | "assert_ne" | "assert_matches" | "matches"
+            "assert"
+                | "assert_eq"
+                | "assert_ne"
+                | "assert_matches"
+                | "assert_json_eq"
+                | "assert_json_include"
+                | "assert_snapshot"
+                | "assert_debug_snapshot"
+                | "assert_display_snapshot"
+                | "assert_json_snapshot"
+                | "assert_yaml_snapshot"
+                | "matches"
         ) {
             self.assertion_macros.push(macro_name);
         }
@@ -333,13 +374,6 @@ fn json_observations(visitor: &RustTestSemanticVisitor) -> Vec<RustTestJsonObser
         }
     }
     observations
-}
-
-pub(crate) fn contains_all_strings(strings: &BTreeSet<String>, expected: &[&str]) -> bool {
-    expected.iter().all(|value| strings.contains(*value))
-        || expected
-            .iter()
-            .all(|value| strings.iter().any(|string| string.contains(value)))
 }
 
 fn resolve_selected_path(repo: &Path, path: &Path) -> Result<(PathBuf, PathBuf), String> {
@@ -432,6 +466,140 @@ fn is_rust_path(path: &Path) -> bool {
 
 fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
+}
+
+fn execution_cases_from_test_run(
+    test_run: &Path,
+    files: &[RustTestSemanticFile],
+) -> Result<Vec<RustTestExecutionCase>, String> {
+    let text = fs::read_to_string(test_run)
+        .map_err(|error| format!("failed to read test run {}: {error}", test_run.display()))?;
+    Ok(parse_test_run_cases(&text)
+        .into_iter()
+        .map(|case| RustTestExecutionCase {
+            matched_functions: matching_function_names(files, &case.name),
+            name: case.name,
+            status: case.status,
+        })
+        .collect())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ParsedTestRunCase {
+    name: String,
+    status: String,
+}
+
+fn parse_test_run_cases(text: &str) -> Vec<ParsedTestRunCase> {
+    if let Ok(value) = serde_json::from_str::<Value>(text) {
+        let cases = parse_json_test_cases(&value);
+        if !cases.is_empty() {
+            return cases;
+        }
+    }
+    let jsonl_cases = text
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .flat_map(|value| parse_json_test_cases(&value))
+        .collect::<Vec<_>>();
+    if !jsonl_cases.is_empty() {
+        return jsonl_cases;
+    }
+    parse_plain_test_cases(text)
+}
+
+fn parse_json_test_cases(value: &Value) -> Vec<ParsedTestRunCase> {
+    if let Some(cases) = value.get("tests").and_then(Value::as_array) {
+        return cases.iter().filter_map(test_case_from_json).collect();
+    }
+    if let Some(cases) = value.as_array() {
+        return cases.iter().filter_map(test_case_from_json).collect();
+    }
+    test_case_from_json(value).into_iter().collect()
+}
+
+fn test_case_from_json(value: &Value) -> Option<ParsedTestRunCase> {
+    let name = value
+        .get("name")
+        .or_else(|| value.get("test"))
+        .and_then(Value::as_str)?
+        .trim();
+    if name.is_empty() {
+        return None;
+    }
+    let status = value
+        .get("status")
+        .or_else(|| value.get("event"))
+        .or_else(|| value.get("result"))
+        .and_then(Value::as_str)
+        .and_then(normalize_status)?;
+    Some(ParsedTestRunCase {
+        name: name.to_owned(),
+        status: status.to_owned(),
+    })
+}
+
+fn parse_plain_test_cases(text: &str) -> Vec<ParsedTestRunCase> {
+    text.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            let body = trimmed.strip_prefix("test ")?;
+            let (name, status_text) = body.rsplit_once(" ... ")?;
+            Some(ParsedTestRunCase {
+                name: name.trim().to_owned(),
+                status: normalize_status(status_text.trim())?.to_owned(),
+            })
+        })
+        .collect()
+}
+
+fn normalize_status(value: &str) -> Option<&'static str> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "ok" | "passed" | "pass" | "success" | "succeeded" => Some("passed"),
+        "failed" | "fail" | "failure" | "error" => Some("failed"),
+        "ignored" | "ignore" | "skipped" | "skip" => Some("ignored"),
+        _ => None,
+    }
+}
+
+fn matching_function_names(files: &[RustTestSemanticFile], test_name: &str) -> Vec<String> {
+    let candidates = test_name_candidates(test_name);
+    files
+        .iter()
+        .flat_map(|file| {
+            file.functions.iter().filter_map(|function| {
+                if candidates.contains(&slug(&function.name)) {
+                    Some(format!("{}::{}", file.path, function.name))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect()
+}
+
+fn test_name_candidates(test_name: &str) -> BTreeSet<String> {
+    let mut candidates = BTreeSet::new();
+    candidates.insert(slug(test_name));
+    for segment in test_name.split("::") {
+        candidates.insert(slug(segment));
+    }
+    if let Some(last) = test_name.split("::").last() {
+        candidates.insert(slug(last));
+    }
+    candidates
+}
+
+fn slug(value: &str) -> String {
+    let mut slug = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character.to_ascii_lowercase());
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    slug.trim_matches('-').to_owned()
 }
 
 fn callee_indicates_cli(function: &syn::Expr) -> bool {
@@ -570,12 +738,17 @@ fn emits_json() {
     assert!(output.status.success());
     assert_eq!(value["schema"], json!("acme.audit.input.v2"));
 }
+
+#[rstest]
+fn snapshot_contract() {
+    assert_json_snapshot!("contract", json!({"schema": "acme.snapshot.v1"}));
+}
 }
 "##,
         )
         .expect("parse test document");
 
-        assert_eq!(document.functions.len(), 1);
+        assert_eq!(document.functions.len(), 2);
         let function = &document.functions[0];
         assert_eq!(function.name, "emits_json");
         assert_eq!(function.assertion_macros, vec!["assert", "assert_eq"]);
@@ -597,5 +770,18 @@ fn emits_json() {
             observation.label == "schema:acme.audit.input.v2"
                 && observation.observation_type == RustTestJsonObservationType::SchemaId
         }));
+        let snapshot_function = &document.functions[1];
+        assert_eq!(snapshot_function.name, "snapshot_contract");
+        assert_eq!(
+            snapshot_function.assertion_macros,
+            vec!["assert_json_snapshot"]
+        );
+        assert!(snapshot_function
+            .json_observations
+            .iter()
+            .any(|observation| {
+                observation.label == "schema:acme.snapshot.v1"
+                    && observation.observation_type == RustTestJsonObservationType::SchemaId
+            }));
     }
 }

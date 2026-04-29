@@ -1,36 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "highergraphen.rust_test_semantics.input.v1",
-  "title": "HigherGraphen Rust Test Semantics v1",
+  "$id": "highergraphen.test_semantics.input.v1",
+  "title": "HigherGraphen Test Semantics Input v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "source", "selected_paths", "files", "execution_cases"],
+  "required": ["schema", "source", "files", "execution_cases"],
   "properties": {
     "schema": {
-      "const": "highergraphen.rust_test_semantics.input.v1"
+      "const": "highergraphen.test_semantics.input.v1"
     },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "adapter", "boundary"],
+      "required": ["kind", "boundary"],
       "properties": {
         "kind": {
           "const": "code"
         },
-        "adapter": {
-          "const": "rust-test-semantics-from-path.v1"
-        },
         "boundary": {
-          "const": "selected_paths"
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter": {
+          "type": "string",
+          "minLength": 1
         }
       }
-    },
-    "selected_paths": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/relative_path"
-      },
-      "minItems": 1
     },
     "files": {
       "type": "array",
@@ -49,63 +44,64 @@
     "file": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "functions"],
+      "required": ["path", "language", "tests"],
       "properties": {
         "path": {
-          "$ref": "#/$defs/relative_path"
+          "type": "string",
+          "minLength": 1
         },
-        "functions": {
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tests": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/function"
-          },
-          "minItems": 1
+            "$ref": "#/$defs/test"
+          }
         }
       }
     },
-    "function": {
+    "test": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "name",
-        "assertion_macros",
-        "string_literals",
-        "cli_observations",
-        "json_observations"
+        "kind",
+        "assertions",
+        "command_observations",
+        "data_observations"
       ],
       "properties": {
         "name": {
           "type": "string",
           "minLength": 1
         },
-        "assertion_macros": {
+        "kind": {
+          "enum": ["unit", "integration", "property", "snapshot", "unknown"]
+        },
+        "assertions": {
           "type": "array",
           "items": {
             "type": "string",
             "minLength": 1
           }
         },
-        "string_literals": {
+        "command_observations": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/command_observation"
           }
         },
-        "cli_observations": {
+        "data_observations": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/cli_observation"
-          }
-        },
-        "json_observations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/json_observation"
+            "$ref": "#/$defs/data_observation"
           }
         }
       }
     },
-    "cli_observation": {
+    "command_observation": {
       "type": "object",
       "additionalProperties": false,
       "required": ["label", "tokens"],
@@ -119,11 +115,11 @@
           "items": {
             "type": "string"
           },
-          "minItems": 2
+          "minItems": 1
         }
       }
     },
-    "json_observation": {
+    "data_observation": {
       "type": "object",
       "additionalProperties": false,
       "required": ["label", "observation_type"],
@@ -133,36 +129,30 @@
           "minLength": 1
         },
         "observation_type": {
-          "enum": ["field", "schema_id"]
+          "type": "string",
+          "minLength": 1
         }
       }
     },
     "execution_case": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "status", "matched_functions"],
+      "required": ["name", "status", "matched_tests"],
       "properties": {
         "name": {
           "type": "string",
           "minLength": 1
         },
         "status": {
-          "enum": ["passed", "failed", "ignored"]
+          "enum": ["passed", "failed", "ignored", "unknown"]
         },
-        "matched_functions": {
+        "matched_tests": {
           "type": "array",
           "items": {
             "type": "string",
             "minLength": 1
           }
         }
-      }
-    },
-    "relative_path": {
-      "type": "string",
-      "minLength": 1,
-      "not": {
-        "pattern": "^(?:/|.*(?:^|/)\\.\\.(?:/|$)|.*(?:^|/)(?:\\.git|target)(?:/|$))"
       }
     }
   }

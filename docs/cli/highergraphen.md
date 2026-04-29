@@ -103,7 +103,7 @@ and record explicit accept/reject/waive decisions in a separate review system
 or later explicit workflow.
 
 ```sh
-highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
+highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
 ```
 
 This command deterministically converts a local git commit range into a bounded
@@ -146,6 +146,13 @@ observations to this repository's known commands, adapters, morphisms, and
 laws. This keeps the semantic lift reusable while making the repository-local
 target mapping explicit.
 
+The default binding rules are built into the CLI for this repository. A bounded
+`highergraphen.test_gap.binding_rules.input.v1` file can replace those rules
+with `--binding-rules <path>` for `test-gap input from-git` and `test-gap input
+from-path`. The binding file maps extracted trigger terms to optional CLI
+labels and target IDs; it does not change the generic Rust test semantic
+extractor.
+
 For HigherGraphen semantic-proof artifact adapter changes, the adapter lifts
 the change into theorem/law/morphism structure rather than leaving helper
 functions as isolated obligations. It creates semantic-proof artifact adapter
@@ -156,7 +163,7 @@ deltas remain observable structure, but the verification decision is carried by
 the semantic-proof theorem and morphisms.
 
 ```sh
-highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
+highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
 ```
 
 This command deterministically converts selected current-tree files or
@@ -182,7 +189,7 @@ test semantic extractor is used here; only the final mapping from extracted
 observations to HigherGraphen test-gap targets is repository-specific.
 
 ```sh
-highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--output <path>]
+highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--test-run <path>] [--output <path>]
 ```
 
 This command emits the generic `highergraphen.rust_test_semantics.input.v1` document
@@ -193,7 +200,13 @@ and schema-shaped string identifiers. `.git/` and `target/` are excluded when
 directories are scanned. The output is intended as a reusable semantic
 extraction layer for agents and downstream adapters; repository-specific
 mapping to commands, laws, morphisms, or verification targets is deliberately
-left to a later binding step.
+left to a later binding step. When `--test-run <path>` is provided, the same
+generic document also records parsed execution cases and static function-name
+matches, still without adding HigherGraphen target IDs.
+
+The repository also defines `highergraphen.test_semantics.input.v1` as a
+language-neutral super-contract for future Jest, pytest, ExUnit, or other test
+semantic adapters. The current CLI command emits the Rust-specific contract.
 
 ```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
@@ -343,7 +356,8 @@ the source report and do not promote the candidate into accepted facts.
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--path <path>` | For `test-gap input from-path` and `rust-test semantics from-path` | Selects a current-tree file or directory to scan; repeat for multiple roots. |
 | `--include-tests` | No | For `test-gap input from-path`, adds repository test files to the bounded snapshot. |
-| `--test-run <path>` | For `test-gap evidence from-test-run` | Reads bounded JSON/JSONL or plain `cargo test` output and attaches execution evidence to the input snapshot. |
+| `--binding-rules <path>` | No | For `test-gap input from-git` and `test-gap input from-path`, replaces the built-in Rust test semantic binding rules with a bounded `highergraphen.test_gap.binding_rules.input.v1` document. |
+| `--test-run <path>` | For `test-gap evidence from-test-run` and `rust-test semantics from-path` | Reads bounded JSON/JSONL or plain `cargo test` output. For test-gap evidence it attaches execution evidence to the input snapshot; for rust-test semantics it records generic execution cases and matched test functions. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` and `test-gap evidence from-test-run` | Reads the bounded test-gap JSON input snapshot. |
 | `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |
