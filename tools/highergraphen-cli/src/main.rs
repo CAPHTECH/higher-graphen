@@ -3,6 +3,8 @@
 mod pr_review_git;
 mod pr_review_structural;
 mod semantic_proof_artifact;
+mod semantic_proof_backend;
+mod semantic_proof_reinput;
 mod test_gap_git;
 
 use higher_graphen_core::Id;
@@ -12,7 +14,7 @@ use higher_graphen_runtime::{
     run_test_gap_detect, ArchitectureInputLiftDocument, CompletionReviewDecision,
     CompletionReviewRequest, CompletionReviewSnapshot, CompletionReviewSourceReport,
     FeedReaderInputDocument, PrReviewTargetInputDocument, RuntimeError, SemanticProofInputDocument,
-    TestGapInputDocument,
+    SemanticProofReport, TestGapInputDocument,
 };
 use serde_json::Value;
 use std::{
@@ -33,7 +35,9 @@ const USAGE: &str = "usage:
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
+  highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
+  highergraphen semantic-proof input from-report --report <path> --format json [--output <path>]
   highergraphen semantic-proof verify --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
@@ -105,6 +109,14 @@ enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    SemanticProofBackendRun {
+        backend: String,
+        backend_version: String,
+        command: PathBuf,
+        args: Vec<String>,
+        input: Option<PathBuf>,
+        output: Option<PathBuf>,
+    },
     SemanticProofInputFromArtifact {
         artifact: PathBuf,
         backend: String,
@@ -119,6 +131,10 @@ enum Command {
         base_label: String,
         head_cell: String,
         head_label: String,
+        output: Option<PathBuf>,
+    },
+    SemanticProofInputFromReport {
+        report: PathBuf,
         output: Option<PathBuf>,
     },
     CompletionReview {
@@ -272,6 +288,7 @@ impl Command {
     fn parse_semantic_proof(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let segment = required_segment(&mut args, "semantic-proof command")?;
         match segment.to_str() {
+            Some("backend") => Self::parse_semantic_proof_backend(args),
             Some("input") => Self::parse_semantic_proof_input(args),
             Some("verify") => {
                 let options = ReportOptions::parse(args, true)?;
@@ -289,53 +306,90 @@ impl Command {
         }
     }
 
-    fn parse_semantic_proof_input(
+    fn parse_semantic_proof_backend(
         mut args: impl Iterator<Item = OsString>,
     ) -> Result<Self, CliError> {
-        require_token(&mut args, "from-artifact")?;
-        let options = SemanticProofArtifactOptions::parse(args)?;
-        Ok(Self::SemanticProofInputFromArtifact {
-            artifact: options
-                .artifact
-                .ok_or_else(|| CliError::usage("--artifact <path> is required"))?,
+        require_token(&mut args, "run")?;
+        let options = SemanticProofBackendOptions::parse(args)?;
+        Ok(Self::SemanticProofBackendRun {
             backend: options
                 .backend
                 .ok_or_else(|| CliError::usage("--backend <name> is required"))?,
             backend_version: options
                 .backend_version
                 .ok_or_else(|| CliError::usage("--backend-version <version> is required"))?,
-            theorem_id: options
-                .theorem_id
-                .ok_or_else(|| CliError::usage("--theorem-id <id> is required"))?,
-            theorem_summary: options
-                .theorem_summary
-                .ok_or_else(|| CliError::usage("--theorem-summary <text> is required"))?,
-            law_id: options
-                .law_id
-                .ok_or_else(|| CliError::usage("--law-id <id> is required"))?,
-            law_summary: options
-                .law_summary
-                .ok_or_else(|| CliError::usage("--law-summary <text> is required"))?,
-            morphism_id: options
-                .morphism_id
-                .ok_or_else(|| CliError::usage("--morphism-id <id> is required"))?,
-            morphism_type: options
-                .morphism_type
-                .ok_or_else(|| CliError::usage("--morphism-type <text> is required"))?,
-            base_cell: options
-                .base_cell
-                .ok_or_else(|| CliError::usage("--base-cell <id> is required"))?,
-            base_label: options
-                .base_label
-                .ok_or_else(|| CliError::usage("--base-label <text> is required"))?,
-            head_cell: options
-                .head_cell
-                .ok_or_else(|| CliError::usage("--head-cell <id> is required"))?,
-            head_label: options
-                .head_label
-                .ok_or_else(|| CliError::usage("--head-label <text> is required"))?,
+            command: options
+                .command
+                .ok_or_else(|| CliError::usage("--command <path> is required"))?,
+            args: options.args,
+            input: options.input,
             output: options.output,
         })
+    }
+
+    fn parse_semantic_proof_input(
+        mut args: impl Iterator<Item = OsString>,
+    ) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "semantic-proof input command")?;
+        match segment.to_str() {
+            Some("from-artifact") => {
+                let options = SemanticProofArtifactOptions::parse(args)?;
+                Ok(Self::SemanticProofInputFromArtifact {
+                    artifact: options
+                        .artifact
+                        .ok_or_else(|| CliError::usage("--artifact <path> is required"))?,
+                    backend: options
+                        .backend
+                        .ok_or_else(|| CliError::usage("--backend <name> is required"))?,
+                    backend_version: options.backend_version.ok_or_else(|| {
+                        CliError::usage("--backend-version <version> is required")
+                    })?,
+                    theorem_id: options
+                        .theorem_id
+                        .ok_or_else(|| CliError::usage("--theorem-id <id> is required"))?,
+                    theorem_summary: options
+                        .theorem_summary
+                        .ok_or_else(|| CliError::usage("--theorem-summary <text> is required"))?,
+                    law_id: options
+                        .law_id
+                        .ok_or_else(|| CliError::usage("--law-id <id> is required"))?,
+                    law_summary: options
+                        .law_summary
+                        .ok_or_else(|| CliError::usage("--law-summary <text> is required"))?,
+                    morphism_id: options
+                        .morphism_id
+                        .ok_or_else(|| CliError::usage("--morphism-id <id> is required"))?,
+                    morphism_type: options
+                        .morphism_type
+                        .ok_or_else(|| CliError::usage("--morphism-type <text> is required"))?,
+                    base_cell: options
+                        .base_cell
+                        .ok_or_else(|| CliError::usage("--base-cell <id> is required"))?,
+                    base_label: options
+                        .base_label
+                        .ok_or_else(|| CliError::usage("--base-label <text> is required"))?,
+                    head_cell: options
+                        .head_cell
+                        .ok_or_else(|| CliError::usage("--head-cell <id> is required"))?,
+                    head_label: options
+                        .head_label
+                        .ok_or_else(|| CliError::usage("--head-label <text> is required"))?,
+                    output: options.output,
+                })
+            }
+            Some("from-report") => {
+                let options = SemanticProofReportInputOptions::parse(args)?;
+                Ok(Self::SemanticProofInputFromReport {
+                    report: options
+                        .report
+                        .ok_or_else(|| CliError::usage("--report <path> is required"))?,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage(
+                "unsupported semantic-proof input command segment",
+            )),
+        }
     }
 
     fn parse_completion(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
@@ -376,7 +430,9 @@ impl Command {
             | Self::PrReviewTargetsRecommend { output, .. }
             | Self::TestGapInputFromGit { output, .. }
             | Self::TestGapDetect { output, .. }
+            | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
+            | Self::SemanticProofInputFromReport { output, .. }
             | Self::SemanticProofVerify { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
@@ -444,6 +500,27 @@ impl Command {
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
+            Self::SemanticProofBackendRun {
+                backend,
+                backend_version,
+                command,
+                args,
+                input,
+                ..
+            } => {
+                let artifact = semantic_proof_backend::run_backend(
+                    semantic_proof_backend::BackendRunRequest {
+                        backend: backend.clone(),
+                        backend_version: backend_version.clone(),
+                        command: command.clone(),
+                        args: args.clone(),
+                        input: input.clone(),
+                    },
+                )
+                .map_err(CliError::SemanticProofArtifact)?;
+                serde_json::to_string(&artifact)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
             Self::SemanticProofInputFromArtifact {
                 artifact,
                 backend,
@@ -478,6 +555,13 @@ impl Command {
                     },
                 )
                 .map_err(CliError::SemanticProofArtifact)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::SemanticProofInputFromReport { report, .. } => {
+                let semantic_report = read_semantic_proof_report(report)?;
+                let document = semantic_proof_reinput::input_from_report(semantic_report)
+                    .map_err(CliError::SemanticProofArtifact)?;
                 serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -548,6 +632,51 @@ impl GitInputOptions {
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
+struct SemanticProofBackendOptions {
+    backend: Option<String>,
+    backend_version: Option<String>,
+    command: Option<PathBuf>,
+    args: Vec<String>,
+    input: Option<PathBuf>,
+    output: Option<PathBuf>,
+}
+
+impl SemanticProofBackendOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--backend" {
+                options.backend = Some(require_string(&mut args, "--backend")?);
+            } else if arg == "--backend-version" {
+                options.backend_version = Some(require_string(&mut args, "--backend-version")?);
+            } else if arg == "--command" {
+                options.command = Some(require_path(&mut args, "--command")?);
+            } else if arg == "--arg" {
+                options.args.push(require_string(&mut args, "--arg")?);
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
 struct SemanticProofArtifactOptions {
     artifact: Option<PathBuf>,
     backend: Option<String>,
@@ -601,6 +730,39 @@ impl SemanticProofArtifactOptions {
                 options.head_cell = Some(require_string(&mut args, "--head-cell")?);
             } else if arg == "--head-label" {
                 options.head_label = Some(require_string(&mut args, "--head-label")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct SemanticProofReportInputOptions {
+    report: Option<PathBuf>,
+    output: Option<PathBuf>,
+}
+
+impl SemanticProofReportInputOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--report" {
+                options.report = Some(require_path(&mut args, "--report")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -875,6 +1037,17 @@ fn read_test_gap_input_document(path: &Path) -> Result<TestGapInputDocument, Cli
 }
 
 fn read_semantic_proof_input_document(path: &Path) -> Result<SemanticProofInputDocument, CliError> {
+    let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    serde_json::from_str(&text).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn read_semantic_proof_report(path: &Path) -> Result<SemanticProofReport, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
         source,

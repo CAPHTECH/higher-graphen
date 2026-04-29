@@ -100,6 +100,7 @@ pub(crate) fn input_from_artifact(
         require_input_hash: true,
         require_proof_hash: true,
         require_accepted_review: true,
+        require_accepted_counterexample_review: true,
     };
 
     let mut proof_certificates = Vec::new();

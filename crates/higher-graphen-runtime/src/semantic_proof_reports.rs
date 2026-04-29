@@ -150,6 +150,9 @@ pub struct SemanticProofVerificationPolicy {
     /// Whether certificate review_status must be accepted.
     #[serde(default)]
     pub require_accepted_review: bool,
+    /// Whether counterexample review_status must be accepted before it refutes.
+    #[serde(default)]
+    pub require_accepted_counterexample_review: bool,
 }
 
 /// Proof certificate supplied by an external proof backend.

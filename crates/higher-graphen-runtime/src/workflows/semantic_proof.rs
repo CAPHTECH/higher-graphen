@@ -28,9 +28,10 @@ pub fn run_semantic_proof_verify(
 
     let accepted_certificates = accepted_certificates(&input);
     let rejected_certificate_ids = rejected_certificate_ids(&input, &accepted_certificates);
+    let accepted_counterexamples = accepted_counterexamples(&input);
     let proof_objects = proof_objects(&input, &accepted_certificates)?;
-    let issues = issues(&input, &accepted_certificates)?;
-    let counterexamples = input.counterexamples.clone();
+    let issues = issues(&input, &accepted_certificates, &accepted_counterexamples)?;
+    let counterexamples = accepted_counterexamples.clone();
     let status = if !counterexamples.is_empty() {
         SemanticProofStatus::CounterexampleFound
     } else if issues.is_empty() {
@@ -260,6 +261,27 @@ fn rejected_certificate_ids(
         .collect()
 }
 
+fn accepted_counterexamples(
+    input: &SemanticProofInputDocument,
+) -> Vec<SemanticProofCounterexample> {
+    input
+        .counterexamples
+        .iter()
+        .filter(|counterexample| counterexample_is_accepted(input, counterexample))
+        .cloned()
+        .collect()
+}
+
+fn counterexample_is_accepted(
+    input: &SemanticProofInputDocument,
+    counterexample: &SemanticProofCounterexample,
+) -> bool {
+    !input
+        .verification_policy
+        .require_accepted_counterexample_review
+        || counterexample.review_status == ReviewStatus::Accepted
+}
+
 fn proof_objects(
     input: &SemanticProofInputDocument,
     accepted: &[&SemanticProofCertificate],
@@ -291,6 +313,7 @@ fn proof_objects(
 fn issues(
     input: &SemanticProofInputDocument,
     accepted: &[&SemanticProofCertificate],
+    accepted_counterexamples: &[SemanticProofCounterexample],
 ) -> RuntimeResult<Vec<SemanticProofIssue>> {
     let proved_laws = accepted
         .iter()
@@ -342,6 +365,26 @@ fn issues(
                 format!(
                     "Certificate {} does not satisfy verification policy.",
                     certificate.id
+                ),
+                Severity::Medium,
+            )?);
+        }
+    }
+    for counterexample in &input.counterexamples {
+        if !accepted_counterexamples
+            .iter()
+            .any(|accepted| accepted.id == counterexample.id)
+        {
+            issues.push(issue(
+                format!(
+                    "issue:semantic-proof:counterexample-not-accepted:{}",
+                    slug(counterexample.id.as_str())
+                ),
+                "counterexample_not_accepted_by_policy",
+                vec![counterexample.id.clone()],
+                format!(
+                    "Counterexample {} does not satisfy verification policy.",
+                    counterexample.id
                 ),
                 Severity::Medium,
             )?);

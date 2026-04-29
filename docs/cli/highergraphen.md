@@ -151,6 +151,27 @@ candidates remain `review_status: "unreviewed"` until a later explicit review
 workflow accepts or rejects them.
 
 ```sh
+highergraphen semantic-proof backend run \
+  --backend <name> \
+  --backend-version <version> \
+  --command <path> \
+  [--arg <text> ...] \
+  [--input <path>] \
+  --format json \
+  [--output <path>]
+```
+
+This command runs a local proof backend command without a shell and emits a
+bounded backend artifact. A zero exit status becomes `status: "proved"` with
+`review_status: "accepted"`; a non-zero exit status becomes
+`status: "counterexample_found"` with `review_status: "unreviewed"`. The
+artifact records command path, args, exit code, stdout/stderr excerpts, and
+deterministic hashes behind a local-process trust boundary. Pass the artifact to
+`semantic-proof input from-artifact` before `semantic-proof verify`; HG policy,
+not the process exit alone, decides whether proof or counterexample structure is
+accepted.
+
+```sh
 highergraphen semantic-proof input from-artifact \
   --artifact <path> \
   --backend <name> \
@@ -177,8 +198,24 @@ review status, severity, and confidence. The CLI arguments supply the HG
 theorem, law, morphism, and base/head semantic cell identities, so the generated
 input can be passed directly to `highergraphen semantic-proof verify`. This
 adapter does not run Kani, Prusti, SMT solving, model checking, symbolic
-execution, or MIR extraction; it records their already-produced artifact as HG
-proof structure.
+execution, or MIR extraction; use `semantic-proof backend run` when a local
+process should be executed first. The generated policy requires accepted proof
+certificates and accepted counterexamples before they are trusted at the HG
+boundary.
+
+```sh
+highergraphen semantic-proof input from-report \
+  --report <path> \
+  --format json \
+  [--output <path>]
+```
+
+This command reads an `insufficient_proof` semantic-proof report and produces a
+new `highergraphen.semantic_proof.input.v1` snapshot containing the open law and
+morphism obligations, with certificates and counterexamples cleared. This is the
+bounded reinput path for agents: unresolved proof obligations can be routed back
+to backend execution or artifact attachment without treating suggested or failed
+structure as accepted.
 
 ```sh
 highergraphen semantic-proof verify --input <path> --format json [--output <path>]
@@ -191,8 +228,10 @@ property-test adapters can emit proof certificates or counterexamples, and this
 workflow validates their references and verification policy before emitting
 `proof_objects`, `counterexamples`, and issues. It does not itself run rustc
 MIR extraction, SMT solving, model checking, or symbolic execution; those
-backend runs occur before the bounded input is supplied. The report preserves
-that boundary as projection information loss.
+backend runs occur before the bounded input is supplied, either externally or
+through the bounded `semantic-proof backend run` adapter. The report preserves
+that boundary as projection information loss, and `semantic-proof input
+from-report` can requeue unproved laws and morphisms.
 
 ```sh
 highergraphen completion review accept \
@@ -232,14 +271,18 @@ the source report and do not promote the candidate into accepted facts.
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
+| `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |
+| `--arg <text>` | For `semantic-proof backend run` | Adds one backend process argument; repeat for multiple arguments. |
+| `--input <path>` | For `semantic-proof backend run` | Optional backend input material included in the artifact input hash. |
 | `--artifact <path>` | For `semantic-proof input from-artifact` | Reads a local bounded backend artifact. |
-| `--backend <name>` | For `semantic-proof input from-artifact` | Records the proof backend name and adds it to the generated verification policy. |
-| `--backend-version <version>` | For `semantic-proof input from-artifact` | Records the proof backend version on generated certificates. |
+| `--backend <name>` | For `semantic-proof backend run` and `semantic-proof input from-artifact` | Records the proof backend name and adds it to the generated verification policy. |
+| `--backend-version <version>` | For `semantic-proof backend run` and `semantic-proof input from-artifact` | Records the proof backend version on generated artifacts and certificates. |
 | `--theorem-id <id>` / `--theorem-summary <text>` | For `semantic-proof input from-artifact` | Defines the HG theorem obligation represented by the artifact. |
 | `--law-id <id>` / `--law-summary <text>` | For `semantic-proof input from-artifact` | Defines the semantic law that must be preserved or refuted. |
 | `--morphism-id <id>` / `--morphism-type <text>` | For `semantic-proof input from-artifact` | Defines the semantic morphism checked by the proof artifact. |
 | `--base-cell <id>` / `--base-label <text>` | For `semantic-proof input from-artifact` | Defines the source semantic endpoint for the morphism. |
 | `--head-cell <id>` / `--head-label <text>` | For `semantic-proof input from-artifact` | Defines the target semantic endpoint for the morphism. |
+| `--report <path>` | For `semantic-proof input from-report` | Reads an insufficient semantic-proof report and requeues open obligations. |
 | `--input <path>` | For `semantic-proof verify` | Reads the bounded semantic proof certificate snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
@@ -623,8 +666,11 @@ Consumers must preserve these semantics:
   prove typed semantic equivalence or full behavior coverage.
 - The semantic-proof path consumes bounded proof certificate snapshots. It
   checks theorem/law/morphism/certificate/counterexample references and
-  certificate policy, then emits accepted `proof_objects` or unreviewed issues.
-  It does not execute the external proof backend.
+  certificate and counterexample review policy, then emits accepted
+  `proof_objects`, accepted counterexamples, or unreviewed issues. The optional
+  backend runner records local process output as artifact material; HG
+  verification still owns acceptance, and report reinput preserves open
+  obligations without accepting them.
 - Test-gap accepted facts are limited to the supplied snapshot. Domain findings
   such as missing-test obstructions, insufficient evidence, `gaps_detected`,
   and `no_gaps_in_snapshot` are successful report data, not CLI failures.

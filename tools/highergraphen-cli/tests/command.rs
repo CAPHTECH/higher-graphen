@@ -718,6 +718,221 @@ fn semantic_proof_input_from_artifact_preserves_counterexample_found_defaults() 
 }
 
 #[test]
+fn semantic_proof_backend_run_emits_trusted_proof_artifact_and_verifies() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let backend_input = directory.join("backend-input.txt");
+    fs::write(&backend_input, "semantic obligation").expect("write backend input");
+    let artifact = directory.join("backend-artifact.json");
+
+    let output = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "backend".to_owned(),
+        "run".to_owned(),
+        "--backend".to_owned(),
+        "kani".to_owned(),
+        "--backend-version".to_owned(),
+        "1.0.0".to_owned(),
+        "--command".to_owned(),
+        "/bin/sh".to_owned(),
+        "--arg".to_owned(),
+        "-c".to_owned(),
+        "--arg".to_owned(),
+        "printf proof-ok".to_owned(),
+        "--input".to_owned(),
+        backend_input
+            .to_str()
+            .expect("backend input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        artifact
+            .to_str()
+            .expect("artifact path should be utf-8")
+            .to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    let artifact_value: Value =
+        serde_json::from_str(&fs::read_to_string(&artifact).expect("read backend artifact"))
+            .expect("backend artifact should be JSON");
+    assert_eq!(
+        artifact_value["schema"],
+        json!("highergraphen.semantic_proof.backend_artifact.v1")
+    );
+    assert_eq!(artifact_value["status"], json!("proved"));
+    assert_eq!(artifact_value["review_status"], json!("accepted"));
+    assert_eq!(
+        artifact_value["backend_run"]["trust_boundary"],
+        json!("local_process_output_untrusted_until_semantic_proof_verify_and_review")
+    );
+    assert!(artifact_value["input_hash"]
+        .as_str()
+        .expect("input hash")
+        .starts_with("fnv64:"));
+
+    let input = directory.join("semantic-proof.input.json");
+    let generated = run_cli_owned(&semantic_artifact_command(&artifact, Some(&input)));
+    assert!(generated.status.success(), "stderr: {}", stderr(&generated));
+
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("proved"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_backend_counterexample_stays_unreviewed_at_trust_boundary() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let artifact = directory.join("backend-counterexample.json");
+
+    let output = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "backend".to_owned(),
+        "run".to_owned(),
+        "--backend".to_owned(),
+        "kani".to_owned(),
+        "--backend-version".to_owned(),
+        "1.0.0".to_owned(),
+        "--command".to_owned(),
+        "/bin/sh".to_owned(),
+        "--arg".to_owned(),
+        "-c".to_owned(),
+        "--arg".to_owned(),
+        "printf counterexample; exit 1".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        artifact
+            .to_str()
+            .expect("artifact path should be utf-8")
+            .to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let artifact_value: Value =
+        serde_json::from_str(&fs::read_to_string(&artifact).expect("read backend artifact"))
+            .expect("backend artifact should be JSON");
+    assert_eq!(artifact_value["status"], json!("counterexample_found"));
+    assert_eq!(artifact_value["review_status"], json!("unreviewed"));
+
+    let input = directory.join("semantic-proof.input.json");
+    let generated = run_cli_owned(&semantic_artifact_command(&artifact, Some(&input)));
+    assert!(generated.status.success(), "stderr: {}", stderr(&generated));
+
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("insufficient_proof"));
+    assert!(report["result"]["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .any(|issue| issue["issue_type"] == json!("counterexample_not_accepted_by_policy")));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_input_from_report_requeues_unproved_obligations() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let artifact = directory.join("missing-proof-hash.json");
+    fs::write(
+        &artifact,
+        json!({
+            "status": "proved",
+            "input_hash": "fnv64:input",
+            "review_status": "accepted",
+            "confidence": 0.91
+        })
+        .to_string(),
+    )
+    .expect("write insufficient artifact");
+
+    let input = directory.join("semantic-proof.input.json");
+    let generated = run_cli_owned(&semantic_artifact_command(&artifact, Some(&input)));
+    assert!(generated.status.success(), "stderr: {}", stderr(&generated));
+
+    let report_path = directory.join("semantic-proof.report.json");
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        report_path
+            .to_str()
+            .expect("report path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+
+    let reinput = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "input".to_owned(),
+        "from-report".to_owned(),
+        "--report".to_owned(),
+        report_path
+            .to_str()
+            .expect("report path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(reinput.status.success(), "stderr: {}", stderr(&reinput));
+    let value: Value =
+        serde_json::from_str(stdout(&reinput).trim_end()).expect("reinput stdout should be JSON");
+    assert_eq!(value["schema"], json!(SEMANTIC_PROOF_INPUT_SCHEMA));
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("adapters")
+        .contains(&json!("semantic-proof-reinput-from-report.v1")));
+    assert!(value["proof_certificates"]
+        .as_array()
+        .expect("proof certs")
+        .is_empty());
+    assert_eq!(
+        value["theorem"]["morphism_ids"],
+        json!(["morphism:semantic:pricing-signature"])
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
 fn test_gap_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[
@@ -1124,18 +1339,53 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
         .as_array()
         .expect("higher order cells")
         .iter()
+        .any(|cell| cell["id"] == json!("runner:semantic-proof:backend-run")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["id"] == json!("adapter:semantic-proof:reinput-from-report")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
         .any(|cell| cell["id"] == json!("theorem:semantic-proof:artifact-adapter-correctness")));
     assert!(value["laws"]
         .as_array()
         .expect("laws")
         .iter()
         .any(|law| law["id"] == json!("law:semantic-proof:artifact-status-totality")));
+    assert!(value["laws"]
+        .as_array()
+        .expect("laws")
+        .iter()
+        .any(|law| law["id"] == json!("law:semantic-proof:backend-run-records-trust-boundary")));
+    assert!(value["laws"]
+        .as_array()
+        .expect("laws")
+        .iter()
+        .any(|law| law["id"]
+            == json!("law:semantic-proof:insufficient-proof-reinputs-open-obligations")));
     assert!(value["morphisms"]
         .as_array()
         .expect("morphisms")
         .iter()
         .any(|morphism| morphism["id"]
             == json!("morphism:semantic-proof:artifact-to-input-document")));
+    assert!(
+        value["morphisms"]
+            .as_array()
+            .expect("morphisms")
+            .iter()
+            .any(|morphism| morphism["id"]
+                == json!("morphism:semantic-proof:backend-run-to-artifact"))
+    );
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(|morphism| morphism["id"]
+            == json!("morphism:semantic-proof:insufficient-report-to-reinput")));
     assert!(value["morphisms"]
         .as_array()
         .expect("morphisms")
@@ -1143,7 +1393,7 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
         .filter(|morphism| morphism["id"]
             .as_str()
             .expect("morphism id")
-            .contains("tools-highergraphen-cli-src-semantic-proof-artifact-rs"))
+            .contains("tools-highergraphen-cli-src-semantic-proof"))
         .all(|morphism| morphism.get("expected_verification").is_none()));
     assert!(value["verification_cells"]
         .as_array()
@@ -1152,8 +1402,16 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
         .any(|verification| verification["morphism_ids"]
             .as_array()
             .expect("morphism ids")
+            .contains(&json!("morphism:semantic-proof:backend-run-to-artifact"))));
+    assert!(value["verification_cells"]
+        .as_array()
+        .expect("verification cells")
+        .iter()
+        .any(|verification| verification["morphism_ids"]
+            .as_array()
+            .expect("morphism ids")
             .contains(&json!(
-                "morphism:semantic-proof:certificate-to-proof-object"
+                "morphism:semantic-proof:insufficient-report-to-reinput"
             ))));
 
     let directory = unique_temp_dir();
@@ -1188,6 +1446,23 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
             .as_array()
             .is_some_and(|morphism_ids| morphism_ids
                 .contains(&json!("morphism:semantic-proof:artifact-to-input-document")))));
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids
+                .contains(&json!("morphism:semantic-proof:backend-run-to-artifact")))));
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids.contains(&json!(
+                "morphism:semantic-proof:insufficient-report-to-reinput"
+            )))));
     assert!(!report["result"]["proof_objects"]
         .as_array()
         .expect("proof objects")
@@ -1198,7 +1473,7 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
                 |morphism_ids| morphism_ids.iter().any(|morphism_id| morphism_id
                     .as_str()
                     .expect("morphism id")
-                    .contains("tools-highergraphen-cli-src-semantic-proof-artifact-rs"))
+                    .contains("tools-highergraphen-cli-src-semantic-proof"))
             )));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
@@ -2021,7 +2296,12 @@ fn write_semantic_proof_structural_git_fixture() -> PathBuf {
     write_repo_file(
         &repository,
         "tools/highergraphen-cli/src/main.rs",
-        "fn parse_semantic_proof_verify() {}\nfn parse_semantic_proof_input_from_artifact() {}\n",
+        "fn parse_semantic_proof_verify() {}\nfn parse_semantic_proof_backend_run() {}\nfn parse_semantic_proof_input_from_artifact() {}\nfn parse_semantic_proof_input_from_report() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/semantic_proof_backend.rs",
+        "pub(crate) struct BackendRunRequest;\npub(crate) fn run_backend() {}\nfn fingerprint() {}\n",
     );
     write_repo_file(
         &repository,
@@ -2030,13 +2310,18 @@ fn write_semantic_proof_structural_git_fixture() -> PathBuf {
     );
     write_repo_file(
         &repository,
+        "tools/highergraphen-cli/src/semantic_proof_reinput.rs",
+        "pub(crate) fn input_from_report() {}\nfn cells_for_morphisms() {}\n",
+    );
+    write_repo_file(
+        &repository,
         "tools/highergraphen-cli/tests/command.rs",
-        "#[test]\nfn semantic_proof_input_from_artifact_emits_proved_input_and_verifies() {}\n#[test]\nfn semantic_proof_input_from_artifact_emits_counterexample_input_and_verifies() {}\n",
+        "#[test]\nfn semantic_proof_backend_run_emits_trusted_proof_artifact_and_verifies() {}\n#[test]\nfn semantic_proof_backend_counterexample_stays_unreviewed_at_trust_boundary() {}\n#[test]\nfn semantic_proof_input_from_report_requeues_unproved_obligations() {}\n#[test]\nfn semantic_proof_input_from_artifact_emits_proved_input_and_verifies() {}\n#[test]\nfn semantic_proof_input_from_artifact_emits_counterexample_input_and_verifies() {}\n",
     );
     write_repo_file(
         &repository,
         "docs/cli/highergraphen.md",
-        "highergraphen semantic-proof input from-artifact\n",
+        "highergraphen semantic-proof backend run\nhighergraphen semantic-proof input from-artifact\nhighergraphen semantic-proof input from-report\n",
     );
     run_git(&repository, &["add", "."]);
     run_git(

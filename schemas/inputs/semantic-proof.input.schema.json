@@ -179,7 +179,8 @@
         },
         "require_input_hash": { "type": "boolean" },
         "require_proof_hash": { "type": "boolean" },
-        "require_accepted_review": { "type": "boolean" }
+        "require_accepted_review": { "type": "boolean" },
+        "require_accepted_counterexample_review": { "type": "boolean" }
       }
     }
   }

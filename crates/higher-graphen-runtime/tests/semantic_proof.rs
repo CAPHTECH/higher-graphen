@@ -146,6 +146,7 @@ fn proved_fixture() -> SemanticProofInputDocument {
             require_input_hash: true,
             require_proof_hash: true,
             require_accepted_review: true,
+            require_accepted_counterexample_review: false,
         },
     }
 }
