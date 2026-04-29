@@ -506,6 +506,218 @@ fn semantic_proof_input_from_artifact_emits_counterexample_input_and_verifies() 
 }
 
 #[test]
+fn semantic_proof_input_from_artifact_rejects_invalid_artifacts() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+
+    for (name, artifact, expected_error) in [
+        (
+            "missing-status",
+            json!({
+                "input_hash": "sha256:input",
+                "proof_hash": "sha256:proof"
+            }),
+            "missing status",
+        ),
+        (
+            "unknown-status",
+            json!({
+                "status": "unknown",
+                "input_hash": "sha256:input",
+                "proof_hash": "sha256:proof"
+            }),
+            "unsupported semantic proof artifact status",
+        ),
+        (
+            "bad-confidence",
+            json!({
+                "status": "proved",
+                "input_hash": "sha256:input",
+                "proof_hash": "sha256:proof",
+                "confidence": 1.1
+            }),
+            "confidence must be between 0.0 and 1.0 inclusive",
+        ),
+        (
+            "bad-witness-ids",
+            json!({
+                "status": "proved",
+                "input_hash": "sha256:input",
+                "proof_hash": "sha256:proof",
+                "witness_ids": "not-an-array"
+            }),
+            "witness_ids must be an array of strings",
+        ),
+        (
+            "bad-path-ids-entry",
+            json!({
+                "status": "counterexample",
+                "path_ids": ["cell:semantic:pricing:base", 1]
+            }),
+            "path_ids entries must be strings",
+        ),
+    ] {
+        let artifact_path = directory.join(format!("{name}.json"));
+        fs::write(&artifact_path, artifact.to_string()).expect("write invalid artifact");
+
+        let output = run_cli_owned(&semantic_artifact_command(&artifact_path, None));
+
+        assert!(
+            !output.status.success(),
+            "{name} unexpectedly succeeded with stdout: {}",
+            stdout(&output)
+        );
+        assert!(stdout(&output).is_empty());
+        assert!(
+            stderr(&output).contains(expected_error),
+            "{name} stderr did not contain {expected_error:?}: {}",
+            stderr(&output)
+        );
+    }
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_input_from_artifact_rejected_or_unhashed_certificates_are_insufficient() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+
+    for (name, artifact) in [
+        (
+            "rejected-review",
+            json!({
+                "status": "proved",
+                "input_hash": "sha256:input",
+                "proof_hash": "sha256:proof",
+                "review_status": "rejected",
+                "confidence": 0.91
+            }),
+        ),
+        (
+            "missing-input-hash",
+            json!({
+                "status": "proved",
+                "proof_hash": "sha256:proof",
+                "review_status": "accepted",
+                "confidence": 0.91
+            }),
+        ),
+        (
+            "missing-proof-hash",
+            json!({
+                "status": "proved",
+                "input_hash": "sha256:input",
+                "review_status": "accepted",
+                "confidence": 0.91
+            }),
+        ),
+    ] {
+        let artifact_path = directory.join(format!("{name}.json"));
+        let input_path = directory.join(format!("{name}.input.json"));
+        fs::write(&artifact_path, artifact.to_string()).expect("write policy artifact");
+
+        let input_output = run_cli_owned(&semantic_artifact_command(
+            &artifact_path,
+            Some(&input_path),
+        ));
+        assert!(
+            input_output.status.success(),
+            "{name} input stderr: {}",
+            stderr(&input_output)
+        );
+        assert!(stdout(&input_output).is_empty());
+
+        let verify = run_cli_owned(&[
+            "semantic-proof".to_owned(),
+            "verify".to_owned(),
+            "--input".to_owned(),
+            input_path
+                .to_str()
+                .expect("input path should be utf-8")
+                .to_owned(),
+            "--format".to_owned(),
+            "json".to_owned(),
+        ]);
+        assert!(
+            verify.status.success(),
+            "{name} stderr: {}",
+            stderr(&verify)
+        );
+        let report: Value =
+            serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+        assert_eq!(
+            report["result"]["status"],
+            json!("insufficient_proof"),
+            "{name} should not prove the theorem"
+        );
+        assert!(report["result"]["proof_objects"]
+            .as_array()
+            .map(|proof_objects| proof_objects.is_empty())
+            .unwrap_or(true));
+    }
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_input_from_artifact_preserves_counterexample_found_defaults() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let artifact = directory.join("counterexample-found-artifact.json");
+    fs::write(
+        &artifact,
+        json!({
+            "status": "counterexample_found",
+            "confidence": 0.88
+        })
+        .to_string(),
+    )
+    .expect("write semantic proof artifact");
+
+    let output = run_cli_owned(&semantic_artifact_command(&artifact, None));
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let generated_input = stdout(&output);
+    let value: Value =
+        serde_json::from_str(generated_input.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["counterexamples"][0]["severity"], json!("high"));
+    assert_eq!(
+        value["counterexamples"][0]["path_ids"],
+        json!(["cell:semantic:pricing:base", "cell:semantic:pricing:head"])
+    );
+    assert_eq!(
+        value["counterexamples"][0]["summary"],
+        json!("Backend artifact supplied a counterexample.")
+    );
+    assert_eq!(
+        value["counterexamples"][0]["review_status"],
+        json!("accepted")
+    );
+
+    let input = directory.join("semantic-proof.input.json");
+    fs::write(&input, generated_input).expect("write generated semantic proof input");
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("counterexample_found"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
 fn test_gap_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[
