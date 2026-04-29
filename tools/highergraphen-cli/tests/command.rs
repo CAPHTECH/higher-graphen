@@ -1481,6 +1481,132 @@ fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
 }
 
 #[test]
+fn test_gap_input_from_path_emits_current_tree_snapshot_and_feeds_detector() {
+    let repository = write_semantic_proof_structural_git_fixture();
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_gap_git.rs",
+        "pub(crate) fn input_from_git() {}\npub(crate) fn input_from_path() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/inputs/test-gap.input.schema.json",
+        r#"{"type":"object","properties":{"schema":{"const":"highergraphen.test_gap.input.v1"}}}"#,
+    );
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-gap-from-path.input.json");
+
+    let output = run_cli_owned(&[
+        "test-gap".to_owned(),
+        "input".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/main.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_gap_git.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/semantic_proof_backend.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/semantic_proof_reinput.rs".to_owned(),
+        "--path".to_owned(),
+        "schemas/inputs/test-gap.input.schema.json".to_owned(),
+        "--include-tests".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        input_path
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(&fs::read_to_string(&input_path).expect("read from-path input"))
+            .expect("from-path input should be JSON");
+    assert_eq!(value["schema"], json!(TEST_GAP_INPUT_SCHEMA));
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("source adapters")
+        .contains(&json!("test-gap-from-path.v1")));
+    assert_eq!(value["change_set"]["base_ref"], json!("current-tree"));
+    assert_eq!(value["change_set"]["head_ref"], json!("current-tree"));
+    assert!(value["changed_files"]
+        .as_array()
+        .expect("changed files")
+        .iter()
+        .any(|file| file["path"] == json!("tools/highergraphen-cli/tests/command.rs")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("adapter:test-gap:path-input")));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(|morphism| {
+            morphism["id"] == json!("morphism:test-gap:input-from-path-to-input-schema")
+        }));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["id"]
+            == json!(
+                "semantic:rust:function:tools-highergraphen-cli-src-main-rs:head:parse-semantic-proof-verify"
+            )));
+
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        input_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    let report: Value =
+        serde_json::from_str(stdout(&report_output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("gaps_detected"));
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids
+                .contains(&json!("morphism:test-gap:input-from-path-to-input-schema")))));
+    assert!(report["result"]["obstructions"]
+        .as_array()
+        .expect("obstructions")
+        .iter()
+        .any(|obstruction| obstruction["target_ids"]
+            .as_array()
+            .is_some_and(
+                |target_ids| target_ids.contains(&json!("law:test-gap:schema-id-preserved"))
+            )));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
 fn pr_review_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[
@@ -1923,6 +2049,14 @@ fn test_gap_input_from_git_requires_base_and_head() {
     assert!(!missing_head.status.success());
     assert!(stdout(&missing_head).is_empty());
     assert!(stderr(&missing_head).contains("--head <ref> is required"));
+}
+
+#[test]
+fn test_gap_input_from_path_requires_path() {
+    let missing_path = run_cli(&["test-gap", "input", "from-path", "--format", "json"]);
+    assert!(!missing_path.status.success());
+    assert!(stdout(&missing_path).is_empty());
+    assert!(stderr(&missing_path).contains("--path <path> is required"));
 }
 
 #[test]

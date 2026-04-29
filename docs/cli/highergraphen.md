@@ -139,6 +139,27 @@ deltas remain observable structure, but the verification decision is carried by
 the semantic-proof theorem and morphisms.
 
 ```sh
+highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
+```
+
+This command deterministically converts selected current-tree files or
+directories into the same bounded `highergraphen.test_gap.input.v1` snapshot
+shape without reading git history. It resolves every `--path` inside the local
+repository, recursively scans supported source, test, schema, fixture, and
+documentation files, and optionally adds all repository test files when
+`--include-tests` is present. The snapshot records `base_ref` and `head_ref` as
+`current-tree`, uses `test-gap-from-path.v1` as its adapter marker, and keeps
+`.git/` and `target/` outside the boundary.
+
+The from-path adapter reuses the same HigherGraphen lift as from-git:
+selected files become changed-behavior symbols, HigherGraphen surfaces become
+command/adapter/schema/runner cells, current Rust and JSON Schema contents
+become `head` semantic cells, and path-only semantic additions become explicit
+morphisms. It is useful for broad folder or file audits when no meaningful git
+range exists, but it remains a bounded snapshot: it does not execute tests,
+prove full behavior equivalence, or accept generated candidates.
+
+```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]
 ```
 
@@ -269,6 +290,8 @@ the source report and do not promote the candidate into accepted facts.
 | `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
 | `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
+| `--path <path>` | For `test-gap input from-path` | Selects a current-tree file or directory to scan; repeat for multiple roots. |
+| `--include-tests` | No | For `test-gap input from-path`, adds repository test files to the bounded snapshot. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
 | `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |
@@ -709,8 +732,8 @@ These are intentionally unsupported in the current CLI:
 - Architecture input formats beyond the bounded JSON v1 document.
 - Feed input formats beyond the bounded JSON v1 fixture.
 - PR review input formats beyond the bounded PR review target JSON v1 snapshot.
-- Test-gap input formats beyond bounded JSON v1 snapshots and deterministic
-  local git range input.
+- Test-gap input formats beyond bounded JSON v1 snapshots, deterministic
+  local git range input, and deterministic current-tree path input.
 - Network fetching, scheduling, database persistence, read state, UI rendering,
   and production RSS/Atom parsing.
 - Pull request approval, provider comment posting, reviewer assignment, or
@@ -725,5 +748,6 @@ These are intentionally unsupported in the current CLI:
 - Additional `highergraphen` subcommands beyond `architecture smoke
   direct-db-access`, `architecture input lift`, `feed reader run`,
   `pr-review input from-git`, `pr-review targets recommend`, `test-gap
-  input from-git`, `test-gap detect`, `semantic-proof verify`, and
+  input from-git`, `test-gap input from-path`, `test-gap detect`,
+  `semantic-proof verify`, and
   `completion review`.

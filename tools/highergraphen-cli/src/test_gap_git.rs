@@ -16,6 +16,7 @@ use higher_graphen_runtime::{
     TestGapVerificationCell, TestGapVisibility,
 };
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use syn::visit::Visit;
 
@@ -26,6 +27,13 @@ pub(crate) struct GitInputRequest {
     pub(crate) repo: PathBuf,
     pub(crate) base: String,
     pub(crate) head: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PathInputRequest {
+    pub(crate) repo: PathBuf,
+    pub(crate) paths: Vec<PathBuf>,
+    pub(crate) include_tests: bool,
 }
 
 pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDocument, String> {
@@ -72,7 +80,7 @@ pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDoc
     let verification_cells = verification_cells_for_tests(&tests, &structural, &diff_evidence_id)?;
     let coverage = coverage_for_tests(&tests, &accepted_test_kinds)?;
     let changed_files = changed_files_for_input(&changes, &symbols, &diff_evidence_id)?;
-    let contexts = contexts_for_changes(&changes, &change_set_id)?;
+    let contexts = contexts_for_changes(&changes, &change_set_id, "Git Range")?;
     let evidence =
         evidence_for_changes(&changes, &commits, &diff_evidence_id, &commit_evidence_id)?;
     let signals = signals_for_changes(
@@ -150,6 +158,138 @@ pub(crate) fn input_from_git(request: GitInputRequest) -> Result<TestGapInputDoc
     })
 }
 
+pub(crate) fn input_from_path(request: PathInputRequest) -> Result<TestGapInputDocument, String> {
+    if request.paths.is_empty() {
+        return Err("--path <path> is required".to_owned());
+    }
+
+    let metadata = GitInputMetadata::read_repo(&request.repo)?;
+    let changes = path_changes(&metadata.repo_path, &request.paths, request.include_tests)?;
+    if changes.is_empty() {
+        return Err("path scan has no supported files".to_owned());
+    }
+    let diff_analysis = current_tree_analysis(&metadata.repo_path, &changes)?;
+
+    let repository_id = id(format!("repo:{}", slug(&metadata.repo_name)))?;
+    let path_scope = request
+        .paths
+        .iter()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let change_set_id = id(format!(
+        "change:test-gap:{}:path:{}",
+        slug(&metadata.repo_name),
+        slug(&path_scope)
+    ))?;
+    let diff_evidence_id = id("evidence:path-scan")?;
+    let commit_evidence_id = id("evidence:current-head")?;
+
+    let mut symbols = symbols_for_changes(&changes, &diff_evidence_id, &diff_analysis)?;
+    let mut structural = structural_model_for_changes(&changes, &diff_evidence_id)?;
+    structural.extend(semantic_model_for_paths(
+        &metadata.repo_path,
+        &changes,
+        &diff_evidence_id,
+    )?);
+    symbols.extend(structural.symbols.clone());
+    let tests = tests_for_changes(&changes, &symbols, &diff_evidence_id)?;
+    let accepted_test_kinds = accepted_test_kinds_for_tests(&tests);
+    let mut requirements =
+        requirements_for_symbols(&symbols, &diff_evidence_id, &accepted_test_kinds)?;
+    requirements.extend(structural_requirements(
+        &structural,
+        &diff_evidence_id,
+        &accepted_test_kinds,
+    )?);
+    let tests = link_tests_to_requirements(tests, &requirements);
+    let verification_cells = verification_cells_for_tests(&tests, &structural, &diff_evidence_id)?;
+    let coverage = coverage_for_tests(&tests, &accepted_test_kinds)?;
+    let changed_files = changed_files_for_input(&changes, &symbols, &diff_evidence_id)?;
+    let contexts = contexts_for_changes(&changes, &change_set_id, "Path Scan")?;
+    let evidence = evidence_for_changes(&changes, &[], &diff_evidence_id, &commit_evidence_id)?;
+    let signals = signals_for_changes(
+        &changes,
+        &tests,
+        &accepted_test_kinds,
+        &diff_analysis,
+        &diff_evidence_id,
+    )?;
+    let declared_obligation_ids = requirements
+        .iter()
+        .map(|requirement| requirement.id.clone())
+        .collect::<Vec<_>>();
+
+    Ok(TestGapInputDocument {
+        schema: INPUT_SCHEMA.to_owned(),
+        source: TestGapSource {
+            kind: SourceKind::Code,
+            uri: Some(format!("path:{}:{path_scope}", metadata.repo_root)),
+            title: Some(format!("Path scan {path_scope} in {}", metadata.repo_name)),
+            captured_at: None,
+            confidence: confidence(1.0)?,
+            adapters: vec![
+                "current-tree.v1".to_owned(),
+                "test-gap-from-path.v1".to_owned(),
+            ],
+        },
+        repository: TestGapRepository {
+            id: repository_id,
+            name: metadata.repo_name,
+            uri: metadata
+                .remote_url
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            default_branch: metadata
+                .default_branch
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+        },
+        change_set: TestGapChangeSet {
+            id: change_set_id,
+            base_ref: "current-tree".to_owned(),
+            head_ref: "current-tree".to_owned(),
+            base_commit: None,
+            head_commit: optional_git(&metadata.repo_path, &["rev-parse", "HEAD"])
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            boundary: format!(
+                "current tree path scan {path_scope}{}",
+                if request.include_tests {
+                    " with tests"
+                } else {
+                    ""
+                }
+            ),
+            excluded_paths: vec![".git/".to_owned(), "target/".to_owned()],
+        },
+        changed_files,
+        symbols,
+        branches: Vec::new(),
+        requirements,
+        tests,
+        coverage,
+        dependency_edges: structural.dependency_edges,
+        higher_order_cells: structural.higher_order_cells,
+        higher_order_incidences: structural.higher_order_incidences,
+        morphisms: structural.morphisms,
+        laws: structural.laws,
+        verification_cells,
+        contexts,
+        evidence,
+        signals,
+        detector_context: Some(TestGapDetectorContext {
+            required_focus: vec![
+                "policy-accepted automated tests for selected path behavior".to_owned(),
+                "current-tree path-derived deterministic evidence only".to_owned(),
+            ],
+            excluded_paths: vec![".git/".to_owned(), "target/".to_owned()],
+            test_kinds: accepted_test_kinds,
+            declared_obligation_ids,
+        }),
+    })
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct GitInputMetadata {
     repo_root: String,
@@ -161,7 +301,11 @@ struct GitInputMetadata {
 
 impl GitInputMetadata {
     fn read(request: &GitInputRequest) -> Result<Self, String> {
-        let repo_root = git(&request.repo, &["rev-parse", "--show-toplevel"])?
+        Self::read_repo(&request.repo)
+    }
+
+    fn read_repo(repo: &Path) -> Result<Self, String> {
+        let repo_root = git(repo, &["rev-parse", "--show-toplevel"])?
             .trim()
             .to_owned();
         let repo_path = PathBuf::from(&repo_root);
@@ -234,6 +378,206 @@ impl StructuralModel {
         self.morphisms.extend(other.morphisms);
         self.laws.extend(other.laws);
     }
+}
+
+fn path_changes(
+    repo: &Path,
+    paths: &[PathBuf],
+    include_tests: bool,
+) -> Result<Vec<GitChange>, String> {
+    let mut files = BTreeSet::<String>::new();
+    for path in paths {
+        let resolved = resolve_input_path(repo, path)?;
+        collect_current_tree_files(repo, &resolved, &mut files)?;
+    }
+    if include_tests {
+        collect_tests(repo, &mut files)?;
+    }
+
+    files
+        .into_iter()
+        .map(|path| {
+            Ok(GitChange {
+                path,
+                old_path: None,
+                change_type: PrReviewTargetChangeType::Modified,
+                additions: 0,
+                deletions: 0,
+            })
+        })
+        .collect()
+}
+
+fn resolve_input_path(repo: &Path, path: &Path) -> Result<PathBuf, String> {
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        repo.join(path)
+    };
+    let canonical = fs::canonicalize(&candidate)
+        .map_err(|error| format!("failed to resolve path {}: {error}", candidate.display()))?;
+    if !canonical.starts_with(repo) {
+        return Err(format!(
+            "path {} is outside repository {}",
+            canonical.display(),
+            repo.display()
+        ));
+    }
+    Ok(canonical)
+}
+
+fn collect_tests(repo: &Path, files: &mut BTreeSet<String>) -> Result<(), String> {
+    collect_current_tree_files_with_filter(repo, repo, files, &|relative| is_test_path(relative))
+}
+
+fn collect_current_tree_files(
+    repo: &Path,
+    path: &Path,
+    files: &mut BTreeSet<String>,
+) -> Result<(), String> {
+    collect_current_tree_files_with_filter(repo, path, files, &|_| true)
+}
+
+fn collect_current_tree_files_with_filter(
+    repo: &Path,
+    path: &Path,
+    files: &mut BTreeSet<String>,
+    include: &dyn Fn(&str) -> bool,
+) -> Result<(), String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("failed to read path {}: {error}", path.display()))?;
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path)
+            .map_err(|error| format!("failed to read directory {}: {error}", path.display()))?
+        {
+            let entry =
+                entry.map_err(|error| format!("failed to read directory entry: {error}"))?;
+            let child = entry.path();
+            if should_skip_path(repo, &child)? {
+                continue;
+            }
+            collect_current_tree_files_with_filter(repo, &child, files, include)?;
+        }
+    } else if metadata.is_file() {
+        let relative = relative_repo_path(repo, path)?;
+        if include(&relative) && supported_path_input_file(&relative) {
+            files.insert(relative);
+        }
+    }
+    Ok(())
+}
+
+fn should_skip_path(repo: &Path, path: &Path) -> Result<bool, String> {
+    let relative = relative_repo_path(repo, path)?;
+    Ok(relative == ".git"
+        || relative.starts_with(".git/")
+        || relative == "target"
+        || relative.starts_with("target/"))
+}
+
+fn relative_repo_path(repo: &Path, path: &Path) -> Result<String, String> {
+    let relative = path.strip_prefix(repo).map_err(|_| {
+        format!(
+            "path {} is outside repository {}",
+            path.display(),
+            repo.display()
+        )
+    })?;
+    let mut parts = Vec::new();
+    for component in relative.components() {
+        let value = component.as_os_str().to_str().ok_or_else(|| {
+            format!(
+                "path {} is not valid UTF-8 relative to {}",
+                path.display(),
+                repo.display()
+            )
+        })?;
+        if !value.is_empty() {
+            parts.push(value.to_owned());
+        }
+    }
+    Ok(parts.join("/"))
+}
+
+fn supported_path_input_file(path: &str) -> bool {
+    is_source_code_path(path)
+        || is_test_path(path)
+        || path.ends_with(".schema.json")
+        || path.ends_with(".example.json")
+        || path.ends_with(".md")
+        || path.ends_with(".toml")
+        || path.ends_with(".yaml")
+        || path.ends_with(".yml")
+        || path.ends_with(".json")
+}
+
+fn current_tree_analysis(repo: &Path, changes: &[GitChange]) -> Result<GitDiffAnalysis, String> {
+    let mut analysis = GitDiffAnalysis::default();
+    for change in changes {
+        let file_id = file_id(&change.path)?;
+        let Ok(contents) = fs::read_to_string(repo.join(&change.path)) else {
+            continue;
+        };
+        if is_source_code_path(&change.path) && has_public_api_like_text(&contents) {
+            push_unique_id(&mut analysis.public_api_ids, file_id.clone());
+        }
+        if change.path.ends_with(".schema.json")
+            || contents.contains("#[serde")
+            || contents.contains("deny_unknown_fields")
+            || contents.contains("rename_all")
+        {
+            push_unique_id(&mut analysis.serde_contract_ids, file_id.clone());
+        }
+        if !is_test_path(&change.path) && has_panic_or_placeholder_text(&contents) {
+            push_unique_id(&mut analysis.panic_or_placeholder_ids, file_id.clone());
+        }
+        if !is_test_path(&change.path) && has_external_effect_text(&contents) {
+            push_unique_id(&mut analysis.external_effect_ids, file_id.clone());
+        }
+        if is_highergraphen_structural_path(&change.path)
+            || is_test_gap_surface_path(&change.path)
+            || is_semantic_proof_surface_path(&change.path)
+        {
+            push_unique_id(&mut analysis.structural_boundary_ids, file_id);
+        }
+    }
+    Ok(analysis)
+}
+
+fn has_public_api_like_text(contents: &str) -> bool {
+    contents.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("pub ")
+            || trimmed.starts_with("pub(")
+            || trimmed.starts_with("pub(crate)")
+            || trimmed.starts_with("pub struct")
+            || trimmed.starts_with("pub enum")
+            || trimmed.starts_with("pub fn")
+    })
+}
+
+fn has_panic_or_placeholder_text(contents: &str) -> bool {
+    contents.lines().any(|line| {
+        line.contains(".unwrap(")
+            || line.contains(".expect(")
+            || line.contains("panic!(")
+            || line.contains("todo!(")
+            || line.contains("unimplemented!(")
+    })
+}
+
+fn has_external_effect_text(contents: &str) -> bool {
+    contents.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed.contains("Command::new")
+            || trimmed.contains("ProcessCommand::new")
+            || trimmed.contains("fs::read")
+            || trimmed.contains("fs::write")
+            || trimmed.contains("fs::remove")
+            || trimmed.contains("fs::create")
+            || trimmed.contains("File::open")
+            || trimmed.contains("File::create")
+    })
 }
 
 fn changed_files_for_input(
@@ -362,10 +706,30 @@ fn structural_model_for_changes(
             &mut model,
             changes,
             diff_evidence_id,
+            "tools/highergraphen-cli/src/main.rs",
+            "command:highergraphen:test-gap:input-from-path",
+            "highergraphen test-gap input from-path command cell",
+            "highergraphen test-gap input from-path",
+            TestGapSymbolKind::PublicApi,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
             "tools/highergraphen-cli/src/test_gap_git.rs",
             "adapter:test-gap:git-input",
             "test-gap git input adapter cell",
             "test_gap_git::input_from_git",
+            TestGapSymbolKind::Module,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "tools/highergraphen-cli/src/test_gap_git.rs",
+            "adapter:test-gap:path-input",
+            "test-gap current-tree path input adapter cell",
+            "test_gap_git::input_from_path",
             TestGapSymbolKind::Module,
         )?;
         push_structural_symbol(
@@ -512,6 +876,22 @@ fn structural_model_for_changes(
             &mut model,
             changes,
             diff_evidence_id,
+            &["tools/highergraphen-cli/src/test_gap_git.rs"],
+            "law:test-gap:input-from-path-is-deterministic",
+            "test-gap input from-path derives a deterministic bounded snapshot from selected current-tree files",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/test_gap_git.rs"],
+            "law:test-gap:input-from-path-declares-snapshot-boundary",
+            "test-gap input from-path keeps current-tree scope and semantic coverage limits visible",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
             &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
             "law:test-gap:test-gap-is-bounded",
             "no_gaps_in_snapshot is bounded to the supplied snapshot and detector policy",
@@ -619,8 +999,24 @@ fn structural_model_for_changes(
         )?;
         push_structural_edge(
             &mut model,
+            "edge:test-gap:input-from-path-to-adapter",
+            "command:highergraphen:test-gap:input-from-path",
+            "adapter:test-gap:path-input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
             "edge:test-gap:git-adapter-to-input-schema",
             "adapter:test-gap:git-input",
+            "schema:test-gap:input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:path-adapter-to-input-schema",
+            "adapter:test-gap:path-input",
             "schema:test-gap:input",
             TestGapDependencyRelationType::Supports,
             diff_evidence_id,
@@ -719,6 +1115,21 @@ fn structural_model_for_changes(
             &[
                 "law:test-gap:input-from-git-is-deterministic",
                 "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+            ],
+            diff_evidence_id,
+        )?;
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:input-from-path-to-input-schema",
+            "adapter_to_input_schema",
+            &[
+                "command:highergraphen:test-gap:input-from-path",
+                "adapter:test-gap:path-input",
+            ],
+            &["schema:test-gap:input"],
+            &[
+                "law:test-gap:input-from-path-is-deterministic",
+                "law:test-gap:input-from-path-declares-snapshot-boundary",
             ],
             diff_evidence_id,
         )?;
@@ -1224,6 +1635,42 @@ fn semantic_model_for_changes(
             &head_cells,
             diff_evidence_id,
         )?;
+    }
+    Ok(model)
+}
+
+fn semantic_model_for_paths(
+    repo: &Path,
+    changes: &[GitChange],
+    diff_evidence_id: &Id,
+) -> Result<StructuralModel, String> {
+    let mut model = StructuralModel::default();
+    for change in changes {
+        let mut head_cells = Vec::new();
+        let path = repo.join(&change.path);
+        let Ok(contents) = fs::read_to_string(&path) else {
+            continue;
+        };
+        if change.path.ends_with(".rs") && is_source_code_path(&change.path) {
+            head_cells = push_rust_semantic_cells(
+                &mut model,
+                change,
+                SemanticRevision::Head,
+                &change.path,
+                &contents,
+                diff_evidence_id,
+            )?;
+        } else if change.path.ends_with(".schema.json") {
+            head_cells = push_json_schema_semantic_cells(
+                &mut model,
+                change,
+                SemanticRevision::Head,
+                &change.path,
+                &contents,
+                diff_evidence_id,
+            )?;
+        }
+        push_semantic_delta_structure(&mut model, change, &[], &head_cells, diff_evidence_id)?;
     }
     Ok(model)
 }
@@ -2458,6 +2905,19 @@ fn structural_requirements(
     push_structural_requirement(
         &mut requirements,
         structural,
+        "requirement:morphism:test-gap:input-from-path-to-input-schema",
+        "CLI command highergraphen test-gap input from-path routes through the current-tree path adapter and emits the bounded test-gap input schema",
+        &[
+            "command:highergraphen:test-gap:input-from-path",
+            "adapter:test-gap:path-input",
+            "schema:test-gap:input",
+        ],
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_structural_requirement(
+        &mut requirements,
+        structural,
         "requirement:morphism:test-gap:runtime-export-to-runner",
         "Runtime public exports preserve access to the test-gap detector runner and report types",
         &[
@@ -2639,6 +3099,24 @@ fn structural_requirements(
         "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
         "requirement:law:test-gap:input-from-git-does-not-prove-semantic-coverage",
         "test-gap input from-git keeps semantic coverage limits visible instead of proving full coverage",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-gap:input-from-path-is-deterministic",
+        "requirement:law:test-gap:input-from-path-is-deterministic",
+        "test-gap input from-path emits deterministic bounded structure from selected current-tree files",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-gap:input-from-path-declares-snapshot-boundary",
+        "requirement:law:test-gap:input-from-path-declares-snapshot-boundary",
+        "test-gap input from-path keeps current-tree scope and semantic coverage limits visible",
         diff_evidence_id,
         accepted_test_kinds,
     )?;
@@ -3065,10 +3543,13 @@ fn test_target_path_slug(target_id: &Id) -> Option<&str> {
 fn structural_cell_path_slug(target_id: &str) -> Option<&'static str> {
     match target_id {
         "command:highergraphen:test-gap:detect"
-        | "command:highergraphen:test-gap:input-from-git" => {
+        | "command:highergraphen:test-gap:input-from-git"
+        | "command:highergraphen:test-gap:input-from-path" => {
             Some("tools-highergraphen-cli-src-main-rs")
         }
-        "adapter:test-gap:git-input" => Some("tools-highergraphen-cli-src-test-gap-git-rs"),
+        "adapter:test-gap:git-input" | "adapter:test-gap:path-input" => {
+            Some("tools-highergraphen-cli-src-test-gap-git-rs")
+        }
         "runner:test-gap:detect" => Some("crates-higher-graphen-runtime-src-workflows-test-gap-rs"),
         "export:test-gap:runtime-api" => Some("crates-higher-graphen-runtime-src-lib-rs"),
         "registry:test-gap:workflow-module" => {
@@ -3167,6 +3648,7 @@ fn coverage_for_tests(
 fn contexts_for_changes(
     changes: &[GitChange],
     change_set_id: &Id,
+    review_focus_name: &str,
 ) -> Result<Vec<TestGapInputContext>, String> {
     let mut contexts = BTreeMap::<Id, (String, TestGapContextType)>::new();
     contexts.insert(
@@ -3175,7 +3657,10 @@ fn contexts_for_changes(
     );
     contexts.insert(
         id(format!("context:{}", slug(change_set_id.as_str())))?,
-        ("Git Range".to_owned(), TestGapContextType::ReviewFocus),
+        (
+            review_focus_name.to_owned(),
+            TestGapContextType::ReviewFocus,
+        ),
     );
 
     for change in changes {
@@ -3313,7 +3798,7 @@ fn push_missing_test_signal(
         id: id("signal:test-gap:changed-source-without-accepted-test")?,
         signal_type: TestGapRiskSignalType::TestGap,
         summary: format!(
-            "Git range changes {} source files without a matched policy-accepted changed test.",
+            "Input snapshot contains {} source files without a matched policy-accepted test.",
             uncovered.len()
         ),
         source_ids: uncovered,
@@ -3400,12 +3885,16 @@ fn matching_symbol_ids(test_path: &str, symbols: &[TestGapInputSymbol]) -> Vec<I
             &[
                 "command:highergraphen:test-gap:detect",
                 "command:highergraphen:test-gap:input-from-git",
+                "command:highergraphen:test-gap:input-from-path",
                 "adapter:test-gap:git-input",
+                "adapter:test-gap:path-input",
                 "law:test-gap:command-routes-to-runner",
                 "law:test-gap:json-format-required",
                 "law:test-gap:output-file-suppresses-stdout",
                 "law:test-gap:input-from-git-is-deterministic",
                 "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+                "law:test-gap:input-from-path-is-deterministic",
+                "law:test-gap:input-from-path-declares-snapshot-boundary",
                 "symbol:tools-highergraphen-cli-src-main-rs:changed-behavior",
                 "command:highergraphen:semantic-proof:backend-run",
                 "command:highergraphen:semantic-proof:input-from-artifact",

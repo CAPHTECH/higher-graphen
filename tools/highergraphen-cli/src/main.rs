@@ -34,6 +34,7 @@ const USAGE: &str = "usage:
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
+  highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
@@ -103,6 +104,12 @@ enum Command {
         repo: PathBuf,
         base: String,
         head: String,
+        output: Option<PathBuf>,
+    },
+    TestGapInputFromPath {
+        repo: PathBuf,
+        paths: Vec<PathBuf>,
+        include_tests: bool,
         output: Option<PathBuf>,
     },
     SemanticProofVerify {
@@ -271,18 +278,37 @@ impl Command {
     }
 
     fn parse_test_gap_input(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
-        require_token(&mut args, "from-git")?;
-        let options = GitInputOptions::parse(args)?;
-        Ok(Self::TestGapInputFromGit {
-            repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
-            base: options
-                .base
-                .ok_or_else(|| CliError::usage("--base <ref> is required"))?,
-            head: options
-                .head
-                .ok_or_else(|| CliError::usage("--head <ref> is required"))?,
-            output: options.output,
-        })
+        let segment = required_segment(&mut args, "test-gap input command")?;
+        match segment.to_str() {
+            Some("from-git") => {
+                let options = GitInputOptions::parse(args)?;
+                Ok(Self::TestGapInputFromGit {
+                    repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
+                    base: options
+                        .base
+                        .ok_or_else(|| CliError::usage("--base <ref> is required"))?,
+                    head: options
+                        .head
+                        .ok_or_else(|| CliError::usage("--head <ref> is required"))?,
+                    output: options.output,
+                })
+            }
+            Some("from-path") => {
+                let options = PathInputOptions::parse(args)?;
+                if options.paths.is_empty() {
+                    return Err(CliError::usage("--path <path> is required"));
+                }
+                Ok(Self::TestGapInputFromPath {
+                    repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
+                    paths: options.paths,
+                    include_tests: options.include_tests,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage(
+                "unsupported test-gap input command segment",
+            )),
+        }
     }
 
     fn parse_semantic_proof(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
@@ -429,6 +455,7 @@ impl Command {
             | Self::PrReviewInputFromGit { output, .. }
             | Self::PrReviewTargetsRecommend { output, .. }
             | Self::TestGapInputFromGit { output, .. }
+            | Self::TestGapInputFromPath { output, .. }
             | Self::TestGapDetect { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
@@ -489,6 +516,21 @@ impl Command {
                     repo: repo.clone(),
                     base: base.clone(),
                     head: head.clone(),
+                })
+                .map_err(CliError::GitInput)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestGapInputFromPath {
+                repo,
+                paths,
+                include_tests,
+                ..
+            } => {
+                let document = test_gap_git::input_from_path(test_gap_git::PathInputRequest {
+                    repo: repo.clone(),
+                    paths: paths.clone(),
+                    include_tests: *include_tests,
                 })
                 .map_err(CliError::GitInput)?;
                 serde_json::to_string(&document)
@@ -616,6 +658,45 @@ impl GitInputOptions {
                 options.base = Some(require_string(&mut args, "--base")?);
             } else if arg == "--head" {
                 options.head = Some(require_string(&mut args, "--head")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct PathInputOptions {
+    repo: Option<PathBuf>,
+    paths: Vec<PathBuf>,
+    include_tests: bool,
+    output: Option<PathBuf>,
+}
+
+impl PathInputOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--repo" {
+                options.repo = Some(require_path(&mut args, "--repo")?);
+            } else if arg == "--path" {
+                options.paths.push(require_path(&mut args, "--path")?);
+            } else if arg == "--include-tests" {
+                options.include_tests = true;
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
