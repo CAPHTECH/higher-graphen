@@ -31,6 +31,16 @@ pub struct TestGapInputDocument {
     pub coverage: Vec<TestGapInputCoverage>,
     #[serde(default)]
     pub dependency_edges: Vec<TestGapInputDependencyEdge>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub higher_order_cells: Vec<TestGapHigherOrderCell>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub higher_order_incidences: Vec<TestGapHigherOrderIncidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphisms: Vec<TestGapInputMorphism>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub laws: Vec<TestGapInputLaw>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_cells: Vec<TestGapVerificationCell>,
     #[serde(default)]
     pub contexts: Vec<TestGapInputContext>,
     #[serde(default)]
@@ -217,6 +227,94 @@ pub struct TestGapInputDependencyEdge {
     pub confidence: Option<Confidence>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapHigherOrderCell {
+    pub id: Id,
+    pub cell_type: String,
+    pub label: String,
+    #[serde(default)]
+    pub dimension: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_ids: Vec<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Confidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapHigherOrderIncidence {
+    pub id: Id,
+    pub from_id: Id,
+    pub to_id: Id,
+    pub relation_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orientation: Option<IncidenceOrientation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_ids: Vec<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Confidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapInputMorphism {
+    pub id: Id,
+    pub morphism_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub law_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requirement_ids: Vec<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_verification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Confidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapInputLaw {
+    pub id: Id,
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub applies_to_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requirement_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_ids: Vec<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_verification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Confidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapVerificationCell {
+    pub id: Id,
+    pub name: String,
+    pub verification_type: String,
+    pub test_type: TestGapTestType,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requirement_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub law_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphism_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_ids: Vec<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Confidence>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TestGapInputContext {
@@ -284,6 +382,16 @@ pub struct TestGapScenario {
     pub coverage: Vec<TestGapObservedCoverage>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependency_edges: Vec<TestGapObservedDependencyEdge>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub higher_order_cells: Vec<TestGapObservedHigherOrderCell>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub higher_order_incidences: Vec<TestGapObservedHigherOrderIncidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphisms: Vec<TestGapObservedInputMorphism>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub laws: Vec<TestGapObservedInputLaw>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verification_cells: Vec<TestGapObservedVerificationCell>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contexts: Vec<TestGapObservedContext>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -387,6 +495,51 @@ pub struct TestGapObservedDependencyEdge {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct TestGapObservedHigherOrderCell {
+    #[serde(flatten)]
+    pub record: TestGapHigherOrderCell,
+    pub review_status: ReviewStatus,
+    pub confidence: Confidence,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapObservedHigherOrderIncidence {
+    #[serde(flatten)]
+    pub record: TestGapHigherOrderIncidence,
+    pub review_status: ReviewStatus,
+    pub confidence: Confidence,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapObservedInputMorphism {
+    #[serde(flatten)]
+    pub record: TestGapInputMorphism,
+    pub review_status: ReviewStatus,
+    pub confidence: Confidence,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapObservedInputLaw {
+    #[serde(flatten)]
+    pub record: TestGapInputLaw,
+    pub review_status: ReviewStatus,
+    pub confidence: Confidence,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapObservedVerificationCell {
+    #[serde(flatten)]
+    pub record: TestGapVerificationCell,
+    pub review_status: ReviewStatus,
+    pub confidence: Confidence,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TestGapObservedContext {
     #[serde(flatten)]
     pub record: TestGapInputContext,
@@ -446,6 +599,11 @@ pub struct TestGapStructuralSummary {
     pub requirement_count: usize,
     pub test_count: usize,
     pub coverage_record_count: usize,
+    pub higher_order_cell_count: usize,
+    pub higher_order_incidence_count: usize,
+    pub morphism_count: usize,
+    pub law_count: usize,
+    pub verification_cell_count: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -491,9 +649,44 @@ pub struct TestGapResult {
     pub accepted_fact_ids: Vec<Id>,
     pub evaluated_invariant_ids: Vec<Id>,
     pub morphism_summaries: Vec<TestGapMorphismSummary>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proof_objects: Vec<TestGapProofObject>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub counterexamples: Vec<TestGapCounterexample>,
     pub obstructions: Vec<TestGapObstruction>,
     pub completion_candidates: Vec<TestGapCompletionCandidate>,
     pub source_ids: Vec<Id>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapProofObject {
+    pub id: Id,
+    pub proof_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub law_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphism_ids: Vec<Id>,
+    pub verified_by_ids: Vec<Id>,
+    pub witness_ids: Vec<Id>,
+    pub summary: String,
+    pub confidence: Confidence,
+    pub review_status: ReviewStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestGapCounterexample {
+    pub id: Id,
+    pub counterexample_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub law_ids: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphism_ids: Vec<Id>,
+    pub path_ids: Vec<Id>,
+    pub summary: String,
+    pub confidence: Confidence,
+    pub review_status: ReviewStatus,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

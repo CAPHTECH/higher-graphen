@@ -67,6 +67,36 @@
         "$ref": "#/$defs/dependency_edge"
       }
     },
+    "higher_order_cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/higher_order_cell"
+      }
+    },
+    "higher_order_incidences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/higher_order_incidence"
+      }
+    },
+    "morphisms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/morphism"
+      }
+    },
+    "laws": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/law"
+      }
+    },
+    "verification_cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_cell"
+      }
+    },
     "contexts": {
       "type": "array",
       "items": {
@@ -546,6 +576,191 @@
             "directed",
             "undirected"
           ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "higher_order_cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "cell_type",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "cell_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimension": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "context_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "higher_order_incidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from_id",
+        "to_id",
+        "relation_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "orientation": {
+          "enum": [
+            "directed",
+            "undirected"
+          ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "morphism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "morphism_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "law_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "expected_verification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "law": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "summary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applies_to_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "expected_verification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "verification_cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "verification_type",
+        "test_type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "test_type": {
+          "$ref": "#/$defs/test_type"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "requirement_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "law_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "morphism_ids": {
+          "$ref": "#/$defs/id_array"
         },
         "source_ids": {
           "$ref": "#/$defs/id_array"

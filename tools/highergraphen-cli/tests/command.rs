@@ -13,6 +13,7 @@ const REPORT_SCHEMA: &str = "highergraphen.architecture.direct_db_access_smoke.r
 const INPUT_LIFT_REPORT_SCHEMA: &str = "highergraphen.architecture.input_lift.report.v1";
 const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
+const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
@@ -343,6 +344,345 @@ fn test_gap_detect_writes_output_file_without_stdout() {
     assert_eq!(value["projection"]["purpose"], json!("test_gap_detection"));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn test_gap_input_from_git_emits_bounded_snapshot() {
+    let repository = write_git_fixture();
+    let output = run_cli(&[
+        "test-gap",
+        "input",
+        "from-git",
+        "--repo",
+        repository.to_str().expect("repo path should be utf-8"),
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let stdout = stdout(&output);
+    assert_eq!(stdout.lines().count(), 1);
+    let value: Value = serde_json::from_str(stdout.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(TEST_GAP_INPUT_SCHEMA));
+    assert_eq!(value["source"]["kind"], json!("code"));
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("source adapters")
+        .contains(&json!("test-gap-from-git.v1")));
+    assert!(value["changed_files"]
+        .as_array()
+        .expect("changed files")
+        .iter()
+        .any(|file| file["path"]
+            == json!("crates/higher-graphen-runtime/src/workflows/pr_review_target.rs")));
+    assert!(!value["symbols"].as_array().expect("symbols").is_empty());
+    assert!(!value["requirements"]
+        .as_array()
+        .expect("requirements")
+        .is_empty());
+    assert!(value["requirements"]
+        .as_array()
+        .expect("requirements")
+        .iter()
+        .all(
+            |requirement| requirement["expected_verification"] == json!("unit_or_integration_test")
+        ));
+    assert!(value["signals"].as_array().expect("signals").iter().any(
+        |signal| signal["id"] == json!("signal:test-gap:changed-source-without-accepted-test")
+    ));
+    assert_eq!(
+        value["detector_context"]["test_kinds"],
+        json!(["unit", "integration"])
+    );
+    assert!(!value["detector_context"]["declared_obligation_ids"]
+        .as_array()
+        .expect("declared obligations")
+        .is_empty());
+
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
+fn test_gap_input_from_git_output_feeds_detector() {
+    let repository = write_git_fixture();
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-gap.input.json");
+
+    let input_output = run_cli(&[
+        "test-gap",
+        "input",
+        "from-git",
+        "--repo",
+        repository.to_str().expect("repo path should be utf-8"),
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--format",
+        "json",
+        "--output",
+        input_path.to_str().expect("input path should be utf-8"),
+    ]);
+    assert!(
+        input_output.status.success(),
+        "stderr: {}",
+        stderr(&input_output)
+    );
+    assert!(stdout(&input_output).is_empty());
+    assert!(stderr(&input_output).is_empty());
+
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        input_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    assert!(stderr(&report_output).is_empty());
+    let report_stdout = stdout(&report_output);
+    let value: Value =
+        serde_json::from_str(report_stdout.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(TEST_GAP_REPORT_SCHEMA));
+    assert_eq!(value["result"]["status"], json!("gaps_detected"));
+    assert!(value["result"]["obstructions"]
+        .as_array()
+        .expect("obstructions")
+        .iter()
+        .any(|obstruction| obstruction["obstruction_type"]
+            == json!("missing_requirement_verification")));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
+fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
+    let repository = write_test_gap_structural_git_fixture();
+    let output = run_cli(&[
+        "test-gap",
+        "input",
+        "from-git",
+        "--repo",
+        repository.to_str().expect("repo path should be utf-8"),
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("command:highergraphen:test-gap:detect")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("runner:test-gap:detect")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("adapter:test-gap:git-input")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("law:test-gap:json-format-required")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("law:test-gap:fixtures-validate-against-schema")));
+    assert!(value["symbols"]
+        .as_array()
+        .expect("symbols")
+        .iter()
+        .any(|symbol| symbol["id"] == json!("validator:test-gap:json-contracts")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["id"] == json!("adapter:test-gap:git-input")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("rust_function")
+            && cell["id"]
+                .as_str()
+                .expect("semantic rust function id")
+                .contains("run-test-gap-detect")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("json_schema_property")
+            && cell["label"]
+                .as_str()
+                .expect("semantic json property label")
+                .contains("schema")));
+    assert!(value["higher_order_incidences"]
+        .as_array()
+        .expect("higher order incidences")
+        .iter()
+        .any(|incidence| incidence["relation_type"] == json!("contains_function")));
+    assert!(value["laws"]
+        .as_array()
+        .expect("laws")
+        .iter()
+        .any(|law| law["id"] == json!("law:test-gap:json-format-required")));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(
+            |morphism| morphism["id"] == json!("morphism:test-gap:input-from-git-to-input-schema")
+        ));
+    assert!(value["verification_cells"]
+        .as_array()
+        .expect("verification cells")
+        .iter()
+        .any(|verification| verification["law_ids"]
+            .as_array()
+            .expect("law ids")
+            .contains(&json!("law:test-gap:json-format-required"))));
+    assert!(value["dependency_edges"]
+        .as_array()
+        .expect("dependency edges")
+        .iter()
+        .any(|edge| edge["id"] == json!("edge:test-gap:command-detect-to-runner")));
+    assert!(value["dependency_edges"]
+        .as_array()
+        .expect("dependency edges")
+        .iter()
+        .any(|edge| edge["id"] == json!("edge:test-gap:git-adapter-to-input-schema")));
+    assert!(value["dependency_edges"]
+        .as_array()
+        .expect("dependency edges")
+        .iter()
+        .any(|edge| edge["id"] == json!("edge:test-gap:validator-to-input-fixture")));
+    assert!(value["requirements"]
+        .as_array()
+        .expect("requirements")
+        .iter()
+        .any(|requirement| requirement["id"]
+            == json!("requirement:morphism:test-gap:command-detect-to-runner")));
+    assert!(value["requirements"]
+        .as_array()
+        .expect("requirements")
+        .iter()
+        .any(|requirement| requirement["id"]
+            == json!("requirement:law:test-gap:json-format-required")));
+    assert!(value["requirements"]
+        .as_array()
+        .expect("requirements")
+        .iter()
+        .any(|requirement| requirement["id"]
+            == json!("requirement:law:test-gap:fixtures-validate-against-schema")));
+    assert!(value["tests"]
+        .as_array()
+        .expect("tests")
+        .iter()
+        .any(|test| test["target_ids"]
+            .as_array()
+            .expect("target ids")
+            .contains(&json!("command:highergraphen:test-gap:detect"))));
+    assert!(value["tests"]
+        .as_array()
+        .expect("tests")
+        .iter()
+        .any(|test| test["target_ids"]
+            .as_array()
+            .expect("target ids")
+            .contains(&json!("law:test-gap:json-format-required"))));
+    assert!(value["tests"]
+        .as_array()
+        .expect("tests")
+        .iter()
+        .any(
+            |test| test["id"] == json!("test:validator:test-gap-json-contracts")
+                && test["target_ids"]
+                    .as_array()
+                    .expect("target ids")
+                    .contains(&json!("law:test-gap:fixtures-validate-against-schema"))
+        ));
+    assert!(value["detector_context"]["test_kinds"]
+        .as_array()
+        .expect("test kinds")
+        .contains(&json!("smoke")));
+
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-gap-structural.input.json");
+    fs::write(
+        &input_path,
+        serde_json::to_string(&value).expect("serialize structural input"),
+    )
+    .expect("write structural input");
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        input_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    let report: Value =
+        serde_json::from_str(stdout(&report_output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("no_gaps_in_snapshot"));
+    assert!(report["scenario"]["laws"]
+        .as_array()
+        .expect("scenario laws")
+        .iter()
+        .any(|law| law["id"] == json!("law:test-gap:json-format-required")));
+    assert!(
+        report["scenario"]["lifted_structure"]["structural_summary"]["law_count"]
+            .as_u64()
+            .expect("law count")
+            > 0
+    );
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["law_ids"]
+            .as_array()
+            .expect("law ids")
+            .contains(&json!("law:test-gap:json-format-required"))));
+    assert!(report["result"]["counterexamples"]
+        .as_array()
+        .map(|counterexamples| counterexamples.is_empty())
+        .unwrap_or(true));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
 }
 
 #[test]
@@ -774,6 +1114,23 @@ fn pr_review_input_from_git_requires_base_and_head() {
 }
 
 #[test]
+fn test_gap_input_from_git_requires_base_and_head() {
+    let missing_base = run_cli(&[
+        "test-gap", "input", "from-git", "--head", "HEAD", "--format", "json",
+    ]);
+    assert!(!missing_base.status.success());
+    assert!(stdout(&missing_base).is_empty());
+    assert!(stderr(&missing_base).contains("--base <ref> is required"));
+
+    let missing_head = run_cli(&[
+        "test-gap", "input", "from-git", "--base", "HEAD~1", "--format", "json",
+    ]);
+    assert!(!missing_head.status.success());
+    assert!(stdout(&missing_head).is_empty());
+    assert!(stderr(&missing_head).contains("--head <ref> is required"));
+}
+
+#[test]
 fn unsupported_or_missing_format_exits_nonzero() {
     let missing = run_cli(&["architecture", "smoke", "direct-db-access"]);
     assert!(!missing.status.success());
@@ -790,6 +1147,16 @@ fn unsupported_or_missing_format_exits_nonzero() {
     assert!(!unsupported.status.success());
     assert!(stdout(&unsupported).is_empty());
     assert!(stderr(&unsupported).contains("only json is supported"));
+
+    let missing_test_gap_format = run_cli(&["test-gap", "detect"]);
+    assert!(!missing_test_gap_format.status.success());
+    assert!(stdout(&missing_test_gap_format).is_empty());
+    assert!(stderr(&missing_test_gap_format).contains("--format json is required"));
+
+    let unsupported_test_gap_format = run_cli(&["test-gap", "detect", "--format", "human"]);
+    assert!(!unsupported_test_gap_format.status.success());
+    assert!(stdout(&unsupported_test_gap_format).is_empty());
+    assert!(stderr(&unsupported_test_gap_format).contains("only json is supported"));
 }
 
 #[test]
@@ -947,6 +1314,99 @@ fn write_git_fixture() -> PathBuf {
     run_git(
         &repository,
         &["commit", "-m", "add pr review target workflow"],
+    );
+
+    repository
+}
+
+fn write_test_gap_structural_git_fixture() -> PathBuf {
+    let repository = unique_temp_dir();
+    fs::create_dir_all(&repository).expect("create temp git repository");
+    run_git(&repository, &["init"]);
+    run_git(
+        &repository,
+        &["config", "user.email", "test@example.invalid"],
+    );
+    run_git(&repository, &["config", "user.name", "Test User"]);
+
+    fs::write(repository.join("README.md"), "# fixture\n").expect("write base file");
+    run_git(&repository, &["add", "."]);
+    run_git(&repository, &["commit", "-m", "base"]);
+
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_test_gap_detect() {}\nfn run_test_gap_detect_command() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_gap_git.rs",
+        "pub(crate) fn input_from_git() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/lib.rs",
+        "pub use workflows::test_gap::run_test_gap_detect;\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/workflows/mod.rs",
+        "pub mod test_gap;\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
+        "pub fn run_test_gap_detect() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+        "pub struct TestGapInputDocument;\npub struct TestGapReport;\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/src/reports.rs",
+        "pub struct ReportEnvelope<T, U, V>(T, U, V);\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/inputs/test-gap.input.schema.json",
+        "{\"$id\":\"highergraphen.test_gap.input.v1\",\"type\":\"object\",\"properties\":{\"schema\":{\"const\":\"highergraphen.test_gap.input.v1\"}}}\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/reports/test-gap.report.schema.json",
+        "{\"$id\":\"highergraphen.test_gap.report.v1\",\"type\":\"object\",\"properties\":{\"schema\":{\"const\":\"highergraphen.test_gap.report.v1\"}}}\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/inputs/test-gap.input.example.json",
+        "{\"schema\":\"highergraphen.test_gap.input.v1\"}\n",
+    );
+    write_repo_file(
+        &repository,
+        "schemas/reports/test-gap.report.example.json",
+        "{\"schema\":\"highergraphen.test_gap.report.v1\"}\n",
+    );
+    write_repo_file(
+        &repository,
+        "scripts/validate-json-contracts.py",
+        "def main():\n    return 0\n",
+    );
+    write_repo_file(
+        &repository,
+        "crates/higher-graphen-runtime/tests/test_gap.rs",
+        "#[test]\nfn test_gap_runtime_contract() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/tests/command.rs",
+        "#[test]\nfn test_gap_detect_command() {}\n",
+    );
+    run_git(&repository, &["add", "."]);
+    run_git(
+        &repository,
+        &["commit", "-m", "add structural test-gap surface"],
     );
 
     repository

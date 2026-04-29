@@ -207,6 +207,18 @@
             ]
           }
         },
+        "proof_objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proof_object"
+          }
+        },
+        "counterexamples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/counterexample"
+          }
+        },
         "obstructions": {
           "type": "array",
           "items": {
@@ -221,6 +233,90 @@
         },
         "source_ids": {
           "$ref": "#/$defs/id_array"
+        }
+      }
+    },
+    "proof_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "proof_type",
+        "verified_by_ids",
+        "witness_ids",
+        "summary",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "proof_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "law_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "morphism_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "verified_by_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "witness_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "accepted"
+        }
+      }
+    },
+    "counterexample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "counterexample_type",
+        "path_ids",
+        "summary",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "counterexample_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "law_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "morphism_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "path_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "unreviewed"
         }
       }
     },

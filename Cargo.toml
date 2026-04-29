@@ -51,6 +51,7 @@ higher-graphen-interpretation = { version = "0.2.1", path = "crates/higher-graph
 higher-graphen-runtime = { version = "0.2.1", path = "crates/higher-graphen-runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+syn = { version = "2", features = ["full", "visit"] }
 
 [workspace.lints.rust]
 missing_docs = "warn"

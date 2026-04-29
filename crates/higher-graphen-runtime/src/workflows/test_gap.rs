@@ -7,16 +7,18 @@ use crate::reports::{
     ReportMetadata,
 };
 use crate::test_gap_reports::{
-    TestGapBranchType, TestGapCandidateProvenance, TestGapCompletionCandidate, TestGapFactSource,
-    TestGapInputBranch, TestGapInputDocument, TestGapInputRequirement, TestGapInputSymbol,
-    TestGapLiftedCell, TestGapLiftedContext, TestGapLiftedIncidence, TestGapLiftedSpace,
-    TestGapLiftedStructure, TestGapMissingType, TestGapMorphismSummary, TestGapMorphismType,
-    TestGapObservedBranch, TestGapObservedChangedFile, TestGapObservedContext,
-    TestGapObservedCoverage, TestGapObservedDependencyEdge, TestGapObservedEvidence,
-    TestGapObservedRequirement, TestGapObservedRiskSignal, TestGapObservedSymbol,
-    TestGapObservedTest, TestGapObstruction, TestGapObstructionType, TestGapPreservationStatus,
-    TestGapReport, TestGapResult, TestGapScenario, TestGapSourceBoundary, TestGapStructuralSummary,
-    TestGapSuggestedTestShape, TestGapTestType,
+    TestGapBranchType, TestGapCandidateProvenance, TestGapCompletionCandidate,
+    TestGapCounterexample, TestGapFactSource, TestGapInputBranch, TestGapInputDocument,
+    TestGapInputRequirement, TestGapInputSymbol, TestGapLiftedCell, TestGapLiftedContext,
+    TestGapLiftedIncidence, TestGapLiftedSpace, TestGapLiftedStructure, TestGapMissingType,
+    TestGapMorphismSummary, TestGapMorphismType, TestGapObservedBranch, TestGapObservedChangedFile,
+    TestGapObservedContext, TestGapObservedCoverage, TestGapObservedDependencyEdge,
+    TestGapObservedEvidence, TestGapObservedHigherOrderCell, TestGapObservedHigherOrderIncidence,
+    TestGapObservedInputLaw, TestGapObservedInputMorphism, TestGapObservedRequirement,
+    TestGapObservedRiskSignal, TestGapObservedSymbol, TestGapObservedTest,
+    TestGapObservedVerificationCell, TestGapObstruction, TestGapObstructionType,
+    TestGapPreservationStatus, TestGapProofObject, TestGapReport, TestGapResult, TestGapScenario,
+    TestGapSourceBoundary, TestGapStructuralSummary, TestGapSuggestedTestShape, TestGapTestType,
 };
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceRef};
 use higher_graphen_projection::InformationLoss;
@@ -55,6 +57,8 @@ pub fn run_test_gap_detect(input: TestGapInputDocument) -> RuntimeResult<TestGap
     let mut source_ids = result_source_ids(
         &accepted_fact_ids,
         &evaluated_invariant_ids,
+        &[],
+        &[],
         &obstructions,
         &initial_completion_candidates,
     );
@@ -76,6 +80,8 @@ pub fn run_test_gap_detect(input: TestGapInputDocument) -> RuntimeResult<TestGap
             accepted_fact_ids: accepted_fact_ids.clone(),
             evaluated_invariant_ids: evaluated_invariant_ids.clone(),
             morphism_summaries: Vec::new(),
+            proof_objects: Vec::new(),
+            counterexamples: Vec::new(),
             obstructions: Vec::new(),
             completion_candidates: Vec::new(),
             source_ids: source_ids.clone(),
@@ -106,9 +112,13 @@ pub fn run_test_gap_detect(input: TestGapInputDocument) -> RuntimeResult<TestGap
 
     let completion_candidates = completion_candidates(&input, &obstructions)?;
     ensure_detector_output_unreviewed(&obstructions, &completion_candidates)?;
+    let proof_objects = proof_objects(&input)?;
+    let counterexamples = counterexamples(&input)?;
     let source_ids = result_source_ids(
         &accepted_fact_ids,
         &evaluated_invariant_ids,
+        &proof_objects,
+        &counterexamples,
         &obstructions,
         &completion_candidates,
     );
@@ -123,6 +133,8 @@ pub fn run_test_gap_detect(input: TestGapInputDocument) -> RuntimeResult<TestGap
         accepted_fact_ids,
         evaluated_invariant_ids,
         morphism_summaries,
+        proof_objects,
+        counterexamples,
         obstructions,
         completion_candidates,
         source_ids,
@@ -337,6 +349,129 @@ fn validate_input_references(input: &TestGapInputDocument) -> RuntimeResult<()> 
             "source",
         )?;
     }
+    for cell in &input.higher_order_cells {
+        ensure_known_ids(
+            &ids.context_ids,
+            &cell.context_ids,
+            "higher_order_cell",
+            &cell.id,
+            "context",
+        )?;
+        ensure_known_ids(
+            &ids.accepted_ids,
+            &cell.source_ids,
+            "higher_order_cell",
+            &cell.id,
+            "source",
+        )?;
+    }
+    for incidence in &input.higher_order_incidences {
+        ensure_known_id(
+            &ids.high_order_endpoint_ids,
+            &incidence.from_id,
+            "higher_order_incidence",
+            &incidence.id,
+            "from endpoint",
+        )?;
+        ensure_known_id(
+            &ids.high_order_endpoint_ids,
+            &incidence.to_id,
+            "higher_order_incidence",
+            &incidence.id,
+            "to endpoint",
+        )?;
+        ensure_known_ids(
+            &ids.accepted_ids,
+            &incidence.source_ids,
+            "higher_order_incidence",
+            &incidence.id,
+            "source",
+        )?;
+    }
+    for morphism in &input.morphisms {
+        ensure_known_ids(
+            &ids.high_order_endpoint_ids,
+            &morphism.source_ids,
+            "morphism",
+            &morphism.id,
+            "source endpoint",
+        )?;
+        ensure_known_ids(
+            &ids.high_order_endpoint_ids,
+            &morphism.target_ids,
+            "morphism",
+            &morphism.id,
+            "target endpoint",
+        )?;
+        ensure_known_ids(
+            &ids.law_ids,
+            &morphism.law_ids,
+            "morphism",
+            &morphism.id,
+            "law",
+        )?;
+        ensure_known_ids(
+            &ids.requirement_ids,
+            &morphism.requirement_ids,
+            "morphism",
+            &morphism.id,
+            "requirement",
+        )?;
+    }
+    for law in &input.laws {
+        ensure_known_ids(
+            &ids.high_order_endpoint_ids,
+            &law.applies_to_ids,
+            "law",
+            &law.id,
+            "applies-to endpoint",
+        )?;
+        ensure_known_ids(
+            &ids.requirement_ids,
+            &law.requirement_ids,
+            "law",
+            &law.id,
+            "requirement",
+        )?;
+        ensure_known_ids(&ids.accepted_ids, &law.source_ids, "law", &law.id, "source")?;
+    }
+    for verification in &input.verification_cells {
+        ensure_known_ids(
+            &ids.high_order_endpoint_ids,
+            &verification.target_ids,
+            "verification_cell",
+            &verification.id,
+            "target",
+        )?;
+        ensure_known_ids(
+            &ids.requirement_ids,
+            &verification.requirement_ids,
+            "verification_cell",
+            &verification.id,
+            "requirement",
+        )?;
+        ensure_known_ids(
+            &ids.law_ids,
+            &verification.law_ids,
+            "verification_cell",
+            &verification.id,
+            "law",
+        )?;
+        ensure_known_ids(
+            &ids.morphism_ids,
+            &verification.morphism_ids,
+            "verification_cell",
+            &verification.id,
+            "morphism",
+        )?;
+        ensure_known_ids(
+            &ids.accepted_ids,
+            &verification.source_ids,
+            "verification_cell",
+            &verification.id,
+            "source",
+        )?;
+    }
     for context in &input.contexts {
         ensure_known_ids(
             &ids.accepted_ids,
@@ -373,9 +508,12 @@ struct ReferenceIds {
     branch_ids: Vec<Id>,
     requirement_ids: Vec<Id>,
     test_ids: Vec<Id>,
+    law_ids: Vec<Id>,
+    morphism_ids: Vec<Id>,
     context_ids: Vec<Id>,
     implementation_ids: Vec<Id>,
     coverage_target_ids: Vec<Id>,
+    high_order_endpoint_ids: Vec<Id>,
     accepted_ids: Vec<Id>,
 }
 
@@ -402,6 +540,12 @@ impl ReferenceIds {
             .map(|requirement| requirement.id.clone())
             .collect();
         let test_ids = input.tests.iter().map(|test| test.id.clone()).collect();
+        let law_ids = input.laws.iter().map(|law| law.id.clone()).collect();
+        let morphism_ids = input
+            .morphisms
+            .iter()
+            .map(|morphism| morphism.id.clone())
+            .collect();
         let context_ids = input
             .contexts
             .iter()
@@ -410,6 +554,9 @@ impl ReferenceIds {
         let mut implementation_ids = Vec::new();
         implementation_ids.extend(input.changed_files.iter().map(|file| file.id.clone()));
         implementation_ids.extend(input.symbols.iter().map(|symbol| symbol.id.clone()));
+        implementation_ids.extend(input.higher_order_cells.iter().map(|cell| cell.id.clone()));
+        implementation_ids.extend(input.laws.iter().map(|law| law.id.clone()));
+        implementation_ids.extend(input.morphisms.iter().map(|morphism| morphism.id.clone()));
         let mut coverage_target_ids = implementation_ids.clone();
         coverage_target_ids.extend(input.branches.iter().map(|branch| branch.id.clone()));
         coverage_target_ids.extend(
@@ -418,15 +565,22 @@ impl ReferenceIds {
                 .iter()
                 .map(|requirement| requirement.id.clone()),
         );
+        let mut high_order_endpoint_ids = accepted_fact_ids(input);
+        high_order_endpoint_ids.extend(input.higher_order_cells.iter().map(|cell| cell.id.clone()));
+        high_order_endpoint_ids.extend(input.laws.iter().map(|law| law.id.clone()));
+        high_order_endpoint_ids.extend(input.morphisms.iter().map(|morphism| morphism.id.clone()));
         Self {
             file_ids,
             symbol_ids,
             branch_ids,
             requirement_ids,
             test_ids,
+            law_ids,
+            morphism_ids,
             context_ids,
             implementation_ids,
             coverage_target_ids,
+            high_order_endpoint_ids,
             accepted_ids: accepted_fact_ids(input),
         }
     }
@@ -462,6 +616,11 @@ fn lift_input(input: &TestGapInputDocument) -> RuntimeResult<TestGapLiftedStruct
             requirement_count: input.requirements.len(),
             test_count: input.tests.len(),
             coverage_record_count: input.coverage.len(),
+            higher_order_cell_count: input.higher_order_cells.len(),
+            higher_order_incidence_count: input.higher_order_incidences.len(),
+            morphism_count: input.morphisms.len(),
+            law_count: input.laws.len(),
+            verification_cell_count: input.verification_cells.len(),
         },
         space,
         contexts,
@@ -618,6 +777,58 @@ fn append_cells(
             Some("signals"),
         )?);
     }
+    for cell in &input.higher_order_cells {
+        cells.push(lifted_cell(
+            input,
+            space_id,
+            cell.id.clone(),
+            cell.dimension,
+            &format!("test_gap.higher_order.{}", cell.cell_type),
+            cell.label.clone(),
+            contexts_or_default(&cell.context_ids, default_context_ids),
+            cell.confidence.unwrap_or(input.source.confidence),
+            Some("higher_order_cells"),
+        )?);
+    }
+    for law in &input.laws {
+        cells.push(lifted_cell(
+            input,
+            space_id,
+            law.id.clone(),
+            1,
+            "test_gap.law",
+            law.summary.clone(),
+            default_context_ids.to_vec(),
+            law.confidence.unwrap_or(input.source.confidence),
+            Some("laws"),
+        )?);
+    }
+    for morphism in &input.morphisms {
+        cells.push(lifted_cell(
+            input,
+            space_id,
+            morphism.id.clone(),
+            2,
+            "test_gap.morphism",
+            morphism.morphism_type.clone(),
+            default_context_ids.to_vec(),
+            morphism.confidence.unwrap_or(input.source.confidence),
+            Some("morphisms"),
+        )?);
+    }
+    for verification in &input.verification_cells {
+        cells.push(lifted_cell(
+            input,
+            space_id,
+            verification.id.clone(),
+            1,
+            &format!("test_gap.verification.{}", verification.verification_type),
+            verification.name.clone(),
+            default_context_ids.to_vec(),
+            verification.confidence.unwrap_or(input.source.confidence),
+            Some("verification_cells"),
+        )?);
+    }
     Ok(())
 }
 
@@ -748,6 +959,100 @@ fn lifted_incidences(
             )?,
         });
     }
+    for incidence in &input.higher_order_incidences {
+        incidences.push(TestGapLiftedIncidence {
+            id: incidence.id.clone(),
+            space_id: space_id.clone(),
+            from_cell_id: incidence.from_id.clone(),
+            to_cell_id: incidence.to_id.clone(),
+            relation_type: incidence.relation_type.clone(),
+            orientation: incidence
+                .orientation
+                .unwrap_or(IncidenceOrientation::Directed),
+            weight: None,
+            provenance: fact_provenance(
+                input,
+                incidence.confidence.unwrap_or(input.source.confidence),
+                Some("higher_order_incidences"),
+            )?,
+        });
+    }
+    for morphism in &input.morphisms {
+        for source_id in &morphism.source_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id("morphism-source", &morphism.id, source_id)?,
+                morphism.id.clone(),
+                source_id.clone(),
+                "morphism_source",
+                morphism.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+        for target_id in &morphism.target_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id("morphism-target", &morphism.id, target_id)?,
+                morphism.id.clone(),
+                target_id.clone(),
+                "morphism_target",
+                morphism.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+        for law_id in &morphism.law_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id("morphism-preserves-law", &morphism.id, law_id)?,
+                morphism.id.clone(),
+                law_id.clone(),
+                "preserves_law",
+                morphism.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+    }
+    for law in &input.laws {
+        for applies_to_id in &law.applies_to_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id("law-applies-to", &law.id, applies_to_id)?,
+                law.id.clone(),
+                applies_to_id.clone(),
+                "applies_to",
+                law.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+    }
+    for verification in &input.verification_cells {
+        for law_id in &verification.law_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id("verification-closes-law", &verification.id, law_id)?,
+                verification.id.clone(),
+                law_id.clone(),
+                "verifies_law",
+                verification.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+        for morphism_id in &verification.morphism_ids {
+            incidences.push(lifted_incidence(
+                input,
+                space_id,
+                incidence_id(
+                    "verification-closes-morphism",
+                    &verification.id,
+                    morphism_id,
+                )?,
+                verification.id.clone(),
+                morphism_id.clone(),
+                "verifies_morphism",
+                verification.confidence.unwrap_or(input.source.confidence),
+            )?);
+        }
+    }
     Ok(incidences)
 }
 
@@ -776,24 +1081,37 @@ fn detect_obstructions(input: &TestGapInputDocument) -> RuntimeResult<Vec<TestGa
     let mut obstructions = Vec::new();
     for requirement in &input.requirements {
         if requirement_needs_verification(requirement)
-            && !has_unit_test_for_requirement(input, &requirement.id)
+            && !has_accepted_test_for_requirement(input, &requirement.id)
         {
             obstructions.push(missing_requirement_obstruction(input, requirement)?);
         }
         if requirement_needs_regression(requirement)
-            && !has_regression_unit_test_for_requirement(input, &requirement.id)
+            && !has_accepted_regression_test_for_requirement(input, &requirement.id)
         {
             obstructions.push(missing_regression_obstruction(input, requirement)?);
         }
     }
     for symbol in &input.symbols {
-        if symbol_is_public_behavior(symbol) && !has_unit_test_for_symbol(input, &symbol.id) {
+        if symbol_is_public_behavior(symbol) && !has_accepted_test_for_symbol(input, &symbol.id) {
             obstructions.push(missing_public_behavior_obstruction(input, symbol)?);
         }
     }
     for branch in &input.branches {
-        if branch_needs_unit_test(branch) && !has_unit_test_for_branch(input, &branch.id) {
+        if branch_needs_unit_test(branch) && !has_accepted_test_for_branch(input, &branch.id) {
             obstructions.push(missing_branch_obstruction(input, branch)?);
+        }
+    }
+    for law in &input.laws {
+        if law.expected_verification.is_some() && !has_accepted_verification_for_law(input, &law.id)
+        {
+            obstructions.push(missing_law_obstruction(input, law)?);
+        }
+    }
+    for morphism in &input.morphisms {
+        if morphism.expected_verification.is_some()
+            && !has_accepted_verification_for_morphism(input, &morphism.id)
+        {
+            obstructions.push(missing_morphism_obstruction(input, morphism)?);
         }
     }
     Ok(obstructions)
@@ -817,6 +1135,7 @@ fn missing_requirement_obstruction(
             "missing_test_ids": [],
             "requirement_source_ids": requirement.source_ids,
             "expected_verification_kind": requirement.expected_verification.clone().unwrap_or_else(|| "unit_test".to_owned()),
+            "accepted_test_kinds": accepted_test_kind_names(input),
         }),
         invariant_ids: vec![id(INVARIANT_REQUIREMENT_VERIFIED)?],
         evidence_ids: nonempty_source_ids(input, &requirement.id, &requirement.source_ids),
@@ -836,7 +1155,10 @@ fn missing_regression_obstruction(
             slug(&requirement.id)
         ))?,
         obstruction_type: TestGapObstructionType::MissingRegressionTest,
-        title: format!("Missing regression unit test for {}", requirement.summary),
+        title: format!(
+            "Missing accepted regression test for {}",
+            requirement.summary
+        ),
         target_ids: requirement_target_ids(requirement),
         witness: json!({
             "bug_fix_requirement_id": requirement.id,
@@ -862,7 +1184,7 @@ fn missing_public_behavior_obstruction(
             slug(&symbol.id)
         ))?,
         obstruction_type: TestGapObstructionType::MissingPublicBehaviorUnitTest,
-        title: format!("Missing unit test for public behavior {}", symbol.name),
+        title: format!("Missing accepted test for public behavior {}", symbol.name),
         target_ids: vec![symbol.id.clone(), symbol.file_id.clone()],
         witness: json!({
             "symbol_id": symbol.id,
@@ -870,6 +1192,7 @@ fn missing_public_behavior_obstruction(
             "changed_behavior_summary": format!("{} changed in the bounded snapshot.", symbol.name),
             "existing_related_tests": related_test_ids_for_symbol(input, &symbol.id),
             "expected_unit_test_obligation": "public behavior covered",
+            "accepted_test_kinds": accepted_test_kind_names(input),
         }),
         invariant_ids: vec![id(INVARIANT_PUBLIC_BEHAVIOR_COVERED)?],
         evidence_ids: nonempty_source_ids(input, &symbol.id, &symbol.source_ids),
@@ -887,17 +1210,17 @@ fn missing_branch_obstruction(
         TestGapBranchType::Boundary => (
             TestGapObstructionType::MissingBoundaryCaseUnitTest,
             INVARIANT_BOUNDARY_CASES_REPRESENTED,
-            format!("Missing boundary unit test for {}", branch.summary),
+            format!("Missing boundary accepted test for {}", branch.summary),
         ),
         TestGapBranchType::ErrorPath => (
             TestGapObstructionType::MissingErrorCaseUnitTest,
             INVARIANT_ERROR_CASES_REPRESENTED,
-            format!("Missing error-case unit test for {}", branch.summary),
+            format!("Missing error-case accepted test for {}", branch.summary),
         ),
         _ => (
             TestGapObstructionType::MissingBranchUnitTest,
             INVARIANT_BOUNDARY_CASES_REPRESENTED,
-            format!("Missing branch unit test for {}", branch.summary),
+            format!("Missing branch accepted test for {}", branch.summary),
         ),
     };
     let coverage_ids = coverage_ids_for_target(input, &branch.id);
@@ -917,12 +1240,78 @@ fn missing_branch_obstruction(
             "boundary_type": branch.boundary_kind,
             "representative_value": branch.representative_value,
             "observed_branch_or_coverage_evidence": coverage_ids,
-            "missing_test_relation": "No accepted unit test exercises this branch in the bounded snapshot.",
+            "missing_test_relation": "No policy-accepted test exercises this branch in the bounded snapshot.",
+            "accepted_test_kinds": accepted_test_kind_names(input),
         }),
         invariant_ids: vec![id(invariant_id)?],
         evidence_ids: nonempty_source_ids(input, &branch.id, &branch.source_ids),
         severity: Severity::Medium,
         confidence: Confidence::new(0.86)?,
+        review_status: ReviewStatus::Unreviewed,
+    })
+}
+
+fn missing_law_obstruction(
+    input: &TestGapInputDocument,
+    law: &crate::test_gap_reports::TestGapInputLaw,
+) -> RuntimeResult<TestGapObstruction> {
+    let mut target_ids = vec![law.id.clone()];
+    target_ids.extend(law.applies_to_ids.iter().cloned());
+    Ok(TestGapObstruction {
+        id: id(format!(
+            "obstruction:test-gap:missing-law-verification:{}",
+            slug(&law.id)
+        ))?,
+        obstruction_type: TestGapObstructionType::MissingRequirementVerification,
+        title: format!("Missing accepted verification for law {}", law.summary),
+        target_ids,
+        witness: json!({
+            "law_id": law.id,
+            "applies_to_ids": law.applies_to_ids,
+            "expected_verification_kind": law.expected_verification.clone().unwrap_or_else(|| "policy_accepted_verification".to_owned()),
+            "accepted_test_kinds": accepted_test_kind_names(input),
+            "missing_relation": "No policy-accepted verification cell closes this law in the bounded snapshot.",
+        }),
+        invariant_ids: vec![id(INVARIANT_REQUIREMENT_VERIFIED)?],
+        evidence_ids: nonempty_source_ids(input, &law.id, &law.source_ids),
+        severity: Severity::High,
+        confidence: law.confidence.unwrap_or(Confidence::new(0.82)?),
+        review_status: ReviewStatus::Unreviewed,
+    })
+}
+
+fn missing_morphism_obstruction(
+    input: &TestGapInputDocument,
+    morphism: &crate::test_gap_reports::TestGapInputMorphism,
+) -> RuntimeResult<TestGapObstruction> {
+    let mut target_ids = vec![morphism.id.clone()];
+    target_ids.extend(morphism.source_ids.iter().cloned());
+    target_ids.extend(morphism.target_ids.iter().cloned());
+    Ok(TestGapObstruction {
+        id: id(format!(
+            "obstruction:test-gap:missing-morphism-verification:{}",
+            slug(&morphism.id)
+        ))?,
+        obstruction_type: TestGapObstructionType::MissingRequirementVerification,
+        title: format!(
+            "Missing accepted verification for morphism {}",
+            morphism.morphism_type
+        ),
+        target_ids,
+        witness: json!({
+            "morphism_id": morphism.id,
+            "morphism_type": morphism.morphism_type,
+            "source_ids": morphism.source_ids,
+            "target_ids": morphism.target_ids,
+            "law_ids": morphism.law_ids,
+            "expected_verification_kind": morphism.expected_verification.clone().unwrap_or_else(|| "policy_accepted_verification".to_owned()),
+            "accepted_test_kinds": accepted_test_kind_names(input),
+            "missing_relation": "No policy-accepted verification cell closes this morphism in the bounded snapshot.",
+        }),
+        invariant_ids: vec![id(INVARIANT_REQUIREMENT_VERIFIED)?],
+        evidence_ids: nonempty_source_ids(input, &morphism.id, &morphism.source_ids),
+        severity: Severity::High,
+        confidence: morphism.confidence.unwrap_or(Confidence::new(0.82)?),
         review_status: ReviewStatus::Unreviewed,
     })
 }
@@ -969,8 +1358,8 @@ fn completion_candidate(
         obstruction_ids: vec![obstruction.id.clone()],
         suggested_test_shape: TestGapSuggestedTestShape {
             test_name,
-            test_kind: TestGapTestType::Unit,
-            setup: format!("Construct the minimal unit-level inputs for {target_label}."),
+            test_kind: preferred_test_kind(input),
+            setup: format!("Construct the minimal accepted-test inputs for {target_label}."),
             inputs: suggested_inputs(obstruction),
             expected_behavior: suggested_expected_behavior(obstruction),
             assertions: vec![suggested_assertion(obstruction)],
@@ -980,7 +1369,7 @@ fn completion_candidate(
             ),
         },
         rationale: format!(
-            "The bounded structure violates {:?}; an accepted unit test linked to the witness would close this gap.",
+            "The bounded structure violates {:?}; an accepted test linked to the witness would close this gap.",
             obstruction.obstruction_type
         ),
         provenance: TestGapCandidateProvenance {
@@ -1000,7 +1389,7 @@ fn morphism_summaries(
     let mut summaries = Vec::new();
     for requirement in &input.requirements {
         let has_impl = !requirement.implementation_ids.is_empty();
-        let has_unit_test = has_unit_test_for_requirement(input, &requirement.id);
+        let has_unit_test = has_accepted_test_for_requirement(input, &requirement.id);
         let mut loss = Vec::new();
         if !has_impl {
             loss.push("requirement has no supplied implementation target".to_owned());
@@ -1033,7 +1422,7 @@ fn morphism_summaries(
         });
     }
     for symbol in &input.symbols {
-        let has_unit_test = has_unit_test_for_symbol(input, &symbol.id);
+        let has_unit_test = has_accepted_test_for_symbol(input, &symbol.id);
         summaries.push(TestGapMorphismSummary {
             id: id(format!(
                 "morphism:test-gap:implementation-to-test:{}",
@@ -1056,6 +1445,37 @@ fn morphism_summaries(
                 Vec::new()
             } else {
                 vec!["implementation target has no accepted unit-test relation".to_owned()]
+            },
+            review_status: ReviewStatus::Accepted,
+        });
+    }
+    for morphism in &input.morphisms {
+        let has_verification = has_accepted_verification_for_morphism(input, &morphism.id);
+        summaries.push(TestGapMorphismSummary {
+            id: morphism.id.clone(),
+            morphism_type: TestGapMorphismType::RequirementToImplementation,
+            source_ids: morphism.source_ids.clone(),
+            target_ids: morphism.target_ids.clone(),
+            preservation_status: if has_verification {
+                TestGapPreservationStatus::Preserved
+            } else {
+                TestGapPreservationStatus::Lost
+            },
+            preserved: if has_verification {
+                vec![format!(
+                    "native morphism {} has accepted verification cell",
+                    morphism.morphism_type
+                )]
+            } else {
+                Vec::new()
+            },
+            loss: if has_verification {
+                Vec::new()
+            } else {
+                vec![format!(
+                    "native morphism {} has no accepted verification cell",
+                    morphism.morphism_type
+                )]
             },
             review_status: ReviewStatus::Accepted,
         });
@@ -1097,6 +1517,103 @@ fn morphism_summaries(
         });
     }
     Ok(summaries)
+}
+
+fn proof_objects(input: &TestGapInputDocument) -> RuntimeResult<Vec<TestGapProofObject>> {
+    let mut proofs = Vec::new();
+    for law in &input.laws {
+        let verified_by_ids = accepted_verification_ids_for_law(input, &law.id);
+        if verified_by_ids.is_empty() {
+            continue;
+        }
+        let mut witness_ids = vec![law.id.clone()];
+        witness_ids.extend(law.applies_to_ids.iter().cloned());
+        proofs.push(TestGapProofObject {
+            id: id(format!("proof:test-gap:law:{}", slug(&law.id)))?,
+            proof_type: "law_verification".to_owned(),
+            law_ids: vec![law.id.clone()],
+            morphism_ids: Vec::new(),
+            verified_by_ids,
+            witness_ids,
+            summary: format!("Law {} has accepted verification evidence.", law.summary),
+            confidence: law.confidence.unwrap_or(Confidence::new(0.82)?),
+            review_status: ReviewStatus::Accepted,
+        });
+    }
+    for morphism in &input.morphisms {
+        let verified_by_ids = accepted_verification_ids_for_morphism(input, &morphism.id);
+        if verified_by_ids.is_empty() {
+            continue;
+        }
+        let mut witness_ids = vec![morphism.id.clone()];
+        witness_ids.extend(morphism.source_ids.iter().cloned());
+        witness_ids.extend(morphism.target_ids.iter().cloned());
+        witness_ids.extend(morphism.law_ids.iter().cloned());
+        proofs.push(TestGapProofObject {
+            id: id(format!("proof:test-gap:morphism:{}", slug(&morphism.id)))?,
+            proof_type: "morphism_verification".to_owned(),
+            law_ids: morphism.law_ids.clone(),
+            morphism_ids: vec![morphism.id.clone()],
+            verified_by_ids,
+            witness_ids,
+            summary: format!(
+                "Morphism {} has accepted verification evidence.",
+                morphism.morphism_type
+            ),
+            confidence: morphism.confidence.unwrap_or(Confidence::new(0.8)?),
+            review_status: ReviewStatus::Accepted,
+        });
+    }
+    Ok(proofs)
+}
+
+fn counterexamples(input: &TestGapInputDocument) -> RuntimeResult<Vec<TestGapCounterexample>> {
+    let mut counterexamples = Vec::new();
+    for law in &input.laws {
+        if law.expected_verification.is_some()
+            && accepted_verification_ids_for_law(input, &law.id).is_empty()
+        {
+            let mut path_ids = vec![law.id.clone()];
+            path_ids.extend(law.applies_to_ids.iter().cloned());
+            counterexamples.push(TestGapCounterexample {
+                id: id(format!("counterexample:test-gap:law:{}", slug(&law.id)))?,
+                counterexample_type: "missing_law_verification".to_owned(),
+                law_ids: vec![law.id.clone()],
+                morphism_ids: Vec::new(),
+                path_ids,
+                summary: format!("Law {} has no accepted verification path.", law.summary),
+                confidence: law.confidence.unwrap_or(Confidence::new(0.82)?),
+                review_status: ReviewStatus::Unreviewed,
+            });
+        }
+    }
+    for morphism in &input.morphisms {
+        if morphism.expected_verification.is_some()
+            && accepted_verification_ids_for_morphism(input, &morphism.id).is_empty()
+        {
+            let mut path_ids = vec![morphism.id.clone()];
+            path_ids.extend(morphism.source_ids.iter().cloned());
+            path_ids.extend(morphism.target_ids.iter().cloned());
+            path_ids.extend(morphism.law_ids.iter().cloned());
+            counterexamples.push(TestGapCounterexample {
+                id: id(format!(
+                    "counterexample:test-gap:morphism:{}",
+                    slug(&morphism.id)
+                ))?,
+                counterexample_type: "missing_morphism_verification".to_owned(),
+                law_ids: morphism.law_ids.clone(),
+                morphism_ids: vec![morphism.id.clone()],
+                path_ids,
+                summary: format!(
+                    "Morphism {} has no accepted verification path.",
+                    morphism.morphism_type
+                ),
+                confidence: morphism.confidence.unwrap_or(Confidence::new(0.8)?),
+                review_status: ReviewStatus::Unreviewed,
+            });
+        }
+    }
+    Ok(counterexamples)
 }
 
 fn report_scenario(
@@ -1174,6 +1691,56 @@ fn report_scenario(
             .iter()
             .cloned()
             .map(|record| TestGapObservedDependencyEdge {
+                confidence: record.confidence.unwrap_or(input.source.confidence),
+                record,
+                review_status: ReviewStatus::Accepted,
+            })
+            .collect(),
+        higher_order_cells: input
+            .higher_order_cells
+            .iter()
+            .cloned()
+            .map(|record| TestGapObservedHigherOrderCell {
+                confidence: record.confidence.unwrap_or(input.source.confidence),
+                record,
+                review_status: ReviewStatus::Accepted,
+            })
+            .collect(),
+        higher_order_incidences: input
+            .higher_order_incidences
+            .iter()
+            .cloned()
+            .map(|record| TestGapObservedHigherOrderIncidence {
+                confidence: record.confidence.unwrap_or(input.source.confidence),
+                record,
+                review_status: ReviewStatus::Accepted,
+            })
+            .collect(),
+        morphisms: input
+            .morphisms
+            .iter()
+            .cloned()
+            .map(|record| TestGapObservedInputMorphism {
+                confidence: record.confidence.unwrap_or(input.source.confidence),
+                record,
+                review_status: ReviewStatus::Accepted,
+            })
+            .collect(),
+        laws: input
+            .laws
+            .iter()
+            .cloned()
+            .map(|record| TestGapObservedInputLaw {
+                confidence: record.confidence.unwrap_or(input.source.confidence),
+                record,
+                review_status: ReviewStatus::Accepted,
+            })
+            .collect(),
+        verification_cells: input
+            .verification_cells
+            .iter()
+            .cloned()
+            .map(|record| TestGapObservedVerificationCell {
                 confidence: record.confidence.unwrap_or(input.source.confidence),
                 record,
                 review_status: ReviewStatus::Accepted,
@@ -1324,6 +1891,57 @@ fn ai_projection_records(
             provenance: None,
         });
     }
+    for cell in &scenario.higher_order_cells {
+        records.push(AiProjectionRecord {
+            id: cell.record.id.clone(),
+            record_type: AiProjectionRecordType::Cell,
+            summary: format!(
+                "Higher-order {} cell {}.",
+                cell.record.cell_type, cell.record.label
+            ),
+            source_ids: vec![cell.record.id.clone()],
+            confidence: Some(cell.confidence),
+            review_status: Some(cell.review_status),
+            severity: None,
+            provenance: None,
+        });
+    }
+    for law in &scenario.laws {
+        records.push(AiProjectionRecord {
+            id: law.record.id.clone(),
+            record_type: AiProjectionRecordType::CheckResult,
+            summary: format!("Law obligation {}.", law.record.summary),
+            source_ids: vec![law.record.id.clone()],
+            confidence: Some(law.confidence),
+            review_status: Some(law.review_status),
+            severity: None,
+            provenance: None,
+        });
+    }
+    for morphism in &scenario.morphisms {
+        records.push(AiProjectionRecord {
+            id: morphism.record.id.clone(),
+            record_type: AiProjectionRecordType::CheckResult,
+            summary: format!("Morphism obligation {}.", morphism.record.morphism_type),
+            source_ids: vec![morphism.record.id.clone()],
+            confidence: Some(morphism.confidence),
+            review_status: Some(morphism.review_status),
+            severity: None,
+            provenance: None,
+        });
+    }
+    for verification in &scenario.verification_cells {
+        records.push(AiProjectionRecord {
+            id: verification.record.id.clone(),
+            record_type: AiProjectionRecordType::Test,
+            summary: format!("Verification cell {}.", verification.record.name),
+            source_ids: vec![verification.record.id.clone()],
+            confidence: Some(verification.confidence),
+            review_status: Some(verification.review_status),
+            severity: None,
+            provenance: None,
+        });
+    }
     for invariant_id in &result.evaluated_invariant_ids {
         records.push(AiProjectionRecord {
             id: invariant_id.clone(),
@@ -1428,9 +2046,9 @@ fn source_boundary_information_loss(input: &TestGapInputDocument) -> Vec<String>
     if input
         .tests
         .iter()
-        .any(|test| test.test_type != TestGapTestType::Unit)
+        .any(|test| !accepts_test_kind(input, test.test_type))
     {
-        loss.push("non-unit tests are represented but unit-scope intent may be unknown".to_owned());
+        loss.push("some represented tests are outside the accepted verification policy".to_owned());
     }
     loss
 }
@@ -1459,6 +2077,21 @@ fn accepted_fact_ids(input: &TestGapInputDocument) -> Vec<Id> {
     }
     for edge in &input.dependency_edges {
         push_unique(&mut ids, edge.id.clone());
+    }
+    for cell in &input.higher_order_cells {
+        push_unique(&mut ids, cell.id.clone());
+    }
+    for incidence in &input.higher_order_incidences {
+        push_unique(&mut ids, incidence.id.clone());
+    }
+    for morphism in &input.morphisms {
+        push_unique(&mut ids, morphism.id.clone());
+    }
+    for law in &input.laws {
+        push_unique(&mut ids, law.id.clone());
+    }
+    for verification in &input.verification_cells {
+        push_unique(&mut ids, verification.id.clone());
     }
     for context in &input.contexts {
         push_unique(&mut ids, context.id.clone());
@@ -1489,6 +2122,8 @@ fn evaluated_invariant_ids() -> RuntimeResult<Vec<Id>> {
 fn result_source_ids(
     accepted_fact_ids: &[Id],
     invariant_ids: &[Id],
+    proof_objects: &[TestGapProofObject],
+    counterexamples: &[TestGapCounterexample],
     obstructions: &[TestGapObstruction],
     candidates: &[TestGapCompletionCandidate],
 ) -> Vec<Id> {
@@ -1498,6 +2133,21 @@ fn result_source_ids(
     }
     for invariant_id in invariant_ids {
         push_unique(&mut ids, invariant_id.clone());
+    }
+    for proof in proof_objects {
+        push_unique(&mut ids, proof.id.clone());
+        for witness_id in &proof.witness_ids {
+            push_unique(&mut ids, witness_id.clone());
+        }
+        for verification_id in &proof.verified_by_ids {
+            push_unique(&mut ids, verification_id.clone());
+        }
+    }
+    for counterexample in counterexamples {
+        push_unique(&mut ids, counterexample.id.clone());
+        for path_id in &counterexample.path_ids {
+            push_unique(&mut ids, path_id.clone());
+        }
     }
     for obstruction in obstructions {
         push_unique(&mut ids, obstruction.id.clone());
@@ -1574,43 +2224,43 @@ fn branch_needs_unit_test(branch: &TestGapInputBranch) -> bool {
     )
 }
 
-fn has_unit_test_for_requirement(input: &TestGapInputDocument, requirement_id: &Id) -> bool {
+fn has_accepted_test_for_requirement(input: &TestGapInputDocument, requirement_id: &Id) -> bool {
     input.tests.iter().any(|test| {
-        test.test_type == TestGapTestType::Unit && test.requirement_ids.contains(requirement_id)
+        accepts_test_kind(input, test.test_type) && test.requirement_ids.contains(requirement_id)
     })
 }
 
-fn has_regression_unit_test_for_requirement(
+fn has_accepted_regression_test_for_requirement(
     input: &TestGapInputDocument,
     requirement_id: &Id,
 ) -> bool {
     input.tests.iter().any(|test| {
-        test.test_type == TestGapTestType::Unit
+        accepts_test_kind(input, test.test_type)
             && test.is_regression
             && test.requirement_ids.contains(requirement_id)
     })
 }
 
-fn has_unit_test_for_symbol(input: &TestGapInputDocument, symbol_id: &Id) -> bool {
+fn has_accepted_test_for_symbol(input: &TestGapInputDocument, symbol_id: &Id) -> bool {
     input
         .tests
         .iter()
-        .any(|test| test.test_type == TestGapTestType::Unit && test.target_ids.contains(symbol_id))
+        .any(|test| accepts_test_kind(input, test.test_type) && test.target_ids.contains(symbol_id))
         || input.coverage.iter().any(|coverage| {
             &coverage.target_id == symbol_id
                 && !coverage.covered_by_test_ids.is_empty()
                 && coverage
                     .covered_by_test_ids
                     .iter()
-                    .any(|test_id| is_unit_test(input, test_id))
+                    .any(|test_id| is_accepted_test(input, test_id))
         })
 }
 
-fn has_unit_test_for_branch(input: &TestGapInputDocument, branch_id: &Id) -> bool {
+fn has_accepted_test_for_branch(input: &TestGapInputDocument, branch_id: &Id) -> bool {
     input
         .tests
         .iter()
-        .any(|test| test.test_type == TestGapTestType::Unit && test.branch_ids.contains(branch_id))
+        .any(|test| accepts_test_kind(input, test.test_type) && test.branch_ids.contains(branch_id))
         || input.coverage.iter().any(|coverage| {
             &coverage.target_id == branch_id
                 && matches!(
@@ -1621,15 +2271,93 @@ fn has_unit_test_for_branch(input: &TestGapInputDocument, branch_id: &Id) -> boo
                 && coverage
                     .covered_by_test_ids
                     .iter()
-                    .any(|test_id| is_unit_test(input, test_id))
+                    .any(|test_id| is_accepted_test(input, test_id))
         })
 }
 
-fn is_unit_test(input: &TestGapInputDocument, test_id: &Id) -> bool {
+fn is_accepted_test(input: &TestGapInputDocument, test_id: &Id) -> bool {
     input
         .tests
         .iter()
-        .any(|test| &test.id == test_id && test.test_type == TestGapTestType::Unit)
+        .any(|test| &test.id == test_id && accepts_test_kind(input, test.test_type))
+}
+
+fn has_accepted_verification_for_law(input: &TestGapInputDocument, law_id: &Id) -> bool {
+    !accepted_verification_ids_for_law(input, law_id).is_empty()
+}
+
+fn accepted_verification_ids_for_law(input: &TestGapInputDocument, law_id: &Id) -> Vec<Id> {
+    let mut ids = Vec::new();
+    for verification in &input.verification_cells {
+        if accepts_test_kind(input, verification.test_type) && verification.law_ids.contains(law_id)
+        {
+            push_unique(&mut ids, verification.id.clone());
+        }
+    }
+    for test in &input.tests {
+        if accepts_test_kind(input, test.test_type) && test.target_ids.contains(law_id) {
+            push_unique(&mut ids, test.id.clone());
+        }
+    }
+    ids
+}
+
+fn has_accepted_verification_for_morphism(input: &TestGapInputDocument, morphism_id: &Id) -> bool {
+    !accepted_verification_ids_for_morphism(input, morphism_id).is_empty()
+}
+
+fn accepted_verification_ids_for_morphism(
+    input: &TestGapInputDocument,
+    morphism_id: &Id,
+) -> Vec<Id> {
+    let mut ids = Vec::new();
+    for verification in &input.verification_cells {
+        if accepts_test_kind(input, verification.test_type)
+            && verification.morphism_ids.contains(morphism_id)
+        {
+            push_unique(&mut ids, verification.id.clone());
+        }
+    }
+    for test in &input.tests {
+        if accepts_test_kind(input, test.test_type) && test.target_ids.contains(morphism_id) {
+            push_unique(&mut ids, test.id.clone());
+        }
+    }
+    ids
+}
+
+fn accepts_test_kind(input: &TestGapInputDocument, test_type: TestGapTestType) -> bool {
+    accepted_test_kinds(input).contains(&test_type)
+}
+
+fn accepted_test_kinds(input: &TestGapInputDocument) -> BTreeSet<TestGapTestType> {
+    input
+        .detector_context
+        .as_ref()
+        .map(|context| context.test_kinds.clone())
+        .filter(|test_kinds| !test_kinds.is_empty())
+        .unwrap_or_else(|| vec![TestGapTestType::Unit])
+        .into_iter()
+        .collect()
+}
+
+fn accepted_test_kind_names(input: &TestGapInputDocument) -> Vec<String> {
+    accepted_test_kinds(input)
+        .into_iter()
+        .filter_map(|test_kind| {
+            serde_json::to_value(test_kind)
+                .ok()
+                .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        })
+        .collect()
+}
+
+fn preferred_test_kind(input: &TestGapInputDocument) -> TestGapTestType {
+    input
+        .detector_context
+        .as_ref()
+        .and_then(|context| context.test_kinds.first().copied())
+        .unwrap_or(TestGapTestType::Unit)
 }
 
 fn related_test_ids_for_symbol(input: &TestGapInputDocument, symbol_id: &Id) -> Vec<Id> {
@@ -1784,6 +2512,27 @@ fn target_label(input: &TestGapInputDocument, target_id: &Id) -> String {
                 .iter()
                 .find(|requirement| &requirement.id == target_id)
                 .map(|requirement| requirement.summary.clone())
+        })
+        .or_else(|| {
+            input
+                .laws
+                .iter()
+                .find(|law| &law.id == target_id)
+                .map(|law| law.summary.clone())
+        })
+        .or_else(|| {
+            input
+                .morphisms
+                .iter()
+                .find(|morphism| &morphism.id == target_id)
+                .map(|morphism| morphism.morphism_type.clone())
+        })
+        .or_else(|| {
+            input
+                .higher_order_cells
+                .iter()
+                .find(|cell| &cell.id == target_id)
+                .map(|cell| cell.label.clone())
         })
         .unwrap_or_else(|| target_id.to_string())
 }
@@ -1974,6 +2723,30 @@ fn ensure_unique_input_ids(input: &TestGapInputDocument) -> RuntimeResult<()> {
                 .collect::<Vec<_>>(),
         ),
         (
+            "higher_order_incidence",
+            input
+                .higher_order_incidences
+                .iter()
+                .map(|incidence| incidence.id.clone())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "morphism",
+            input
+                .morphisms
+                .iter()
+                .map(|morphism| morphism.id.clone())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "verification_cell",
+            input
+                .verification_cells
+                .iter()
+                .map(|verification| verification.id.clone())
+                .collect::<Vec<_>>(),
+        ),
+        (
             "context",
             input
                 .contexts
@@ -2004,6 +2777,27 @@ fn ensure_unique_input_ids(input: &TestGapInputDocument) -> RuntimeResult<()> {
                     "{kind} id {id} duplicates existing input id"
                 )));
             }
+        }
+    }
+    ensure_unique_ids_within_kind(
+        "higher_order_cell",
+        input
+            .higher_order_cells
+            .iter()
+            .map(|cell| cell.id.clone())
+            .collect(),
+    )?;
+    ensure_unique_ids_within_kind("law", input.laws.iter().map(|law| law.id.clone()).collect())?;
+    Ok(())
+}
+
+fn ensure_unique_ids_within_kind(kind: &str, ids: Vec<Id>) -> RuntimeResult<()> {
+    let mut seen = BTreeSet::new();
+    for id in ids {
+        if !seen.insert(id.clone()) {
+            return Err(validation_error(format!(
+                "{kind} id {id} duplicates existing {kind} id"
+            )));
         }
     }
     Ok(())

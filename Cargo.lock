@@ -201,6 +201,7 @@ dependencies = [
  "higher-graphen-runtime",
  "higher-graphen-space",
  "serde_json",
+ "syn",
 ]
 
 [[package]]

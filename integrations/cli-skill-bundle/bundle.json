@@ -14,6 +14,8 @@
     ],
     "cli_command": "highergraphen architecture smoke direct-db-access --format json",
     "cargo_command": "cargo run -q -p highergraphen-cli -- architecture smoke direct-db-access --format json",
+    "test_gap_input_from_git_command": "highergraphen test-gap input from-git --base main --head HEAD --format json --output test-gap.input.json",
+    "test_gap_input_from_git_cargo_command": "cargo run -q -p highergraphen-cli -- test-gap input from-git --base main --head HEAD --format json --output test-gap.input.json",
     "test_gap_command": "highergraphen test-gap detect --input schemas/inputs/test-gap.input.example.json --format json",
     "test_gap_cargo_command": "cargo run -q -p highergraphen-cli -- test-gap detect --input schemas/inputs/test-gap.input.example.json --format json",
     "casegraphen_workflow_command": "casegraphen workflow reason --input workflow.graph.json --format json",

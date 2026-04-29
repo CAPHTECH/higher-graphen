@@ -27,8 +27,14 @@ highergraphen architecture smoke direct-db-access \
 Bounded test-gap detector command:
 
 ```sh
+highergraphen test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
 highergraphen test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json
 ```
 
@@ -36,23 +42,43 @@ Cargo form:
 
 ```sh
 cargo run -q -p highergraphen-cli -- \
+  test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
+cargo run -q -p highergraphen-cli -- \
   test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json
 ```
 
 Optional file output:
 
 ```sh
+highergraphen test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
 highergraphen test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json \
   --output test-gap.report.json
 ```
 
-`highergraphen test-gap input from-git` is deferred and not implemented in the
-first slice. Agents should run `test-gap detect` only with a checked-in or
-externally prepared bounded `highergraphen.test_gap.input.v1` snapshot.
+`highergraphen test-gap input from-git` creates a deterministic bounded
+`highergraphen.test_gap.input.v1` snapshot from a local git range. It does not
+execute tests, crawl the full repository, infer semantic coverage from source
+bodies, or accept missing-test candidates. Its `detector_context.test_kinds`
+field is the verification policy; changed integration tests may be accepted as
+verification without rewriting their observed test type.
+For HigherGraphen-owned test-gap surfaces, the adapter also emits higher-order
+command, runner, export, registry, schema, fixture, projection, incidence, and
+`requirement:morphism:*` records so tests verify structure instead of isolated
+files.
 
 CaseGraphen workflow reasoning command:
 

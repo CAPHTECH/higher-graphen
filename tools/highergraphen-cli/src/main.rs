@@ -2,6 +2,7 @@
 
 mod pr_review_git;
 mod pr_review_structural;
+mod test_gap_git;
 
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
@@ -28,6 +29,7 @@ const USAGE: &str = "usage:
   highergraphen feed reader run --input <path> --format json [--output <path>]
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
+  highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
@@ -87,6 +89,12 @@ enum Command {
     },
     TestGapDetect {
         input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    TestGapInputFromGit {
+        repo: PathBuf,
+        base: String,
+        head: String,
         output: Option<PathBuf>,
     },
     CompletionReview {
@@ -204,13 +212,34 @@ impl Command {
     }
 
     fn parse_test_gap(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
-        require_token(&mut args, "detect")?;
-        let options = ReportOptions::parse(args, true)?;
-        let input = options
-            .input
-            .ok_or_else(|| CliError::usage("--input <path> is required"))?;
-        Ok(Self::TestGapDetect {
-            input,
+        let segment = required_segment(&mut args, "test-gap command")?;
+        match segment.to_str() {
+            Some("input") => Self::parse_test_gap_input(args),
+            Some("detect") => {
+                let options = ReportOptions::parse(args, true)?;
+                let input = options
+                    .input
+                    .ok_or_else(|| CliError::usage("--input <path> is required"))?;
+                Ok(Self::TestGapDetect {
+                    input,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage("unsupported test-gap command segment")),
+        }
+    }
+
+    fn parse_test_gap_input(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "from-git")?;
+        let options = GitInputOptions::parse(args)?;
+        Ok(Self::TestGapInputFromGit {
+            repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
+            base: options
+                .base
+                .ok_or_else(|| CliError::usage("--base <ref> is required"))?,
+            head: options
+                .head
+                .ok_or_else(|| CliError::usage("--head <ref> is required"))?,
             output: options.output,
         })
     }
@@ -251,6 +280,7 @@ impl Command {
             | Self::FeedReaderRun { output, .. }
             | Self::PrReviewInputFromGit { output, .. }
             | Self::PrReviewTargetsRecommend { output, .. }
+            | Self::TestGapInputFromGit { output, .. }
             | Self::TestGapDetect { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
@@ -298,6 +328,18 @@ impl Command {
                 let document = read_test_gap_input_document(input)?;
                 let report = run_test_gap_detect(document)?;
                 serde_json::to_string(&report)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestGapInputFromGit {
+                repo, base, head, ..
+            } => {
+                let document = test_gap_git::input_from_git(test_gap_git::GitInputRequest {
+                    repo: repo.clone(),
+                    base: base.clone(),
+                    head: head.clone(),
+                })
+                .map_err(CliError::GitInput)?;
+                serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::CompletionReview {

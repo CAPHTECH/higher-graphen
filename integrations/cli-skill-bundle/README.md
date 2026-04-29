@@ -61,13 +61,27 @@ highergraphen architecture smoke direct-db-access --format json
 The bounded test-gap detector command is:
 
 ```sh
+highergraphen test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
 highergraphen test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json
 ```
 
-`highergraphen test-gap input from-git` is deferred and not implemented in the
-first slice; use a checked-in or externally prepared bounded input snapshot.
+`highergraphen test-gap input from-git` creates a deterministic bounded
+`highergraphen.test_gap.input.v1` snapshot from a local git range. It does not
+execute tests, crawl the full repository, or prove semantic coverage. Its
+`detector_context.test_kinds` field is the verification policy; changed
+integration tests may be accepted as verification without rewriting their
+observed test type.
+For HigherGraphen-owned test-gap surfaces, the adapter also emits higher-order
+command, runner, export, registry, schema, fixture, projection, incidence, and
+`requirement:morphism:*` records so tests verify structure instead of isolated
+files.
 
 The stable CaseGraphen workflow reasoning command is:
 

@@ -102,6 +102,29 @@ and record explicit accept/reject/waive decisions in a separate review system
 or later explicit workflow.
 
 ```sh
+highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
+```
+
+This command deterministically converts a local git commit range into a bounded
+`highergraphen.test_gap.input.v1` snapshot. It shells out to local git for the
+diff, changed files, numstat, and commit summaries, then applies fixed adapter
+rules for changed files, file-level changed-behavior symbols,
+policy-accepted verification requirements, changed test files, evidence,
+contexts, risk signals, and a detector verification policy. When the git range
+includes changed integration tests, that policy can accept both `unit` and
+`integration` test kinds without
+rewriting the observed test type. It does not crawl the full repository,
+execute tests, infer semantic coverage from source bodies, or accept generated
+missing-test candidates.
+
+For HigherGraphen-owned test-gap surfaces, the adapter also lifts higher-order
+structure: CLI command cells, runtime runner cells, public export cells,
+workflow registry cells, schema and fixture contract cells, report projection
+cells, and incidence edges between them. The detector then evaluates missing
+tests as verification gaps for those morphisms instead of treating every
+changed file as an isolated obligation.
+
+```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]
 ```
 
@@ -112,11 +135,6 @@ input facts, then emits missing-test obstructions and `missing_test`
 completion candidates as reviewable report data. Obstructions and completion
 candidates remain `review_status: "unreviewed"` until a later explicit review
 workflow accepts or rejects them.
-
-`highergraphen test-gap input from-git` is deferred in this first slice and is
-not an implemented CLI command. Use a checked-in or externally prepared
-bounded input such as `schemas/inputs/test-gap.input.example.json` with
-`test-gap detect`.
 
 ```sh
 highergraphen completion review accept \
@@ -151,9 +169,9 @@ the source report and do not promote the candidate into accepted facts.
 | `--format json` | Yes | Emits the stable JSON report. No human text format is supported yet. |
 | `--input <path>` | For `architecture input lift` | Reads the bounded architecture JSON input document. |
 | `--input <path>` | For `feed reader run` | Reads the bounded Feed Product JSON input fixture. |
-| `--base <ref>` | For `pr-review input from-git` | Git base ref for the deterministic diff range. |
-| `--head <ref>` | For `pr-review input from-git` | Git head ref for the deterministic diff range. |
-| `--repo <path>` | No | Repository path for `pr-review input from-git`; defaults to the current directory. |
+| `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
+| `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
+| `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
@@ -228,6 +246,16 @@ Generate a PR review target input from a local git range:
   --output pr-review.input.json
 ```
 
+Generate a test-gap input from a local git range:
+
+```sh
+./target/debug/highergraphen test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+```
+
 Write the report to a file:
 
 ```sh
@@ -272,8 +300,14 @@ Write a PR review target report to a file:
 Write a test-gap report to a file:
 
 ```sh
+./target/debug/highergraphen test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
 ./target/debug/highergraphen test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json \
   --output test-gap.report.json
 ```
@@ -506,6 +540,9 @@ Consumers must preserve these semantics:
   must be recorded outside this recommender report.
 - The test-gap path consumes bounded `highergraphen.test_gap.input.v1`
   snapshots, including `schemas/inputs/test-gap.input.example.json`.
+- The test-gap git input adapter may create those snapshots from local commit
+  history, but it only supplies deterministic file-level obligations and
+  evidence; it does not prove semantic coverage.
 - Test-gap accepted facts are limited to the supplied snapshot. Domain findings
   such as missing-test obstructions, insufficient evidence, `gaps_detected`,
   and `no_gaps_in_snapshot` are successful report data, not CLI failures.
@@ -532,8 +569,8 @@ When an agent reports a test-gap result, include:
 - completion candidates with candidate IDs, suggested test shape, confidence,
   provenance/source IDs, and `review_status`;
 - projection `information_loss` from human, AI, and audit views when present;
-- unsupported or deferred scope, especially `test-gap input from-git`, full
-  repository crawling, generated test acceptance, or global proof of complete
+- unsupported or deferred scope, especially full repository crawling, generated
+  test acceptance, semantic coverage inference, or global proof of complete
   tests.
 
 ## Unsupported Usage
@@ -544,9 +581,8 @@ These are intentionally unsupported in the current CLI:
 - Architecture input formats beyond the bounded JSON v1 document.
 - Feed input formats beyond the bounded JSON v1 fixture.
 - PR review input formats beyond the bounded PR review target JSON v1 snapshot.
-- Test-gap input formats beyond the bounded test-gap JSON v1 snapshot.
-- `highergraphen test-gap input from-git`; the git adapter for test-gap input
-  generation is deferred and not implemented in the first slice.
+- Test-gap input formats beyond bounded JSON v1 snapshots and deterministic
+  local git range input.
 - Network fetching, scheduling, database persistence, read state, UI rendering,
   and production RSS/Atom parsing.
 - Pull request approval, provider comment posting, reviewer assignment, or
@@ -561,4 +597,4 @@ These are intentionally unsupported in the current CLI:
 - Additional `highergraphen` subcommands beyond `architecture smoke
   direct-db-access`, `architecture input lift`, `feed reader run`,
   `pr-review input from-git`, `pr-review targets recommend`, `test-gap
-  detect`, and `completion review`.
+  input from-git`, `test-gap detect`, and `completion review`.

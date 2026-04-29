@@ -2,7 +2,8 @@
 
 use higher_graphen_core::{Id, ReviewStatus};
 use higher_graphen_runtime::{
-    run_test_gap_detect, TestGapInputDocument, TestGapObstructionType, TestGapStatus,
+    run_test_gap_detect, TestGapDetectorContext, TestGapInputDocument, TestGapInputTest,
+    TestGapObstructionType, TestGapStatus, TestGapTestType,
 };
 use serde_json::{json, Value};
 
@@ -82,6 +83,34 @@ fn result_and_projection_keep_detector_inference_unreviewed() {
     assert!(!report.projection.human_review.information_loss.is_empty());
     assert!(!report.projection.ai_view.information_loss.is_empty());
     assert!(!report.projection.audit_trace.information_loss.is_empty());
+}
+
+#[test]
+fn detector_context_allows_integration_tests_as_verification_policy() {
+    let mut input = fixture();
+    input.tests.push(TestGapInputTest {
+        id: id("test:pricing:zero-discount-integration"),
+        name: "pricing zero discount integration".to_owned(),
+        test_type: TestGapTestType::Integration,
+        file_id: None,
+        target_ids: vec![id("function:pricing:calculate_discount")],
+        branch_ids: vec![id(ZERO_BRANCH)],
+        requirement_ids: vec![id("requirement:pricing:zero-discount-regression")],
+        is_regression: true,
+        context_ids: Vec::new(),
+        source_ids: vec![id("evidence:pricing:test-metadata")],
+    });
+    let prior_context = input.detector_context.take().unwrap_or_default();
+    input.detector_context = Some(TestGapDetectorContext {
+        test_kinds: vec![TestGapTestType::Unit, TestGapTestType::Integration],
+        ..prior_context
+    });
+
+    let report = run_test_gap_detect(input).expect("workflow should run");
+
+    assert_eq!(report.result.status, TestGapStatus::NoGapsInSnapshot);
+    assert!(report.result.obstructions.is_empty());
+    assert!(report.result.completion_candidates.is_empty());
 }
 
 #[test]

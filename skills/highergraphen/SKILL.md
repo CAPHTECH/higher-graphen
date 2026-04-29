@@ -115,20 +115,33 @@ cargo run -q -p highergraphen-cli -- \
   --format json
 ```
 
+Generate a bounded test-gap input from local git history:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+```
+
 Generate a test-gap report to a file:
 
 ```sh
 cargo run -q -p highergraphen-cli -- \
+  test-gap input from-git \
+  --base main \
+  --head HEAD \
+  --format json \
+  --output test-gap.input.json
+
+cargo run -q -p highergraphen-cli -- \
   test-gap detect \
-  --input schemas/inputs/test-gap.input.example.json \
+  --input test-gap.input.json \
   --format json \
   --output test-gap.report.json
 ```
-
-`highergraphen test-gap input from-git` is deferred and not implemented in the
-first slice. Do not tell agents to run it; use a checked-in or externally
-prepared bounded `highergraphen.test_gap.input.v1` snapshot with
-`test-gap detect`.
 
 Validate all checked-in schema-bearing fixtures:
 
@@ -148,6 +161,7 @@ Run focused test-gap runtime and CLI coverage:
 
 ```sh
 cargo test -p higher-graphen-runtime --test test_gap
+cargo test -p highergraphen-cli test_gap_input_from_git
 cargo test -p highergraphen-cli test_gap_detect
 ```
 
@@ -187,6 +201,18 @@ cargo test -p highergraphen-cli test_gap_detect
 - For `highergraphen test-gap detect`, consume only bounded
   `highergraphen.test_gap.input.v1` snapshots such as
   `schemas/inputs/test-gap.input.example.json`.
+- For local repositories, prefer `highergraphen test-gap input from-git` to
+  create the bounded test-gap snapshot deterministically from commit history
+  before running `test-gap detect`.
+- Treat test-gap git-derived symbols, requirements, evidence, and risk signals
+  as file-level deterministic prompts, not semantic proof of test coverage.
+- Interpret `detector_context.test_kinds` as the verification policy for the
+  bounded snapshot. A git-derived snapshot may accept both `unit` and
+  `integration` tests while preserving each observed test's actual type.
+- For HigherGraphen-owned test-gap surfaces, interpret generated command,
+  runner, export, registry, schema, fixture, projection, incidence, and
+  `requirement:morphism:*` records as the primary high-order verification
+  structure.
 - Treat test-gap statuses such as `gaps_detected` and
   `no_gaps_in_snapshot` as successful report data. `no_gaps_in_snapshot` is
   bounded to the supplied snapshot and is not global proof that the repository
@@ -218,9 +244,9 @@ When reporting results to a user, include:
   shape, confidence, provenance/source IDs, and review status.
 - Projection information loss for human, AI-agent, and audit views when
   present.
-- Any unsupported scope the user requested, especially real input ingestion,
-  `test-gap input from-git`, full repository crawling, candidate acceptance,
-  MCP, plugin packaging, or marketplace work.
+- Any unsupported scope the user requested, especially full repository
+  crawling, semantic coverage inference, candidate acceptance, MCP, plugin
+  packaging, or marketplace work.
 
 ## Safety Rules
 
@@ -234,8 +260,8 @@ When reporting results to a user, include:
   tests or reviewed coverage.
 - Do not present `no_gaps_in_snapshot` as proof that all repository tests are
   complete.
-- Do not claim `highergraphen test-gap input from-git` exists in this first
-  slice.
+- Do not claim `highergraphen test-gap input from-git` executes tests, crawls
+  the full repository, or proves semantic coverage.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user
