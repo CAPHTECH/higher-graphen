@@ -209,6 +209,18 @@ language-neutral super-contract for future Jest, pytest, ExUnit, or other test
 semantic adapters. The current CLI command emits the Rust-specific contract.
 
 ```sh
+highergraphen test-semantics interpret --input <path> --format json [--interpreter <id>] [--output <path>]
+```
+
+This command reads a bounded Rust or language-neutral test semantics document
+and emits `highergraphen.test_semantics.interpretation.v1`. The interpretation
+document is an AI-agent candidate structure: interpreted cells, interpreted
+morphisms, candidate laws, binding candidates, evidence links, and explicit
+information-loss notes are all emitted with `review_status: "unreviewed"`.
+It does not accept coverage, approve a binding, or turn semantic candidates
+into proof objects.
+
+```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
 ```
 
@@ -358,6 +370,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--include-tests` | No | For `test-gap input from-path`, adds repository test files to the bounded snapshot. |
 | `--binding-rules <path>` | No | For `test-gap input from-git` and `test-gap input from-path`, replaces the built-in Rust test semantic binding rules with a bounded `highergraphen.test_gap.binding_rules.input.v1` document. |
 | `--test-run <path>` | For `test-gap evidence from-test-run` and `rust-test semantics from-path` | Reads bounded JSON/JSONL or plain `cargo test` output. For test-gap evidence it attaches execution evidence to the input snapshot; for rust-test semantics it records generic execution cases and matched test functions. |
+| `--interpreter <id>` | No | For `test-semantics interpret`, names the AI agent or process that authored the unreviewed interpretation candidates. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` and `test-gap evidence from-test-run` | Reads the bounded test-gap JSON input snapshot. |
 | `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |

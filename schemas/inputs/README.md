@@ -85,6 +85,13 @@ Jest, pytest, ExUnit, or other test frameworks into common test, command,
 data, and execution observations. The Rust-specific contract remains the
 repository-owned concrete adapter shape.
 
+`test-semantics-interpretation.input.schema.json` defines the unreviewed
+AI-agent interpretation contract,
+`highergraphen.test_semantics.interpretation.v1`. It preserves interpreted
+cells, interpreted morphisms, candidate laws, binding candidates, evidence
+links, and explicit information-loss notes as candidate structure rather than
+accepted coverage.
+
 The matching fixture is:
 
 ```sh
@@ -97,6 +104,15 @@ Create the same document from local files with:
 highergraphen rust-test semantics from-path \
   --path tools/highergraphen-cli/tests/command.rs \
   --test-run test-run.txt \
+  --format json
+```
+
+Create unreviewed AI-agent interpretation candidates from that document with:
+
+```sh
+highergraphen test-semantics interpret \
+  --input rust-test-semantics.input.json \
+  --interpreter codex \
   --format json
 ```
 

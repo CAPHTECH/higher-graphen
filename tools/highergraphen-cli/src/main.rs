@@ -8,6 +8,7 @@ mod semantic_proof_backend;
 mod semantic_proof_reinput;
 mod test_gap_evidence;
 mod test_gap_git;
+mod test_semantics_interpretation;
 
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
@@ -40,6 +41,7 @@ const USAGE: &str = "usage:
   highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
   highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
+  highergraphen test-semantics interpret --input <path> --format json [--interpreter <id>] [--output <path>]
   highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--test-run <path>] [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
@@ -130,6 +132,11 @@ enum Command {
         test_run: Option<PathBuf>,
         output: Option<PathBuf>,
     },
+    TestSemanticsInterpret {
+        input: PathBuf,
+        interpreter: String,
+        output: Option<PathBuf>,
+    },
     SemanticProofVerify {
         input: PathBuf,
         output: Option<PathBuf>,
@@ -184,6 +191,7 @@ impl Command {
             Some("feed") => Self::parse_feed(args),
             Some("pr-review") => Self::parse_pr_review(args),
             Some("test-gap") => Self::parse_test_gap(args),
+            Some("test-semantics") => Self::parse_test_semantics(args),
             Some("rust-test") => Self::parse_rust_test(args),
             Some("semantic-proof") => Self::parse_semantic_proof(args),
             Some("completion") => Self::parse_completion(args),
@@ -389,6 +397,18 @@ impl Command {
         })
     }
 
+    fn parse_test_semantics(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "interpret")?;
+        let options = TestSemanticsInterpretOptions::parse(args)?;
+        Ok(Self::TestSemanticsInterpret {
+            input: options
+                .input
+                .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+            interpreter: options.interpreter.unwrap_or_else(|| "ai-agent".to_owned()),
+            output: options.output,
+        })
+    }
+
     fn parse_semantic_proof(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let segment = required_segment(&mut args, "semantic-proof command")?;
         match segment.to_str() {
@@ -537,6 +557,7 @@ impl Command {
             | Self::TestGapEvidenceFromTestRun { output, .. }
             | Self::TestGapDetect { output, .. }
             | Self::RustTestSemanticsFromPath { output, .. }
+            | Self::TestSemanticsInterpret { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofInputFromReport { output, .. }
@@ -651,6 +672,20 @@ impl Command {
                     })
                     .map_err(CliError::RustTestSemantics)?;
                 serde_json::to_string(&document.to_json_value())
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestSemanticsInterpret {
+                input, interpreter, ..
+            } => {
+                let input = read_json_value(input)?;
+                let document = test_semantics_interpretation::interpret(
+                    test_semantics_interpretation::InterpretRequest {
+                        input,
+                        interpreter: interpreter.clone(),
+                    },
+                )
+                .map_err(CliError::TestSemanticsInterpretation)?;
+                serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::SemanticProofVerify { input, .. } => {
@@ -823,6 +858,42 @@ impl PathInputOptions {
                 options.binding_rules = Some(require_path(&mut args, "--binding-rules")?);
             } else if arg == "--test-run" {
                 options.test_run = Some(require_path(&mut args, "--test-run")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct TestSemanticsInterpretOptions {
+    input: Option<PathBuf>,
+    interpreter: Option<String>,
+    output: Option<PathBuf>,
+}
+
+impl TestSemanticsInterpretOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--interpreter" {
+                options.interpreter = Some(require_string(&mut args, "--interpreter")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -1117,6 +1188,7 @@ enum CliError {
     },
     GitInput(String),
     TestGapEvidence(String),
+    TestSemanticsInterpretation(String),
     RustTestSemantics(String),
     SemanticProofArtifact(String),
     Output(std::io::Error),
@@ -1169,6 +1241,12 @@ impl fmt::Display for CliError {
             Self::GitInput(message) => write!(formatter, "failed to build git input: {message}"),
             Self::TestGapEvidence(message) => {
                 write!(formatter, "failed to build test-gap evidence: {message}")
+            }
+            Self::TestSemanticsInterpretation(message) => {
+                write!(
+                    formatter,
+                    "failed to build test semantics interpretation: {message}"
+                )
             }
             Self::RustTestSemantics(message) => {
                 write!(formatter, "failed to build rust test semantics: {message}")

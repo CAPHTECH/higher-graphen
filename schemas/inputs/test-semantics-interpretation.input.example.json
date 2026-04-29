@@ -1,0 +1,82 @@
+{
+  "schema": "highergraphen.test_semantics.interpretation.v1",
+  "source": {
+    "kind": "ai_agent",
+    "input_schema": "highergraphen.rust_test_semantics.input.v1",
+    "interpreter": "ai-agent",
+    "review_status": "unreviewed"
+  },
+  "interpreted_cells": [
+    {
+      "id": "interpreted-cell:rust-test-function-tools-example-tests-command-rs-emits-json-contract",
+      "cell_type": "interpreted_test_obligation_candidate",
+      "label": "Interpreted test obligation emits_json_contract",
+      "source_ids": [
+        "rust-test:function:tools-example-tests-command-rs:emits-json-contract"
+      ],
+      "interpretation": "AI agent candidate: test emits_json_contract in tools/example/tests/command.rs may verify behavior named by its assertions and observations.",
+      "confidence": 0.58,
+      "review_status": "unreviewed"
+    }
+  ],
+  "interpreted_morphisms": [
+    {
+      "id": "interpreted-morphism:rust-test-function-tools-example-tests-command-rs-emits-json-contract:schema-acme-audit-input-v1",
+      "morphism_type": "interprets_test_as_data_contract_candidate",
+      "source_ids": [
+        "rust-test:function:tools-example-tests-command-rs:emits-json-contract"
+      ],
+      "target_ids": [
+        "candidate-law:schema_identity_preservation:schema-acme-audit-input-v1"
+      ],
+      "interpretation": "AI agent candidate: data observation schema:acme.audit.input.v1 suggests schema_identity_preservation.",
+      "confidence": 0.6,
+      "review_status": "unreviewed"
+    }
+  ],
+  "candidate_laws": [
+    {
+      "id": "candidate-law:schema_identity_preservation:schema-acme-audit-input-v1",
+      "summary": "Data observation schema:acme.audit.input.v1 should preserve the schema_identity_preservation property.",
+      "source_ids": [
+        "rust-test:function:tools-example-tests-command-rs:emits-json-contract"
+      ],
+      "confidence": 0.6,
+      "review_status": "unreviewed"
+    }
+  ],
+  "binding_candidates": [
+    {
+      "id": "binding-candidate:schema-acme-audit-input-v1",
+      "semantic_role": "schema_identity_preservation",
+      "trigger_terms": [
+        "schema:acme.audit.input.v1"
+      ],
+      "candidate_target_ids": [
+        "candidate-law:schema_identity_preservation:schema-acme-audit-input-v1"
+      ],
+      "source_ids": [
+        "rust-test:function:tools-example-tests-command-rs:emits-json-contract"
+      ],
+      "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+      "confidence": 0.58,
+      "review_status": "unreviewed"
+    }
+  ],
+  "evidence_links": [
+    {
+      "id": "evidence-link:execution-case-emits-json-contract:tools-example-tests-command-rs-emits-json-contract",
+      "source_id": "execution-case:emits-json-contract",
+      "target_id": "rust-test:function-ref:tools-example-tests-command-rs-emits-json-contract",
+      "relation_type": "execution_case_matches_test_function",
+      "status": "passed",
+      "confidence": 0.62
+    }
+  ],
+  "information_loss": [
+    "Interpretation candidates are not accepted coverage.",
+    "No LLM reasoning transcript is embedded in this bounded document.",
+    "Function-name execution matching is heuristic and requires review.",
+    "Semantic roles require explicit binding and verification before proof use."
+  ]
+}

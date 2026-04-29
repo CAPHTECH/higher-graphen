@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_semantics.interpretation.v1",
+  "title": "HigherGraphen Test Semantics Interpretation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "interpreted_cells",
+    "interpreted_morphisms",
+    "candidate_laws",
+    "binding_candidates",
+    "evidence_links",
+    "information_loss"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_semantics.interpretation.v1"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "input_schema", "interpreter", "review_status"],
+      "properties": {
+        "kind": {
+          "const": "ai_agent"
+        },
+        "input_schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interpreter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "interpreted_cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interpreted_cell"
+      }
+    },
+    "interpreted_morphisms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interpreted_morphism"
+      }
+    },
+    "candidate_laws": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate_law"
+      }
+    },
+    "binding_candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/binding_candidate"
+      }
+    },
+    "evidence_links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_link"
+      }
+    },
+    "information_loss": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "review_status": {
+      "const": "unreviewed"
+    },
+    "interpreted_cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "cell_type",
+        "label",
+        "source_ids",
+        "interpretation",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "cell_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "interpreted_morphism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "morphism_type",
+        "source_ids",
+        "target_ids",
+        "interpretation",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "candidate_law": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "source_ids", "confidence", "review_status"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "binding_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "semantic_role",
+        "trigger_terms",
+        "candidate_target_ids",
+        "source_ids",
+        "rationale",
+        "confidence",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "semantic_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trigger_terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "$ref": "#/$defs/review_status"
+        }
+      }
+    },
+    "evidence_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source_id",
+        "target_id",
+        "relation_type",
+        "status",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    }
+  }
+}
