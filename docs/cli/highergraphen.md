@@ -138,6 +138,14 @@ schema ID. This makes the detector distinguish content-backed verification
 from path-only test-file presence, while still avoiding test execution or
 unbounded proof of behavioral equivalence.
 
+The Rust test semantic extraction step is intentionally project-neutral: it
+recognizes Rust test functions, assertion macros, CLI-like token arrays, JSON
+field indexing, and schema-shaped string identifiers without knowing
+HigherGraphen IDs. The HigherGraphen adapter then binds those extracted
+observations to this repository's known commands, adapters, morphisms, and
+laws. This keeps the semantic lift reusable while making the repository-local
+target mapping explicit.
+
 For HigherGraphen semantic-proof artifact adapter changes, the adapter lifts
 the change into theorem/law/morphism structure rather than leaving helper
 functions as isolated obligations. It creates semantic-proof artifact adapter
@@ -169,7 +177,9 @@ range exists, but it remains a bounded snapshot: it does not execute tests,
 prove full behavior equivalence, or accept generated candidates.
 When selected Rust tests are present directly or through `--include-tests`,
 their test functions, assertions, CLI observations, and JSON observations are
-also lifted into content-backed verification evidence.
+also lifted into content-backed verification evidence. The same generic Rust
+test semantic extractor is used here; only the final mapping from extracted
+observations to HigherGraphen test-gap targets is repository-specific.
 
 ```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]

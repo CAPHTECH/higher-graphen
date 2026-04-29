@@ -2,6 +2,7 @@
 
 mod pr_review_git;
 mod pr_review_structural;
+mod rust_test_semantics;
 mod semantic_proof_artifact;
 mod semantic_proof_backend;
 mod semantic_proof_reinput;
