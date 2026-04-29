@@ -24,6 +24,36 @@ highergraphen architecture smoke direct-db-access \
   --output architecture-direct-db-access-smoke.report.json
 ```
 
+Bounded test-gap detector command:
+
+```sh
+highergraphen test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json
+```
+
+Cargo form:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json
+```
+
+Optional file output:
+
+```sh
+highergraphen test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json \
+  --output test-gap.report.json
+```
+
+`highergraphen test-gap input from-git` is deferred and not implemented in the
+first slice. Agents should run `test-gap detect` only with a checked-in or
+externally prepared bounded `highergraphen.test_gap.input.v1` snapshot.
+
 CaseGraphen workflow reasoning command:
 
 ```sh
@@ -184,6 +214,10 @@ casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_
 | Agent handoff | `docs/specs/agent-tooling-handoff.md` |
 | Report schema | `schemas/reports/architecture-direct-db-access-smoke.report.schema.json` |
 | Example fixture | `schemas/reports/architecture-direct-db-access-smoke.report.example.json` |
+| Test-gap input schema | `schemas/inputs/test-gap.input.schema.json` |
+| Test-gap input fixture | `schemas/inputs/test-gap.input.example.json` |
+| Test-gap report schema | `schemas/reports/test-gap.report.schema.json` |
+| Test-gap report fixture | `schemas/reports/test-gap.report.example.json` |
 | Contract validator | `scripts/validate-cli-report-contract.py` |
 | Source skill | `skills/highergraphen/SKILL.md` |
 | CaseGraphen workflow contract | `docs/specs/intermediate-tools/casegraphen-workflow-contracts.md` |
@@ -203,10 +237,17 @@ casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_
 
 - CLI exit code `0` means the workflow ran and emitted a report.
 - `result.status == "violation_detected"` is successful report data.
+- Test-gap statuses such as `gaps_detected` and `no_gaps_in_snapshot` are
+  successful report data. `no_gaps_in_snapshot` is bounded to the supplied
+  snapshot and is not global proof that a repository has complete tests.
 - The deterministic smoke report contains exactly one direct database access
   obstruction.
 - Completion candidates remain unreviewed until an explicit workflow review
   command accepts, rejects, or reopens them with reviewer metadata.
+- Test-gap missing-test obstructions and `missing_test` completion candidates
+  remain `review_status: "unreviewed"` until explicit review. Agent reports
+  must include severity, confidence, source IDs, obstruction witnesses,
+  suggested test shape, and projection `information_loss`.
 - The workflow is deterministic smoke coverage, not ingestion of real
   architecture documents, source code, ADRs, tickets, databases, or OpenAPI
   files.

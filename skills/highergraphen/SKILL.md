@@ -1,14 +1,14 @@
 ---
 name: highergraphen
-description: Use when an agent needs to run or interpret repository-owned HigherGraphen CLI workflow reports, including Architecture Product smoke, Feed reader, completion review, and PR review target recommendation contracts.
+description: Use when an agent needs to run or interpret repository-owned HigherGraphen CLI workflow reports, including Architecture Product smoke, Feed reader, completion review, PR review target recommendation, and test-gap detector contracts.
 ---
 
 # HigherGraphen CLI Skill
 
 Use this skill when a task asks for HigherGraphen agent-facing workflow output,
 Architecture Product smoke validation, bounded Feed reader output, completion
-review output, PR review target recommendations, or interpretation of a
-`highergraphen` JSON report.
+review output, PR review target recommendations, bounded missing-unit-test
+gap detection, or interpretation of a `highergraphen` JSON report.
 
 This repository skill is CLI-only. MCP servers, provider plugin bundles,
 marketplace metadata, and provider-specific manifests are outside the immediate
@@ -23,6 +23,9 @@ path.
 - PR review target input schema: `schemas/inputs/pr-review-target.input.schema.json`
 - PR review target report schema: `schemas/reports/pr-review-target.report.schema.json`
 - PR review target fixture: `schemas/inputs/pr-review-target.input.example.json`
+- Test-gap input schema: `schemas/inputs/test-gap.input.schema.json`
+- Test-gap report schema: `schemas/reports/test-gap.report.schema.json`
+- Test-gap fixture: `schemas/inputs/test-gap.input.example.json`
 - Local contract validator: `scripts/validate-cli-report-contract.py`
 - JSON contract validator: `scripts/validate-json-contracts.py`
 
@@ -34,7 +37,9 @@ fixture, and CLI output.
 Run the CLI when the user asks for a current HigherGraphen workflow report,
 including the Architecture Product smoke workflow, direct database access
 architecture report, bounded feed reader report, completion review report, or
-PR review target recommendation report.
+PR review target recommendation report. Run it for test-gap work when the user
+has a bounded `highergraphen.test_gap.input.v1` snapshot and wants missing
+unit-test obstructions or completion candidates.
 
 Preferred local validation:
 
@@ -101,6 +106,30 @@ cargo run -q -p highergraphen-cli -- \
   --output pr-review-target.report.json
 ```
 
+Run the bounded test-gap detector:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json
+```
+
+Generate a test-gap report to a file:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json \
+  --output test-gap.report.json
+```
+
+`highergraphen test-gap input from-git` is deferred and not implemented in the
+first slice. Do not tell agents to run it; use a checked-in or externally
+prepared bounded `highergraphen.test_gap.input.v1` snapshot with
+`test-gap detect`.
+
 Validate all checked-in schema-bearing fixtures:
 
 ```sh
@@ -113,6 +142,13 @@ Run focused PR review target runtime and CLI coverage:
 cargo test -p higher-graphen-runtime --test pr_review_target
 cargo test -p highergraphen-cli pr_review_input_from_git
 cargo test -p highergraphen-cli pr_review_targets_recommend
+```
+
+Run focused test-gap runtime and CLI coverage:
+
+```sh
+cargo test -p higher-graphen-runtime --test test_gap
+cargo test -p highergraphen-cli test_gap_detect
 ```
 
 ## Interpretation Rules
@@ -148,6 +184,22 @@ cargo test -p highergraphen-cli pr_review_targets_recommend
 - State that PR review target reports do not approve pull requests or record
   final review decisions. Humans must review recommended targets and record
   explicit decisions elsewhere.
+- For `highergraphen test-gap detect`, consume only bounded
+  `highergraphen.test_gap.input.v1` snapshots such as
+  `schemas/inputs/test-gap.input.example.json`.
+- Treat test-gap statuses such as `gaps_detected` and
+  `no_gaps_in_snapshot` as successful report data. `no_gaps_in_snapshot` is
+  bounded to the supplied snapshot and is not global proof that the repository
+  has complete tests.
+- Treat missing-test obstructions as successful detector findings. Preserve
+  their severity, confidence, target IDs, source IDs, witness data, and
+  `review_status: "unreviewed"`.
+- Treat completion candidates with `candidate_type: "missing_test"` as
+  suggested test work only. Preserve suggested test shape, provenance/source
+  IDs, confidence, and `review_status: "unreviewed"`.
+- Keep projection `information_loss` visible for every test-gap summary,
+  especially omitted source bodies, summarized diffs, absent coverage
+  dimensions, unreviewed inference, and the bounded snapshot boundary.
 
 ## Agent Output Shape
 
@@ -160,8 +212,15 @@ When reporting results to a user, include:
 - Any completion candidates with confidence and review status.
 - For PR review target reports, recommended targets with severity, confidence,
   evidence IDs, and review status.
+- For test-gap reports, obstructions with severity, confidence, source IDs,
+  target IDs, witness summary, and review status.
+- For test-gap reports, missing-test completion candidates with suggested test
+  shape, confidence, provenance/source IDs, and review status.
+- Projection information loss for human, AI-agent, and audit views when
+  present.
 - Any unsupported scope the user requested, especially real input ingestion,
-  candidate acceptance, MCP, plugin packaging, or marketplace work.
+  `test-gap input from-git`, full repository crawling, candidate acceptance,
+  MCP, plugin packaging, or marketplace work.
 
 ## Safety Rules
 
@@ -171,6 +230,12 @@ When reporting results to a user, include:
 - Do not approve PRs or record review decisions from the recommender report.
 - Do not accept or reject completion candidates without an explicit review
   workflow.
+- Do not treat missing-test candidates or detector obstructions as accepted
+  tests or reviewed coverage.
+- Do not present `no_gaps_in_snapshot` as proof that all repository tests are
+  complete.
+- Do not claim `highergraphen test-gap input from-git` exists in this first
+  slice.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user

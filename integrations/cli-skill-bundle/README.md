@@ -58,6 +58,17 @@ The stable CLI command is:
 highergraphen architecture smoke direct-db-access --format json
 ```
 
+The bounded test-gap detector command is:
+
+```sh
+highergraphen test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json
+```
+
+`highergraphen test-gap input from-git` is deferred and not implemented in the
+first slice; use a checked-in or externally prepared bounded input snapshot.
+
 The stable CaseGraphen workflow reasoning command is:
 
 ```sh
@@ -133,6 +144,11 @@ The machine-readable report contract lives at
 `schemas/reports/architecture-direct-db-access-smoke.report.schema.json`, with
 the example fixture at
 `schemas/reports/architecture-direct-db-access-smoke.report.example.json`.
+The test-gap detector consumes
+`schemas/inputs/test-gap.input.schema.json` and emits
+`schemas/reports/test-gap.report.schema.json`; the fixture pair is
+`schemas/inputs/test-gap.input.example.json` and
+`schemas/reports/test-gap.report.example.json`.
 CaseGraphen workflow contracts live at
 `schemas/casegraphen/workflow.graph.schema.json` and
 `schemas/casegraphen/workflow.report.schema.json`. The completed operator

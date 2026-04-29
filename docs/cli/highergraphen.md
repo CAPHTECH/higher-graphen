@@ -4,8 +4,8 @@ The `highergraphen` command is the operational CLI for HigherGraphen runtime
 workflows. It exposes the deterministic Architecture Product direct database
 access smoke workflow, the bounded architecture input lift workflow, the
 bounded Feed Product reader workflow, the bounded PR review target
-recommendation workflow, and the explicit completion review workflow as stable
-JSON reports.
+recommendation workflow, the bounded test-gap detector workflow, and the
+explicit completion review workflow as stable JSON reports.
 
 For the underlying implementation contract, see
 [`runtime-cli-scope.md`](../specs/runtime-cli-scope.md) and
@@ -102,6 +102,23 @@ and record explicit accept/reject/waive decisions in a separate review system
 or later explicit workflow.
 
 ```sh
+highergraphen test-gap detect --input <path> --format json [--output <path>]
+```
+
+This command reads a bounded `highergraphen.test_gap.input.v1` snapshot and
+emits a missing-unit-test detector report. The workflow lifts supplied files,
+symbols, requirements, tests, coverage, evidence, and risk signals as bounded
+input facts, then emits missing-test obstructions and `missing_test`
+completion candidates as reviewable report data. Obstructions and completion
+candidates remain `review_status: "unreviewed"` until a later explicit review
+workflow accepts or rejects them.
+
+`highergraphen test-gap input from-git` is deferred in this first slice and is
+not an implemented CLI command. Use a checked-in or externally prepared
+bounded input such as `schemas/inputs/test-gap.input.example.json` with
+`test-gap detect`.
+
+```sh
 highergraphen completion review accept \
   --input <path> \
   --candidate <id> \
@@ -138,6 +155,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--head <ref>` | For `pr-review input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for `pr-review input from-git`; defaults to the current directory. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
+| `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
 | `--reviewer <id>` | For `completion review` | Records the explicit reviewer or workflow identifier. |
@@ -192,6 +210,14 @@ Run the checked-in PR review target fixture:
   --format json
 ```
 
+Run the checked-in test-gap fixture:
+
+```sh
+./target/debug/highergraphen test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json
+```
+
 Generate a PR review target input from a local git range:
 
 ```sh
@@ -243,6 +269,15 @@ Write a PR review target report to a file:
   --output pr-review-target.report.json
 ```
 
+Write a test-gap report to a file:
+
+```sh
+./target/debug/highergraphen test-gap detect \
+  --input schemas/inputs/test-gap.input.example.json \
+  --format json \
+  --output test-gap.report.json
+```
+
 Accept a completion candidate from a generated report:
 
 ```sh
@@ -269,7 +304,7 @@ python3 scripts/validate-cli-report-contract.py \
 ```
 
 Validate all checked-in JSON schemas and fixtures, including the PR review
-target input and report contracts:
+target and test-gap input and report contracts:
 
 ```sh
 python3 scripts/validate-json-contracts.py
@@ -283,6 +318,13 @@ cargo test -p highergraphen-cli pr_review_input_from_git
 cargo test -p highergraphen-cli pr_review_targets_recommend
 ```
 
+Run the focused test-gap runtime and CLI coverage:
+
+```sh
+cargo test -p higher-graphen-runtime --test test_gap
+cargo test -p highergraphen-cli test_gap_detect
+```
+
 ## Exit Behavior
 
 Exit code `0` means the workflow ran and emitted a report. The current workflow
@@ -290,6 +332,10 @@ is expected to detect a direct database access architecture violation, and that
 domain finding is still a successful CLI result. For PR review targeting,
 `result.status` values such as `"targets_recommended"` and `"no_targets"` are
 also successful domain results.
+For test-gap detection, `result.status` values such as `"gaps_detected"` and
+`"no_gaps_in_snapshot"` are successful domain results. A
+`"no_gaps_in_snapshot"` result is bounded to the supplied snapshot and is not
+global proof that the repository has complete tests.
 
 Nonzero exits are reserved for command usage errors, runtime construction
 failures, report serialization failures, or file output failures.
@@ -391,6 +437,29 @@ The adapter intentionally creates a bounded snapshot rather than a review
 report. Run `pr-review targets recommend` afterward to produce unreviewed
 review targets and obstructions.
 
+The test-gap detector report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.test_gap.report.v1` |
+| Report type | `test_gap` |
+| Report version | `1` |
+| Input schema | [`test-gap.input.schema.json`](../../schemas/inputs/test-gap.input.schema.json) |
+| Input fixture | [`test-gap.input.example.json`](../../schemas/inputs/test-gap.input.example.json) |
+| Report schema | [`test-gap.report.schema.json`](../../schemas/reports/test-gap.report.schema.json) |
+| Example fixture | [`test-gap.report.example.json`](../../schemas/reports/test-gap.report.example.json) |
+| Runtime runner | `higher_graphen_runtime::run_test_gap_detect` |
+
+The test-gap report has `result.status` set to `"gaps_detected"` for the
+checked-in fixture, records lifted bounded input facts under
+`result.accepted_fact_ids`, records missing-test obstructions with severity,
+confidence, source IDs, and `review_status: "unreviewed"`, and records
+`completion_candidates` with `candidate_type: "missing_test"`, suggested test
+shape, provenance, confidence, and `review_status: "unreviewed"`.
+Projection views must preserve `information_loss`; summaries must not hide
+omitted source bodies, summarized diffs, absent coverage dimensions, inferred
+candidate status, or the bounded snapshot boundary.
+
 The completion review report uses this contract:
 
 | Surface | Value |
@@ -435,8 +504,37 @@ Consumers must preserve these semantics:
   suggestions.
 - PR review recommendations must be reviewed by humans, and explicit decisions
   must be recorded outside this recommender report.
+- The test-gap path consumes bounded `highergraphen.test_gap.input.v1`
+  snapshots, including `schemas/inputs/test-gap.input.example.json`.
+- Test-gap accepted facts are limited to the supplied snapshot. Domain findings
+  such as missing-test obstructions, insufficient evidence, `gaps_detected`,
+  and `no_gaps_in_snapshot` are successful report data, not CLI failures.
+- Test-gap `completion_candidates` with `candidate_type: "missing_test"` and
+  inferred obstructions remain `review_status: "unreviewed"` until a later
+  explicit review workflow accepts or rejects them.
+- Test-gap projections must expose `information_loss` and preserve source IDs,
+  severity, confidence, obstruction witnesses, suggested test shape, and review
+  status for agent and audit use.
+- `no_gaps_in_snapshot` means the supplied snapshot did not violate the
+  configured invariants. It is not proof that all tests are complete across the
+  repository.
 - Agent skills and future tool surfaces should consume the CLI output or runtime
   runner and validate against the schema instead of reimplementing the workflow.
+
+## Agent Reporting
+
+When an agent reports a test-gap result, include:
+
+- the exact command run and whether validation passed;
+- `result.status` and whether it is a bounded success result;
+- obstructions with severity, confidence, source IDs, target IDs, and review
+  status;
+- completion candidates with candidate IDs, suggested test shape, confidence,
+  provenance/source IDs, and `review_status`;
+- projection `information_loss` from human, AI, and audit views when present;
+- unsupported or deferred scope, especially `test-gap input from-git`, full
+  repository crawling, generated test acceptance, or global proof of complete
+  tests.
 
 ## Unsupported Usage
 
@@ -446,14 +544,21 @@ These are intentionally unsupported in the current CLI:
 - Architecture input formats beyond the bounded JSON v1 document.
 - Feed input formats beyond the bounded JSON v1 fixture.
 - PR review input formats beyond the bounded PR review target JSON v1 snapshot.
+- Test-gap input formats beyond the bounded test-gap JSON v1 snapshot.
+- `highergraphen test-gap input from-git`; the git adapter for test-gap input
+  generation is deferred and not implemented in the first slice.
 - Network fetching, scheduling, database persistence, read state, UI rendering,
   and production RSS/Atom parsing.
 - Pull request approval, provider comment posting, reviewer assignment, or
   automatic promotion of AI recommendations into accepted review coverage.
+- Test generation, test execution, coverage approval, or automatic promotion
+  of missing-test candidates into accepted tests.
+- Global assertions that no test gaps exist outside the bounded input snapshot.
 - MCP server behavior.
 - Provider-specific plugin, marketplace, or manifest behavior.
 - Provider-specific skills beyond the repository-owned
   `skills/highergraphen/SKILL.md` CLI skill.
 - Additional `highergraphen` subcommands beyond `architecture smoke
   direct-db-access`, `architecture input lift`, `feed reader run`,
-  `pr-review targets recommend`, and `completion review`.
+  `pr-review input from-git`, `pr-review targets recommend`, `test-gap
+  detect`, and `completion review`.
