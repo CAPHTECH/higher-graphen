@@ -147,8 +147,26 @@ Verify a semantic proof certificate bundle:
 
 ```sh
 cargo run -q -p highergraphen-cli -- \
+  semantic-proof input from-artifact \
+  --artifact proof-artifact.json \
+  --backend kani \
+  --backend-version 1.0.0 \
+  --theorem-id theorem:semantic:pricing \
+  --theorem-summary "Pricing typed signature is preserved." \
+  --law-id law:semantic:signature-preserved \
+  --law-summary "Public typed signature is preserved." \
+  --morphism-id morphism:semantic:pricing-signature \
+  --morphism-type typed_signature_preservation \
+  --base-cell cell:semantic:pricing:base \
+  --base-label "base calculate_discount MIR" \
+  --head-cell cell:semantic:pricing:head \
+  --head-label "head calculate_discount MIR" \
+  --format json \
+  --output semantic-proof.input.json
+
+cargo run -q -p highergraphen-cli -- \
   semantic-proof verify \
-  --input schemas/inputs/semantic-proof.input.example.json \
+  --input semantic-proof.input.json \
   --format json \
   --output semantic-proof.report.json
 ```
@@ -231,6 +249,10 @@ cargo test -p highergraphen-cli semantic_proof
   as formal verification cells only inside the bounded certificate snapshot and
   verification policy. The command checks certificate references and policy; it
   does not run Kani, Prusti, SMT, MIR extraction, or symbolic execution itself.
+- Prefer `highergraphen semantic-proof input from-artifact` when an external
+  proof backend has already produced a local artifact. The adapter converts
+  the artifact into theorem, law, morphism, semantic cell, certificate, or
+  counterexample structure for HG; it still does not execute the backend.
 - Treat test-gap statuses such as `gaps_detected` and
   `no_gaps_in_snapshot` as successful report data. `no_gaps_in_snapshot` is
   bounded to the supplied snapshot and is not global proof that the repository
@@ -283,6 +305,9 @@ When reporting results to a user, include:
   behavior coverage.
 - Do not claim `highergraphen semantic-proof verify` runs external proof
   backends. It verifies supplied proof certificates and counterexamples.
+- Do not claim `highergraphen semantic-proof input from-artifact` proves
+  anything by itself. It normalizes already-produced backend artifacts into the
+  bounded HG proof-input contract.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user

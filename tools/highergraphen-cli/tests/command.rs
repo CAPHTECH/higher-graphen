@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Output},
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
@@ -15,6 +15,7 @@ const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
 const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
+const SEMANTIC_PROOF_INPUT_SCHEMA: &str = "highergraphen.semantic_proof.input.v1";
 const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api";
@@ -376,6 +377,132 @@ fn semantic_proof_verify_reads_fixture_and_writes_one_json_report_to_stdout() {
             .is_some_and(
                 |certificate_ids| certificate_ids.contains(&json!("certificate:semantic:pricing"))
             )));
+}
+
+#[test]
+fn semantic_proof_input_from_artifact_emits_proved_input_and_verifies() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let artifact = directory.join("kani-artifact.json");
+    fs::write(
+        &artifact,
+        json!({
+            "status": "proved",
+            "input_hash": "sha256:input",
+            "proof_hash": "sha256:proof",
+            "witness_ids": [
+                "cell:semantic:pricing:base",
+                "cell:semantic:pricing:head"
+            ],
+            "review_status": "accepted",
+            "confidence": 0.91
+        })
+        .to_string(),
+    )
+    .expect("write semantic proof artifact");
+
+    let output = run_cli_owned(&semantic_artifact_command(&artifact, None));
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let generated_input = stdout(&output);
+    assert_eq!(generated_input.lines().count(), 1);
+    let value: Value =
+        serde_json::from_str(generated_input.trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(SEMANTIC_PROOF_INPUT_SCHEMA));
+    assert_eq!(value["source"]["kind"], json!("code"));
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("source adapters")
+        .contains(&json!("semantic-proof-from-artifact.v1")));
+    assert_eq!(
+        value["verification_policy"]["accepted_backends"],
+        json!(["kani"])
+    );
+    assert_eq!(value["proof_certificates"][0]["backend"], json!("kani"));
+
+    let input = directory.join("semantic-proof.input.json");
+    fs::write(&input, generated_input).expect("write generated semantic proof input");
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("proved"));
+    assert!(report["result"]["accepted_certificate_ids"]
+        .as_array()
+        .expect("accepted certificate ids")
+        .iter()
+        .any(|id| id == &json!("certificate:semantic:kani:theorem-semantic-pricing")));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn semantic_proof_input_from_artifact_emits_counterexample_input_and_verifies() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let artifact = directory.join("smt-artifact.json");
+    fs::write(
+        &artifact,
+        json!({
+            "status": "counterexample",
+            "path_ids": [
+                "cell:semantic:pricing:base",
+                "cell:semantic:pricing:head"
+            ],
+            "summary": "symbolic execution found a mismatch",
+            "severity": "critical",
+            "review_status": "accepted",
+            "confidence": 0.93
+        })
+        .to_string(),
+    )
+    .expect("write semantic proof artifact");
+
+    let input = directory.join("semantic-proof.input.json");
+    let output = run_cli_owned(&semantic_artifact_command(&artifact, Some(&input)));
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+    let value: Value = serde_json::from_str(
+        &fs::read_to_string(&input).expect("read generated semantic proof input"),
+    )
+    .expect("generated input should be JSON");
+    assert_eq!(value["schema"], json!(SEMANTIC_PROOF_INPUT_SCHEMA));
+    assert_eq!(value["counterexamples"][0]["severity"], json!("critical"));
+
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        input
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("counterexample_found"));
+    assert_eq!(
+        report["result"]["counterexamples"][0]["id"],
+        json!("counterexample:semantic:kani:theorem-semantic-pricing")
+    );
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
 }
 
 #[test]
@@ -1245,6 +1372,13 @@ fn run_cli(args: &[&str]) -> Output {
         .expect("run highergraphen CLI")
 }
 
+fn run_cli_owned(args: &[String]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_highergraphen"))
+        .args(args)
+        .output()
+        .expect("run highergraphen CLI")
+}
+
 fn stdout(output: &Output) -> String {
     String::from_utf8(output.stdout.clone()).expect("stdout should be utf-8")
 }
@@ -1293,6 +1427,55 @@ fn semantic_proof_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/semantic-proof.input.example.json")
+}
+
+fn semantic_artifact_command(artifact: &Path, output: Option<&Path>) -> Vec<String> {
+    let mut args = vec![
+        "semantic-proof",
+        "input",
+        "from-artifact",
+        "--artifact",
+        artifact.to_str().expect("artifact path should be utf-8"),
+        "--backend",
+        "kani",
+        "--backend-version",
+        "1.0.0",
+        "--theorem-id",
+        "theorem:semantic:pricing",
+        "--theorem-summary",
+        "Pricing typed signature is preserved.",
+        "--law-id",
+        "law:semantic:signature-preserved",
+        "--law-summary",
+        "Public typed signature is preserved.",
+        "--morphism-id",
+        "morphism:semantic:pricing-signature",
+        "--morphism-type",
+        "typed_signature_preservation",
+        "--base-cell",
+        "cell:semantic:pricing:base",
+        "--base-label",
+        "base calculate_discount MIR",
+        "--head-cell",
+        "cell:semantic:pricing:head",
+        "--head-label",
+        "head calculate_discount MIR",
+        "--format",
+        "json",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+    if let Some(output) = output {
+        args.push("--output".to_owned());
+        args.push(
+            output
+                .to_str()
+                .expect("output path should be utf-8")
+                .to_owned(),
+        );
+    }
+    args
 }
 
 fn write_smoke_report(directory: &std::path::Path) -> PathBuf {

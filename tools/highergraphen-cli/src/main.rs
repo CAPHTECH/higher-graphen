@@ -2,6 +2,7 @@
 
 mod pr_review_git;
 mod pr_review_structural;
+mod semantic_proof_artifact;
 mod test_gap_git;
 
 use higher_graphen_core::Id;
@@ -32,6 +33,7 @@ const USAGE: &str = "usage:
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
+  highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
   highergraphen semantic-proof verify --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
@@ -101,6 +103,22 @@ enum Command {
     },
     SemanticProofVerify {
         input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    SemanticProofInputFromArtifact {
+        artifact: PathBuf,
+        backend: String,
+        backend_version: String,
+        theorem_id: String,
+        theorem_summary: String,
+        law_id: String,
+        law_summary: String,
+        morphism_id: String,
+        morphism_type: String,
+        base_cell: String,
+        base_label: String,
+        head_cell: String,
+        head_label: String,
         output: Option<PathBuf>,
     },
     CompletionReview {
@@ -252,13 +270,70 @@ impl Command {
     }
 
     fn parse_semantic_proof(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
-        require_token(&mut args, "verify")?;
-        let options = ReportOptions::parse(args, true)?;
-        let input = options
-            .input
-            .ok_or_else(|| CliError::usage("--input <path> is required"))?;
-        Ok(Self::SemanticProofVerify {
-            input,
+        let segment = required_segment(&mut args, "semantic-proof command")?;
+        match segment.to_str() {
+            Some("input") => Self::parse_semantic_proof_input(args),
+            Some("verify") => {
+                let options = ReportOptions::parse(args, true)?;
+                let input = options
+                    .input
+                    .ok_or_else(|| CliError::usage("--input <path> is required"))?;
+                Ok(Self::SemanticProofVerify {
+                    input,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage(
+                "unsupported semantic-proof command segment",
+            )),
+        }
+    }
+
+    fn parse_semantic_proof_input(
+        mut args: impl Iterator<Item = OsString>,
+    ) -> Result<Self, CliError> {
+        require_token(&mut args, "from-artifact")?;
+        let options = SemanticProofArtifactOptions::parse(args)?;
+        Ok(Self::SemanticProofInputFromArtifact {
+            artifact: options
+                .artifact
+                .ok_or_else(|| CliError::usage("--artifact <path> is required"))?,
+            backend: options
+                .backend
+                .ok_or_else(|| CliError::usage("--backend <name> is required"))?,
+            backend_version: options
+                .backend_version
+                .ok_or_else(|| CliError::usage("--backend-version <version> is required"))?,
+            theorem_id: options
+                .theorem_id
+                .ok_or_else(|| CliError::usage("--theorem-id <id> is required"))?,
+            theorem_summary: options
+                .theorem_summary
+                .ok_or_else(|| CliError::usage("--theorem-summary <text> is required"))?,
+            law_id: options
+                .law_id
+                .ok_or_else(|| CliError::usage("--law-id <id> is required"))?,
+            law_summary: options
+                .law_summary
+                .ok_or_else(|| CliError::usage("--law-summary <text> is required"))?,
+            morphism_id: options
+                .morphism_id
+                .ok_or_else(|| CliError::usage("--morphism-id <id> is required"))?,
+            morphism_type: options
+                .morphism_type
+                .ok_or_else(|| CliError::usage("--morphism-type <text> is required"))?,
+            base_cell: options
+                .base_cell
+                .ok_or_else(|| CliError::usage("--base-cell <id> is required"))?,
+            base_label: options
+                .base_label
+                .ok_or_else(|| CliError::usage("--base-label <text> is required"))?,
+            head_cell: options
+                .head_cell
+                .ok_or_else(|| CliError::usage("--head-cell <id> is required"))?,
+            head_label: options
+                .head_label
+                .ok_or_else(|| CliError::usage("--head-label <text> is required"))?,
             output: options.output,
         })
     }
@@ -301,6 +376,7 @@ impl Command {
             | Self::PrReviewTargetsRecommend { output, .. }
             | Self::TestGapInputFromGit { output, .. }
             | Self::TestGapDetect { output, .. }
+            | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofVerify { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
@@ -368,6 +444,43 @@ impl Command {
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
+            Self::SemanticProofInputFromArtifact {
+                artifact,
+                backend,
+                backend_version,
+                theorem_id,
+                theorem_summary,
+                law_id,
+                law_summary,
+                morphism_id,
+                morphism_type,
+                base_cell,
+                base_label,
+                head_cell,
+                head_label,
+                ..
+            } => {
+                let document = semantic_proof_artifact::input_from_artifact(
+                    semantic_proof_artifact::ArtifactInputRequest {
+                        artifact: artifact.clone(),
+                        backend: backend.clone(),
+                        backend_version: backend_version.clone(),
+                        theorem_id: theorem_id.clone(),
+                        theorem_summary: theorem_summary.clone(),
+                        law_id: law_id.clone(),
+                        law_summary: law_summary.clone(),
+                        morphism_id: morphism_id.clone(),
+                        morphism_type: morphism_type.clone(),
+                        base_cell: base_cell.clone(),
+                        base_label: base_label.clone(),
+                        head_cell: head_cell.clone(),
+                        head_label: head_label.clone(),
+                    },
+                )
+                .map_err(CliError::SemanticProofArtifact)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
             Self::CompletionReview {
                 decision,
                 input,
@@ -419,6 +532,75 @@ impl GitInputOptions {
                 options.base = Some(require_string(&mut args, "--base")?);
             } else if arg == "--head" {
                 options.head = Some(require_string(&mut args, "--head")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct SemanticProofArtifactOptions {
+    artifact: Option<PathBuf>,
+    backend: Option<String>,
+    backend_version: Option<String>,
+    theorem_id: Option<String>,
+    theorem_summary: Option<String>,
+    law_id: Option<String>,
+    law_summary: Option<String>,
+    morphism_id: Option<String>,
+    morphism_type: Option<String>,
+    base_cell: Option<String>,
+    base_label: Option<String>,
+    head_cell: Option<String>,
+    head_label: Option<String>,
+    output: Option<PathBuf>,
+}
+
+impl SemanticProofArtifactOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--artifact" {
+                options.artifact = Some(require_path(&mut args, "--artifact")?);
+            } else if arg == "--backend" {
+                options.backend = Some(require_string(&mut args, "--backend")?);
+            } else if arg == "--backend-version" {
+                options.backend_version = Some(require_string(&mut args, "--backend-version")?);
+            } else if arg == "--theorem-id" {
+                options.theorem_id = Some(require_string(&mut args, "--theorem-id")?);
+            } else if arg == "--theorem-summary" {
+                options.theorem_summary = Some(require_string(&mut args, "--theorem-summary")?);
+            } else if arg == "--law-id" {
+                options.law_id = Some(require_string(&mut args, "--law-id")?);
+            } else if arg == "--law-summary" {
+                options.law_summary = Some(require_string(&mut args, "--law-summary")?);
+            } else if arg == "--morphism-id" {
+                options.morphism_id = Some(require_string(&mut args, "--morphism-id")?);
+            } else if arg == "--morphism-type" {
+                options.morphism_type = Some(require_string(&mut args, "--morphism-type")?);
+            } else if arg == "--base-cell" {
+                options.base_cell = Some(require_string(&mut args, "--base-cell")?);
+            } else if arg == "--base-label" {
+                options.base_label = Some(require_string(&mut args, "--base-label")?);
+            } else if arg == "--head-cell" {
+                options.head_cell = Some(require_string(&mut args, "--head-cell")?);
+            } else if arg == "--head-label" {
+                options.head_label = Some(require_string(&mut args, "--head-label")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -529,6 +711,7 @@ enum CliError {
         reason: String,
     },
     GitInput(String),
+    SemanticProofArtifact(String),
     Output(std::io::Error),
 }
 
@@ -577,6 +760,9 @@ impl fmt::Display for CliError {
                 write!(formatter, "invalid input {}: {reason}", path.display())
             }
             Self::GitInput(message) => write!(formatter, "failed to build git input: {message}"),
+            Self::SemanticProofArtifact(message) => {
+                write!(formatter, "failed to build semantic proof input: {message}")
+            }
             Self::Output(error) => write!(formatter, "failed to write output: {error}"),
         }
     }

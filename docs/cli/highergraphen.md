@@ -4,8 +4,9 @@ The `highergraphen` command is the operational CLI for HigherGraphen runtime
 workflows. It exposes the deterministic Architecture Product direct database
 access smoke workflow, the bounded architecture input lift workflow, the
 bounded Feed Product reader workflow, the bounded PR review target
-recommendation workflow, the bounded test-gap detector workflow, and the
-explicit completion review workflow as stable JSON reports.
+recommendation workflow, the bounded test-gap detector workflow, the semantic
+proof artifact adapter and verifier, and the explicit completion review
+workflow as stable JSON reports.
 
 For the underlying implementation contract, see
 [`runtime-cli-scope.md`](../specs/runtime-cli-scope.md) and
@@ -141,6 +142,36 @@ candidates remain `review_status: "unreviewed"` until a later explicit review
 workflow accepts or rejects them.
 
 ```sh
+highergraphen semantic-proof input from-artifact \
+  --artifact <path> \
+  --backend <name> \
+  --backend-version <version> \
+  --theorem-id <id> \
+  --theorem-summary <text> \
+  --law-id <id> \
+  --law-summary <text> \
+  --morphism-id <id> \
+  --morphism-type <text> \
+  --base-cell <id> \
+  --base-label <text> \
+  --head-cell <id> \
+  --head-label <text> \
+  --format json \
+  [--output <path>]
+```
+
+This command converts a local proof-backend artifact into a bounded
+`highergraphen.semantic_proof.input.v1` snapshot. The artifact must declare
+`status: "proved"`, `status: "counterexample"`, or
+`status: "counterexample_found"`, and may supply hashes, witness/path IDs,
+review status, severity, and confidence. The CLI arguments supply the HG
+theorem, law, morphism, and base/head semantic cell identities, so the generated
+input can be passed directly to `highergraphen semantic-proof verify`. This
+adapter does not run Kani, Prusti, SMT solving, model checking, symbolic
+execution, or MIR extraction; it records their already-produced artifact as HG
+proof structure.
+
+```sh
 highergraphen semantic-proof verify --input <path> --format json [--output <path>]
 ```
 
@@ -192,6 +223,14 @@ the source report and do not promote the candidate into accepted facts.
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
+| `--artifact <path>` | For `semantic-proof input from-artifact` | Reads a local bounded backend artifact. |
+| `--backend <name>` | For `semantic-proof input from-artifact` | Records the proof backend name and adds it to the generated verification policy. |
+| `--backend-version <version>` | For `semantic-proof input from-artifact` | Records the proof backend version on generated certificates. |
+| `--theorem-id <id>` / `--theorem-summary <text>` | For `semantic-proof input from-artifact` | Defines the HG theorem obligation represented by the artifact. |
+| `--law-id <id>` / `--law-summary <text>` | For `semantic-proof input from-artifact` | Defines the semantic law that must be preserved or refuted. |
+| `--morphism-id <id>` / `--morphism-type <text>` | For `semantic-proof input from-artifact` | Defines the semantic morphism checked by the proof artifact. |
+| `--base-cell <id>` / `--base-label <text>` | For `semantic-proof input from-artifact` | Defines the source semantic endpoint for the morphism. |
+| `--head-cell <id>` / `--head-label <text>` | For `semantic-proof input from-artifact` | Defines the target semantic endpoint for the morphism. |
 | `--input <path>` | For `semantic-proof verify` | Reads the bounded semantic proof certificate snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |
