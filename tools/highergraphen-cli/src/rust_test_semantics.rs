@@ -1,5 +1,55 @@
+use serde_json::{json, Value};
 use std::collections::BTreeSet;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use syn::visit::Visit;
+
+pub(crate) const RUST_TEST_SEMANTICS_SCHEMA: &str = "highergraphen.rust_test_semantics.input.v1";
+const RUST_TEST_SEMANTICS_ADAPTER: &str = "rust-test-semantics-from-path.v1";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RustTestSemanticsPathRequest {
+    pub(crate) repo: PathBuf,
+    pub(crate) paths: Vec<PathBuf>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RustTestSemanticPathDocument {
+    pub(crate) selected_paths: Vec<String>,
+    pub(crate) files: Vec<RustTestSemanticFile>,
+}
+
+impl RustTestSemanticPathDocument {
+    pub(crate) fn to_json_value(&self) -> Value {
+        json!({
+            "schema": RUST_TEST_SEMANTICS_SCHEMA,
+            "source": {
+                "kind": "code",
+                "adapter": RUST_TEST_SEMANTICS_ADAPTER,
+                "boundary": "selected_paths"
+            },
+            "selected_paths": self.selected_paths,
+            "files": self.files.iter().map(RustTestSemanticFile::to_json_value).collect::<Vec<_>>(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RustTestSemanticFile {
+    pub(crate) path: String,
+    pub(crate) functions: Vec<RustTestSemanticFunction>,
+}
+
+impl RustTestSemanticFile {
+    fn to_json_value(&self) -> Value {
+        json!({
+            "path": self.path,
+            "functions": self.functions.iter().map(RustTestSemanticFunction::to_json_value).collect::<Vec<_>>(),
+        })
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RustTestSemanticDocument {
@@ -15,10 +65,31 @@ pub(crate) struct RustTestSemanticFunction {
     pub(crate) json_observations: Vec<RustTestJsonObservation>,
 }
 
+impl RustTestSemanticFunction {
+    fn to_json_value(&self) -> Value {
+        json!({
+            "name": self.name,
+            "assertion_macros": self.assertion_macros,
+            "string_literals": self.string_literals.iter().collect::<Vec<_>>(),
+            "cli_observations": self.cli_observations.iter().map(RustTestCliObservation::to_json_value).collect::<Vec<_>>(),
+            "json_observations": self.json_observations.iter().map(RustTestJsonObservation::to_json_value).collect::<Vec<_>>(),
+        })
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RustTestCliObservation {
     pub(crate) label: String,
     pub(crate) tokens: Vec<String>,
+}
+
+impl RustTestCliObservation {
+    fn to_json_value(&self) -> Value {
+        json!({
+            "label": self.label,
+            "tokens": self.tokens,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,10 +98,71 @@ pub(crate) struct RustTestJsonObservation {
     pub(crate) observation_type: RustTestJsonObservationType,
 }
 
+impl RustTestJsonObservation {
+    fn to_json_value(&self) -> Value {
+        json!({
+            "label": self.label,
+            "observation_type": self.observation_type.as_str(),
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RustTestJsonObservationType {
     Field,
     SchemaId,
+}
+
+impl RustTestJsonObservationType {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Field => "field",
+            Self::SchemaId => "schema_id",
+        }
+    }
+}
+
+pub(crate) fn document_from_path(
+    request: RustTestSemanticsPathRequest,
+) -> Result<RustTestSemanticPathDocument, String> {
+    if request.paths.is_empty() {
+        return Err("--path <path> is required".to_owned());
+    }
+    let repo = fs::canonicalize(&request.repo).map_err(|error| {
+        format!(
+            "failed to resolve repository {}: {error}",
+            request.repo.display()
+        )
+    })?;
+    let mut relative_paths = BTreeSet::new();
+    let mut selected_paths = Vec::new();
+    for path in &request.paths {
+        let (relative_path, absolute_path) = resolve_selected_path(&repo, path)?;
+        selected_paths.push(path_to_string(&relative_path));
+        collect_rust_paths(&repo, &absolute_path, &mut relative_paths)?;
+    }
+
+    let mut files = Vec::new();
+    for relative_path in relative_paths {
+        let absolute_path = repo.join(&relative_path);
+        let contents = fs::read_to_string(&absolute_path)
+            .map_err(|error| format!("failed to read {}: {error}", relative_path.display()))?;
+        let Some(document) = extract_rust_test_semantics(&contents) else {
+            continue;
+        };
+        if document.functions.is_empty() {
+            continue;
+        }
+        files.push(RustTestSemanticFile {
+            path: path_to_string(&relative_path),
+            functions: document.functions,
+        });
+    }
+
+    Ok(RustTestSemanticPathDocument {
+        selected_paths,
+        files,
+    })
 }
 
 pub(crate) fn extract_rust_test_semantics(contents: &str) -> Option<RustTestSemanticDocument> {
@@ -210,6 +342,98 @@ pub(crate) fn contains_all_strings(strings: &BTreeSet<String>, expected: &[&str]
             .all(|value| strings.iter().any(|string| string.contains(value)))
 }
 
+fn resolve_selected_path(repo: &Path, path: &Path) -> Result<(PathBuf, PathBuf), String> {
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        repo.join(path)
+    };
+    let absolute_path = fs::canonicalize(&candidate)
+        .map_err(|error| format!("failed to resolve path {}: {error}", candidate.display()))?;
+    let relative_path = relative_path(repo, &absolute_path)?;
+    let relative_text = path_to_string(&relative_path);
+    if relative_text.is_empty() || path_has_disallowed_component(&relative_path) {
+        return Err(format!(
+            "unsupported path {} relative to {}",
+            relative_text,
+            repo.display()
+        ));
+    }
+    Ok((relative_path, absolute_path))
+}
+
+fn collect_rust_paths(
+    repo: &Path,
+    absolute_path: &Path,
+    output: &mut BTreeSet<PathBuf>,
+) -> Result<(), String> {
+    let metadata = fs::metadata(absolute_path)
+        .map_err(|error| format!("failed to read {}: {error}", absolute_path.display()))?;
+    if metadata.is_file() {
+        if is_rust_path(absolute_path) {
+            output.insert(relative_path(repo, absolute_path)?);
+        }
+        return Ok(());
+    }
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+
+    let mut children = fs::read_dir(absolute_path)
+        .map_err(|error| {
+            format!(
+                "failed to read directory {}: {error}",
+                absolute_path.display()
+            )
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            format!(
+                "failed to read directory {}: {error}",
+                absolute_path.display()
+            )
+        })?;
+    children.sort_by_key(|entry| entry.path());
+    for child in children {
+        let path = child.path();
+        if should_skip_directory(&path) {
+            continue;
+        }
+        collect_rust_paths(repo, &path, output)?;
+    }
+    Ok(())
+}
+
+fn relative_path(repo: &Path, absolute_path: &Path) -> Result<PathBuf, String> {
+    absolute_path
+        .strip_prefix(repo)
+        .map(Path::to_path_buf)
+        .map_err(|_| format!("{} is outside {}", absolute_path.display(), repo.display()))
+}
+
+fn path_has_disallowed_component(path: &Path) -> bool {
+    path.components().any(|component| {
+        let value = component.as_os_str().to_string_lossy();
+        matches!(value.as_ref(), "." | ".." | ".git" | "target")
+    })
+}
+
+fn should_skip_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| matches!(name, ".git" | "target"))
+}
+
+fn is_rust_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "rs")
+}
+
+fn path_to_string(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn callee_indicates_cli(function: &syn::Expr) -> bool {
     let syn::Expr::Path(path) = function else {
         return false;
@@ -244,6 +468,9 @@ fn string_array_tokens_from_array(array: &syn::ExprArray) -> Option<Vec<String>>
 }
 
 fn looks_like_schema_id(value: &str) -> bool {
+    if value.starts_with("schema:") || value.starts_with("field:") {
+        return false;
+    }
     let Some((prefix, version)) = value.rsplit_once(".v") else {
         return false;
     };

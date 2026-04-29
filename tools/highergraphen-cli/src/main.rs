@@ -18,6 +18,7 @@ use higher_graphen_runtime::{
     FeedReaderInputDocument, PrReviewTargetInputDocument, RuntimeError, SemanticProofInputDocument,
     SemanticProofReport, TestGapInputDocument,
 };
+use rust_test_semantics::RustTestSemanticsPathRequest;
 use serde_json::Value;
 use std::{
     env,
@@ -39,6 +40,7 @@ const USAGE: &str = "usage:
   highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
   highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
+  highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
   highergraphen semantic-proof input from-report --report <path> --format json [--output <path>]
@@ -120,6 +122,11 @@ enum Command {
         test_run: PathBuf,
         output: Option<PathBuf>,
     },
+    RustTestSemanticsFromPath {
+        repo: PathBuf,
+        paths: Vec<PathBuf>,
+        output: Option<PathBuf>,
+    },
     SemanticProofVerify {
         input: PathBuf,
         output: Option<PathBuf>,
@@ -174,6 +181,7 @@ impl Command {
             Some("feed") => Self::parse_feed(args),
             Some("pr-review") => Self::parse_pr_review(args),
             Some("test-gap") => Self::parse_test_gap(args),
+            Some("rust-test") => Self::parse_rust_test(args),
             Some("semantic-proof") => Self::parse_semantic_proof(args),
             Some("completion") => Self::parse_completion(args),
             Some(_) | None => Err(CliError::usage("unsupported command segment")),
@@ -341,6 +349,25 @@ impl Command {
         }
     }
 
+    fn parse_rust_test(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "semantics")?;
+        require_token(&mut args, "from-path")?;
+        let options = PathInputOptions::parse(args)?;
+        if options.include_tests {
+            return Err(CliError::usage(
+                "--include-tests is not supported for rust-test semantics from-path",
+            ));
+        }
+        if options.paths.is_empty() {
+            return Err(CliError::usage("--path <path> is required"));
+        }
+        Ok(Self::RustTestSemanticsFromPath {
+            repo: options.repo.unwrap_or_else(|| PathBuf::from(".")),
+            paths: options.paths,
+            output: options.output,
+        })
+    }
+
     fn parse_semantic_proof(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let segment = required_segment(&mut args, "semantic-proof command")?;
         match segment.to_str() {
@@ -488,6 +515,7 @@ impl Command {
             | Self::TestGapInputFromPath { output, .. }
             | Self::TestGapEvidenceFromTestRun { output, .. }
             | Self::TestGapDetect { output, .. }
+            | Self::RustTestSemanticsFromPath { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofInputFromReport { output, .. }
@@ -579,6 +607,16 @@ impl Command {
                 )
                 .map_err(CliError::TestGapEvidence)?;
                 serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::RustTestSemanticsFromPath { repo, paths, .. } => {
+                let document =
+                    rust_test_semantics::document_from_path(RustTestSemanticsPathRequest {
+                        repo: repo.clone(),
+                        paths: paths.clone(),
+                    })
+                    .map_err(CliError::RustTestSemantics)?;
+                serde_json::to_string(&document.to_json_value())
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::SemanticProofVerify { input, .. } => {
@@ -1036,6 +1074,7 @@ enum CliError {
     },
     GitInput(String),
     TestGapEvidence(String),
+    RustTestSemantics(String),
     SemanticProofArtifact(String),
     Output(std::io::Error),
 }
@@ -1087,6 +1126,9 @@ impl fmt::Display for CliError {
             Self::GitInput(message) => write!(formatter, "failed to build git input: {message}"),
             Self::TestGapEvidence(message) => {
                 write!(formatter, "failed to build test-gap evidence: {message}")
+            }
+            Self::RustTestSemantics(message) => {
+                write!(formatter, "failed to build rust test semantics: {message}")
             }
             Self::SemanticProofArtifact(message) => {
                 write!(formatter, "failed to build semantic proof input: {message}")

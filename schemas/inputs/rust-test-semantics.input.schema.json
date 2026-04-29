@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.rust_test_semantics.input.v1",
+  "title": "HigherGraphen Rust Test Semantics v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source", "selected_paths", "files"],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.rust_test_semantics.input.v1"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "adapter", "boundary"],
+      "properties": {
+        "kind": {
+          "const": "code"
+        },
+        "adapter": {
+          "const": "rust-test-semantics-from-path.v1"
+        },
+        "boundary": {
+          "const": "selected_paths"
+        }
+      }
+    },
+    "selected_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relative_path"
+      },
+      "minItems": 1
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "functions"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "assertion_macros",
+        "string_literals",
+        "cli_observations",
+        "json_observations"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assertion_macros": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "string_literals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cli_observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cli_observation"
+          }
+        },
+        "json_observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/json_observation"
+          }
+        }
+      }
+    },
+    "cli_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "tokens"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2
+        }
+      }
+    },
+    "json_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "observation_type"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_type": {
+          "enum": ["field", "schema_id"]
+        }
+      }
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "^(?:/|.*(?:^|/)\\.\\.(?:/|$)|.*(?:^|/)(?:\\.git|target)(?:/|$))"
+      }
+    }
+  }
+}

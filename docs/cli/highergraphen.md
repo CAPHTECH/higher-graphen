@@ -182,6 +182,20 @@ test semantic extractor is used here; only the final mapping from extracted
 observations to HigherGraphen test-gap targets is repository-specific.
 
 ```sh
+highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--output <path>]
+```
+
+This command emits the generic `highergraphen.rust_test_semantics.input.v1` document
+for selected Rust files or directories without applying HigherGraphen test-gap
+binding rules. It records only the selected-path boundary, parsed Rust test
+functions, assertion macros, CLI-like token arrays, JSON field observations,
+and schema-shaped string identifiers. `.git/` and `target/` are excluded when
+directories are scanned. The output is intended as a reusable semantic
+extraction layer for agents and downstream adapters; repository-specific
+mapping to commands, laws, morphisms, or verification targets is deliberately
+left to a later binding step.
+
+```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
 ```
 
@@ -327,7 +341,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
 | `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
-| `--path <path>` | For `test-gap input from-path` | Selects a current-tree file or directory to scan; repeat for multiple roots. |
+| `--path <path>` | For `test-gap input from-path` and `rust-test semantics from-path` | Selects a current-tree file or directory to scan; repeat for multiple roots. |
 | `--include-tests` | No | For `test-gap input from-path`, adds repository test files to the bounded snapshot. |
 | `--test-run <path>` | For `test-gap evidence from-test-run` | Reads bounded JSON/JSONL or plain `cargo test` output and attaches execution evidence to the input snapshot. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |

@@ -15,6 +15,7 @@ const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
 const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
+const RUST_TEST_SEMANTICS_SCHEMA: &str = "highergraphen.rust_test_semantics.input.v1";
 const SEMANTIC_PROOF_INPUT_SCHEMA: &str = "highergraphen.semantic_proof.input.v1";
 const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
@@ -1684,6 +1685,103 @@ fn test_gap_input_from_path_maps_rust_test_content_to_laws_and_morphisms() {
     );
 
     fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
+fn rust_test_semantics_from_path_emits_generic_document_without_hg_binding() {
+    let repository = unique_temp_dir();
+    fs::create_dir_all(&repository).expect("create temp repository");
+    write_repo_file(
+        &repository,
+        "tests/generic_command.rs",
+        r##"use serde_json::json;
+
+#[test]
+fn emits_json_contract() {
+    let output = run_cli(&["acme", "audit", "--format", "json"]);
+    assert!(output.status.success());
+    let value = json!({"schema": "acme.audit.input.v1"});
+    assert_eq!(value["schema"], json!("acme.audit.input.v1"));
+}
+"##,
+    );
+
+    let output = run_cli_owned(&[
+        "rust-test".to_owned(),
+        "semantics".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        "tests".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(RUST_TEST_SEMANTICS_SCHEMA));
+    assert_eq!(
+        value["source"]["adapter"],
+        json!("rust-test-semantics-from-path.v1")
+    );
+    assert_eq!(value["selected_paths"], json!(["tests"]));
+    assert_eq!(value["files"][0]["path"], json!("tests/generic_command.rs"));
+    assert_eq!(
+        value["files"][0]["functions"][0]["name"],
+        json!("emits_json_contract")
+    );
+    assert!(value["files"][0]["functions"][0]["cli_observations"]
+        .as_array()
+        .expect("cli observations")
+        .iter()
+        .any(|observation| observation["tokens"] == json!(["acme", "audit", "--format", "json"])));
+    assert!(value["files"][0]["functions"][0]["json_observations"]
+        .as_array()
+        .expect("json observations")
+        .iter()
+        .any(|observation| observation["label"] == json!("schema:acme.audit.input.v1")));
+    assert!(
+        value.pointer("/files/0/functions/0/target_ids").is_none(),
+        "generic semantics must not apply HigherGraphen target binding"
+    );
+
+    let absolute_output = run_cli_owned(&[
+        "rust-test".to_owned(),
+        "semantics".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        repository
+            .join("tests/generic_command.rs")
+            .to_str()
+            .expect("absolute test path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(
+        absolute_output.status.success(),
+        "stderr: {}",
+        stderr(&absolute_output)
+    );
+    let absolute_value: Value = serde_json::from_str(stdout(&absolute_output).trim_end())
+        .expect("absolute path stdout should be JSON");
+    assert_eq!(
+        absolute_value["selected_paths"],
+        json!(["tests/generic_command.rs"])
+    );
+
+    fs::remove_dir_all(repository).expect("remove temp repository");
 }
 
 #[test]

@@ -1,0 +1,53 @@
+{
+  "schema": "highergraphen.rust_test_semantics.input.v1",
+  "source": {
+    "kind": "code",
+    "adapter": "rust-test-semantics-from-path.v1",
+    "boundary": "selected_paths"
+  },
+  "selected_paths": [
+    "tools/example/tests/command.rs"
+  ],
+  "files": [
+    {
+      "path": "tools/example/tests/command.rs",
+      "functions": [
+        {
+          "name": "emits_json_contract",
+          "assertion_macros": [
+            "assert",
+            "assert_eq"
+          ],
+          "string_literals": [
+            "acme",
+            "audit",
+            "acme.audit.input.v1",
+            "json",
+            "schema"
+          ],
+          "cli_observations": [
+            {
+              "label": "acme audit --format json",
+              "tokens": [
+                "acme",
+                "audit",
+                "--format",
+                "json"
+              ]
+            }
+          ],
+          "json_observations": [
+            {
+              "label": "field:schema",
+              "observation_type": "field"
+            },
+            {
+              "label": "schema:acme.audit.input.v1",
+              "observation_type": "schema_id"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

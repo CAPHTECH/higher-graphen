@@ -73,6 +73,26 @@ The git adapter emits deterministic changed-file facts, commit/diff evidence,
 path-derived owners and contexts, and risk signals. It does not approve PRs or
 record human review decisions.
 
+`rust-test-semantics.input.schema.json` defines a bounded, project-neutral Rust
+test semantic extraction contract, `highergraphen.rust_test_semantics.input.v1`. It
+captures selected paths, Rust test functions, assertion macros, CLI-like token
+arrays, JSON field observations, and schema-shaped string identifiers without
+binding them to HigherGraphen-specific laws or morphisms.
+
+The matching fixture is:
+
+```sh
+schemas/inputs/rust-test-semantics.input.example.json
+```
+
+Create the same document from local files with:
+
+```sh
+highergraphen rust-test semantics from-path \
+  --path tools/highergraphen-cli/tests/command.rs \
+  --format json
+```
+
 Lift the architecture fixture with:
 
 ```sh

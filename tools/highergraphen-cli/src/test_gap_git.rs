@@ -1798,6 +1798,68 @@ struct RustTestContentModel {
     test_files: BTreeSet<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct HgRustTestBindingRule {
+    trigger_terms: &'static [&'static str],
+    cli_label: Option<&'static str>,
+    target_ids: &'static [&'static str],
+}
+
+const HG_RUST_TEST_BINDING_RULES: &[HgRustTestBindingRule] = &[
+    HgRustTestBindingRule {
+        trigger_terms: &["test-gap", "input", "from-git"],
+        cli_label: Some("highergraphen test-gap input from-git"),
+        target_ids: &[
+            "command:highergraphen:test-gap:input-from-git",
+            "adapter:test-gap:git-input",
+            "morphism:test-gap:input-from-git-to-input-schema",
+            "law:test-gap:input-from-git-is-deterministic",
+            "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+        ],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["test-gap", "input", "from-path"],
+        cli_label: Some("highergraphen test-gap input from-path"),
+        target_ids: &[
+            "command:highergraphen:test-gap:input-from-path",
+            "adapter:test-gap:path-input",
+            "morphism:test-gap:input-from-path-to-input-schema",
+            "law:test-gap:input-from-path-is-deterministic",
+            "law:test-gap:input-from-path-declares-snapshot-boundary",
+        ],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["test-gap", "evidence", "from-test-run"],
+        cli_label: Some("highergraphen test-gap evidence from-test-run"),
+        target_ids: &[],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["test-gap", "detect"],
+        cli_label: Some("highergraphen test-gap detect"),
+        target_ids: &[
+            "command:highergraphen:test-gap:detect",
+            "runner:test-gap:detect",
+            "morphism:test-gap:command-detect-to-runner",
+            "law:test-gap:command-routes-to-runner",
+        ],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["--format", "json"],
+        cli_label: None,
+        target_ids: &["law:test-gap:json-format-required"],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["highergraphen.test_gap.input.v1"],
+        cli_label: None,
+        target_ids: &["schema:test-gap:input", "law:test-gap:schema-id-preserved"],
+    },
+    HgRustTestBindingRule {
+        trigger_terms: &["schema"],
+        cli_label: None,
+        target_ids: &["schema:test-gap:input", "law:test-gap:schema-id-preserved"],
+    },
+];
+
 fn push_rust_test_content_cells(
     content_model: &mut RustTestContentModel,
     target_model: &StructuralModel,
@@ -2003,17 +2065,13 @@ fn push_rust_test_content_cells(
 }
 
 fn hg_cli_observation_label(tokens: &[String], fallback: &str) -> String {
-    if contains_all_tokens(tokens, &["test-gap", "input", "from-git"]) {
-        return "highergraphen test-gap input from-git".to_owned();
-    }
-    if contains_all_tokens(tokens, &["test-gap", "input", "from-path"]) {
-        return "highergraphen test-gap input from-path".to_owned();
-    }
-    if contains_all_tokens(tokens, &["test-gap", "evidence", "from-test-run"]) {
-        return "highergraphen test-gap evidence from-test-run".to_owned();
-    }
-    if contains_all_tokens(tokens, &["test-gap", "detect"]) {
-        return "highergraphen test-gap detect".to_owned();
+    for rule in HG_RUST_TEST_BINDING_RULES {
+        if rule
+            .cli_label
+            .is_some_and(|_| contains_all_tokens(tokens, rule.trigger_terms))
+        {
+            return rule.cli_label.expect("checked label").to_owned();
+        }
     }
     fallback.to_owned()
 }
@@ -2033,84 +2091,12 @@ fn hg_rust_test_content_target_ids(
         push_model_id_if_present(target_model, &mut target_ids, value)?;
     }
 
-    if contains_all_strings(strings, &["test-gap", "input", "from-git"]) {
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "command:highergraphen:test-gap:input-from-git",
-        )?;
-        push_model_id_if_present(target_model, &mut target_ids, "adapter:test-gap:git-input")?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "morphism:test-gap:input-from-git-to-input-schema",
-        )?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:input-from-git-is-deterministic",
-        )?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
-        )?;
-    }
-    if contains_all_strings(strings, &["test-gap", "input", "from-path"]) {
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "command:highergraphen:test-gap:input-from-path",
-        )?;
-        push_model_id_if_present(target_model, &mut target_ids, "adapter:test-gap:path-input")?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "morphism:test-gap:input-from-path-to-input-schema",
-        )?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:input-from-path-is-deterministic",
-        )?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:input-from-path-declares-snapshot-boundary",
-        )?;
-    }
-    if contains_all_strings(strings, &["test-gap", "detect"]) {
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "command:highergraphen:test-gap:detect",
-        )?;
-        push_model_id_if_present(target_model, &mut target_ids, "runner:test-gap:detect")?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "morphism:test-gap:command-detect-to-runner",
-        )?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:command-routes-to-runner",
-        )?;
-    }
-    if contains_all_strings(strings, &["--format", "json"]) {
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:json-format-required",
-        )?;
-    }
-    if strings.contains("highergraphen.test_gap.input.v1") || strings.contains("schema") {
-        push_model_id_if_present(target_model, &mut target_ids, "schema:test-gap:input")?;
-        push_model_id_if_present(
-            target_model,
-            &mut target_ids,
-            "law:test-gap:schema-id-preserved",
-        )?;
+    for rule in HG_RUST_TEST_BINDING_RULES {
+        if contains_all_strings(strings, rule.trigger_terms) {
+            for target_id in rule.target_ids {
+                push_model_id_if_present(target_model, &mut target_ids, target_id)?;
+            }
+        }
     }
     Ok(target_ids)
 }
