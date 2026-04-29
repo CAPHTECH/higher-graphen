@@ -1687,6 +1687,163 @@ fn test_gap_input_from_path_maps_rust_test_content_to_laws_and_morphisms() {
 }
 
 #[test]
+fn test_gap_evidence_from_test_run_links_passed_execution_to_verification() {
+    let repository = write_test_gap_content_mapping_git_fixture();
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-gap.input.json");
+    let test_run_path = directory.join("test-run.txt");
+    let augmented_path = directory.join("test-gap.with-test-run.input.json");
+
+    let input_output = run_cli_owned(&[
+        "test-gap".to_owned(),
+        "input".to_owned(),
+        "from-path".to_owned(),
+        "--repo".to_owned(),
+        repository
+            .to_str()
+            .expect("repo path should be utf-8")
+            .to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/main.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_gap_git.rs".to_owned(),
+        "--path".to_owned(),
+        "schemas/inputs/test-gap.input.schema.json".to_owned(),
+        "--include-tests".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        input_path
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(
+        input_output.status.success(),
+        "stderr: {}",
+        stderr(&input_output)
+    );
+
+    fs::write(
+        &test_run_path,
+        "running 2 tests\n\
+test from_path_observes_input_schema_morphism_by_content ... ok\n\
+test from_git_observes_input_schema_morphism_by_content ... ok\n\
+\n\
+test result: ok. 2 passed; 0 failed; 0 ignored\n",
+    )
+    .expect("write test run evidence");
+
+    let evidence_output = run_cli_owned(&[
+        "test-gap".to_owned(),
+        "evidence".to_owned(),
+        "from-test-run".to_owned(),
+        "--input".to_owned(),
+        input_path
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--test-run".to_owned(),
+        test_run_path
+            .to_str()
+            .expect("test run path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        augmented_path
+            .to_str()
+            .expect("augmented path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(
+        evidence_output.status.success(),
+        "stderr: {}",
+        stderr(&evidence_output)
+    );
+    assert!(stdout(&evidence_output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(&fs::read_to_string(&augmented_path).expect("read augmented input"))
+            .expect("augmented input should be JSON");
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("adapters")
+        .contains(&json!("test-run-evidence.v1")));
+    assert!(value["evidence"]
+        .as_array()
+        .expect("evidence")
+        .iter()
+        .any(|evidence| evidence["evidence_type"] == json!("test_result")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["cell_type"] == json!("test_execution_passed")));
+    assert!(value["higher_order_incidences"]
+        .as_array()
+        .expect("higher order incidences")
+        .iter()
+        .any(|incidence| incidence["relation_type"] == json!("executes_test_function")));
+    assert!(value["verification_cells"]
+        .as_array()
+        .expect("verification cells")
+        .iter()
+        .any(
+            |verification| verification["verification_type"] == json!("executed_automated_test")
+                && verification["morphism_ids"]
+                    .as_array()
+                    .is_some_and(|morphism_ids| morphism_ids
+                        .contains(&json!("morphism:test-gap:input-from-path-to-input-schema")))
+                && verification["source_ids"]
+                    .as_array()
+                    .is_some_and(|source_ids| source_ids.iter().any(|source_id| source_id
+                        .as_str()
+                        .expect("source id")
+                        .starts_with("semantic:test-run:case:")))
+        ));
+
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        augmented_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    let report: Value =
+        serde_json::from_str(stdout(&report_output).trim_end()).expect("stdout should be JSON");
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| {
+                morphism_ids.contains(&json!("morphism:test-gap:input-from-path-to-input-schema"))
+            })
+            && proof["verified_by_ids"]
+                .as_array()
+                .is_some_and(
+                    |verified_by_ids| verified_by_ids.iter().any(|verified_by_id| {
+                        verified_by_id
+                            .as_str()
+                            .expect("verified by id")
+                            .starts_with("verification:test-run:")
+                    })
+                )));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
 fn pr_review_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[

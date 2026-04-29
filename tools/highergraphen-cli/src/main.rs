@@ -5,6 +5,7 @@ mod pr_review_structural;
 mod semantic_proof_artifact;
 mod semantic_proof_backend;
 mod semantic_proof_reinput;
+mod test_gap_evidence;
 mod test_gap_git;
 
 use higher_graphen_core::Id;
@@ -35,6 +36,7 @@ const USAGE: &str = "usage:
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--output <path>]
+  highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
@@ -110,6 +112,11 @@ enum Command {
         repo: PathBuf,
         paths: Vec<PathBuf>,
         include_tests: bool,
+        output: Option<PathBuf>,
+    },
+    TestGapEvidenceFromTestRun {
+        input: PathBuf,
+        test_run: PathBuf,
         output: Option<PathBuf>,
     },
     SemanticProofVerify {
@@ -263,6 +270,7 @@ impl Command {
         let segment = required_segment(&mut args, "test-gap command")?;
         match segment.to_str() {
             Some("input") => Self::parse_test_gap_input(args),
+            Some("evidence") => Self::parse_test_gap_evidence(args),
             Some("detect") => {
                 let options = ReportOptions::parse(args, true)?;
                 let input = options
@@ -274,6 +282,27 @@ impl Command {
                 })
             }
             Some(_) | None => Err(CliError::usage("unsupported test-gap command segment")),
+        }
+    }
+
+    fn parse_test_gap_evidence(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "test-gap evidence command")?;
+        match segment.to_str() {
+            Some("from-test-run") => {
+                let options = TestRunEvidenceOptions::parse(args)?;
+                Ok(Self::TestGapEvidenceFromTestRun {
+                    input: options
+                        .input
+                        .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+                    test_run: options
+                        .test_run
+                        .ok_or_else(|| CliError::usage("--test-run <path> is required"))?,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage(
+                "unsupported test-gap evidence command segment",
+            )),
         }
     }
 
@@ -456,6 +485,7 @@ impl Command {
             | Self::PrReviewTargetsRecommend { output, .. }
             | Self::TestGapInputFromGit { output, .. }
             | Self::TestGapInputFromPath { output, .. }
+            | Self::TestGapEvidenceFromTestRun { output, .. }
             | Self::TestGapDetect { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
@@ -533,6 +563,20 @@ impl Command {
                     include_tests: *include_tests,
                 })
                 .map_err(CliError::GitInput)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestGapEvidenceFromTestRun {
+                input, test_run, ..
+            } => {
+                let input_document = read_test_gap_input_document(input)?;
+                let document = test_gap_evidence::input_from_test_run(
+                    test_gap_evidence::TestRunEvidenceRequest {
+                        input: input_document,
+                        test_run: test_run.clone(),
+                    },
+                )
+                .map_err(CliError::TestGapEvidence)?;
                 serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -697,6 +741,42 @@ impl PathInputOptions {
                 options.paths.push(require_path(&mut args, "--path")?);
             } else if arg == "--include-tests" {
                 options.include_tests = true;
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct TestRunEvidenceOptions {
+    input: Option<PathBuf>,
+    test_run: Option<PathBuf>,
+    output: Option<PathBuf>,
+}
+
+impl TestRunEvidenceOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--test-run" {
+                options.test_run = Some(require_path(&mut args, "--test-run")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -954,6 +1034,7 @@ enum CliError {
         reason: String,
     },
     GitInput(String),
+    TestGapEvidence(String),
     SemanticProofArtifact(String),
     Output(std::io::Error),
 }
@@ -1003,6 +1084,9 @@ impl fmt::Display for CliError {
                 write!(formatter, "invalid input {}: {reason}", path.display())
             }
             Self::GitInput(message) => write!(formatter, "failed to build git input: {message}"),
+            Self::TestGapEvidence(message) => {
+                write!(formatter, "failed to build test-gap evidence: {message}")
+            }
             Self::SemanticProofArtifact(message) => {
                 write!(formatter, "failed to build semantic proof input: {message}")
             }

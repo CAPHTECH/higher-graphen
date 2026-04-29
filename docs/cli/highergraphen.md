@@ -172,6 +172,21 @@ their test functions, assertions, CLI observations, and JSON observations are
 also lifted into content-backed verification evidence.
 
 ```sh
+highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
+```
+
+This command augments a bounded `highergraphen.test_gap.input.v1` snapshot with
+test execution evidence. It reads either JSON/JSONL test case records or stable
+`cargo test` text lines such as `test name ... ok`, then adds a
+`test-run-evidence.v1` adapter marker, a `test_result` evidence record,
+test-run artifact and executed test-case cells, and incidences connecting
+passed test cases to parsed Rust test functions. For passed cases, it creates
+`executed_automated_test` verification cells that mirror the matching
+content-derived verification target and include the executed test-case cell as
+evidence. Failed tests are represented as failed execution cells and high
+severity risk signals instead of accepted verification.
+
+```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]
 ```
 
@@ -304,8 +319,9 @@ the source report and do not promote the candidate into accepted facts.
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
 | `--path <path>` | For `test-gap input from-path` | Selects a current-tree file or directory to scan; repeat for multiple roots. |
 | `--include-tests` | No | For `test-gap input from-path`, adds repository test files to the bounded snapshot. |
+| `--test-run <path>` | For `test-gap evidence from-test-run` | Reads bounded JSON/JSONL or plain `cargo test` output and attaches execution evidence to the input snapshot. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
-| `--input <path>` | For `test-gap detect` | Reads the bounded test-gap JSON input snapshot. |
+| `--input <path>` | For `test-gap detect` and `test-gap evidence from-test-run` | Reads the bounded test-gap JSON input snapshot. |
 | `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |
 | `--arg <text>` | For `semantic-proof backend run` | Adds one backend process argument; repeat for multiple arguments. |
 | `--input <path>` | For `semantic-proof backend run` | Optional backend input material included in the artifact input hash. |
@@ -745,13 +761,14 @@ These are intentionally unsupported in the current CLI:
 - Feed input formats beyond the bounded JSON v1 fixture.
 - PR review input formats beyond the bounded PR review target JSON v1 snapshot.
 - Test-gap input formats beyond bounded JSON v1 snapshots, deterministic
-  local git range input, and deterministic current-tree path input.
+  local git range input, deterministic current-tree path input, and bounded
+  test-run evidence augmentation.
 - Network fetching, scheduling, database persistence, read state, UI rendering,
   and production RSS/Atom parsing.
 - Pull request approval, provider comment posting, reviewer assignment, or
   automatic promotion of AI recommendations into accepted review coverage.
-- Test generation, test execution, coverage approval, or automatic promotion
-  of missing-test candidates into accepted tests.
+- Test generation, running test commands, coverage approval, or automatic
+  promotion of missing-test candidates into accepted tests.
 - Global assertions that no test gaps exist outside the bounded input snapshot.
 - MCP server behavior.
 - Provider-specific plugin, marketplace, or manifest behavior.
@@ -760,6 +777,6 @@ These are intentionally unsupported in the current CLI:
 - Additional `highergraphen` subcommands beyond `architecture smoke
   direct-db-access`, `architecture input lift`, `feed reader run`,
   `pr-review input from-git`, `pr-review targets recommend`, `test-gap
-  input from-git`, `test-gap input from-path`, `test-gap detect`,
-  `semantic-proof verify`, and
+  input from-git`, `test-gap input from-path`, `test-gap evidence
+  from-test-run`, `test-gap detect`, `semantic-proof verify`, and
   `completion review`.
