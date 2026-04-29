@@ -245,6 +245,12 @@ cargo test -p highergraphen-cli semantic_proof
   JSON Schema semantic cells, semantic delta morphisms, incidence, and
   `requirement:morphism:*` records as the primary high-order verification
   structure.
+- For HigherGraphen semantic-proof artifact adapter changes, interpret
+  `theorem:semantic-proof:artifact-adapter-correctness`,
+  `law:semantic-proof:*`, and `morphism:semantic-proof:*` as the primary
+  verification structure. Helper-level Rust semantic deltas are observable
+  structure, but missing-test decisions should be read through the high-order
+  theorem/law/morphism proof objects.
 - For `highergraphen semantic-proof verify`, treat accepted proof certificates
   as formal verification cells only inside the bounded certificate snapshot and
   verification policy. The command checks certificate references and policy; it

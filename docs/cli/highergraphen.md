@@ -129,6 +129,15 @@ preservation, addition, and deletion at the parsed AST/schema level; typed
 MIR-level equivalence and full behavior proofs remain explicit information
 loss.
 
+For HigherGraphen semantic-proof artifact adapter changes, the adapter lifts
+the change into theorem/law/morphism structure rather than leaving helper
+functions as isolated obligations. It creates semantic-proof artifact adapter
+correctness cells, status-totality and proof/counterexample preservation laws,
+artifact-to-input and artifact-to-proof/refutation morphisms, and maps existing
+CLI roundtrip tests to those high-order obligations. Low-level helper semantic
+deltas remain observable structure, but the verification decision is carried by
+the semantic-proof theorem and morphisms.
+
 ```sh
 highergraphen test-gap detect --input <path> --format json [--output <path>]
 ```

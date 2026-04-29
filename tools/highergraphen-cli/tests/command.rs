@@ -883,6 +883,117 @@ fn test_gap_input_from_git_lifts_higher_order_test_gap_structure() {
 }
 
 #[test]
+fn test_gap_input_from_git_lifts_semantic_proof_adapter_theorems() {
+    let repository = write_semantic_proof_structural_git_fixture();
+    let output = run_cli(&[
+        "test-gap",
+        "input",
+        "from-git",
+        "--repo",
+        repository.to_str().expect("repo path should be utf-8"),
+        "--base",
+        "HEAD~1",
+        "--head",
+        "HEAD",
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["id"] == json!("adapter:semantic-proof:artifact-input")));
+    assert!(value["higher_order_cells"]
+        .as_array()
+        .expect("higher order cells")
+        .iter()
+        .any(|cell| cell["id"] == json!("theorem:semantic-proof:artifact-adapter-correctness")));
+    assert!(value["laws"]
+        .as_array()
+        .expect("laws")
+        .iter()
+        .any(|law| law["id"] == json!("law:semantic-proof:artifact-status-totality")));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .any(|morphism| morphism["id"]
+            == json!("morphism:semantic-proof:artifact-to-input-document")));
+    assert!(value["morphisms"]
+        .as_array()
+        .expect("morphisms")
+        .iter()
+        .filter(|morphism| morphism["id"]
+            .as_str()
+            .expect("morphism id")
+            .contains("tools-highergraphen-cli-src-semantic-proof-artifact-rs"))
+        .all(|morphism| morphism.get("expected_verification").is_none()));
+    assert!(value["verification_cells"]
+        .as_array()
+        .expect("verification cells")
+        .iter()
+        .any(|verification| verification["morphism_ids"]
+            .as_array()
+            .expect("morphism ids")
+            .contains(&json!(
+                "morphism:semantic-proof:certificate-to-proof-object"
+            ))));
+
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("semantic-proof-structural.input.json");
+    fs::write(
+        &input_path,
+        serde_json::to_string(&value).expect("serialize semantic proof structural input"),
+    )
+    .expect("write semantic proof structural input");
+    let report_output = run_cli(&[
+        "test-gap",
+        "detect",
+        "--input",
+        input_path.to_str().expect("input path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        report_output.status.success(),
+        "stderr: {}",
+        stderr(&report_output)
+    );
+    let report: Value =
+        serde_json::from_str(stdout(&report_output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("no_gaps_in_snapshot"));
+    assert!(report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(|morphism_ids| morphism_ids
+                .contains(&json!("morphism:semantic-proof:artifact-to-input-document")))));
+    assert!(!report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .iter()
+        .any(|proof| proof["morphism_ids"]
+            .as_array()
+            .is_some_and(
+                |morphism_ids| morphism_ids.iter().any(|morphism_id| morphism_id
+                    .as_str()
+                    .expect("morphism id")
+                    .contains("tools-highergraphen-cli-src-semantic-proof-artifact-rs"))
+            )));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+    fs::remove_dir_all(repository).expect("remove temp test repository");
+}
+
+#[test]
 fn pr_review_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[
@@ -1671,6 +1782,54 @@ fn write_test_gap_structural_git_fixture() -> PathBuf {
     run_git(
         &repository,
         &["commit", "-m", "add structural test-gap surface"],
+    );
+
+    repository
+}
+
+fn write_semantic_proof_structural_git_fixture() -> PathBuf {
+    let repository = unique_temp_dir();
+    fs::create_dir_all(&repository).expect("create temp git repository");
+    run_git(&repository, &["init"]);
+    run_git(
+        &repository,
+        &["config", "user.email", "test@example.invalid"],
+    );
+    run_git(&repository, &["config", "user.name", "Test User"]);
+
+    fs::write(repository.join("README.md"), "# fixture\n").expect("write base file");
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_semantic_proof_verify() {}\n",
+    );
+    run_git(&repository, &["add", "."]);
+    run_git(&repository, &["commit", "-m", "base"]);
+
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/main.rs",
+        "fn parse_semantic_proof_verify() {}\nfn parse_semantic_proof_input_from_artifact() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+        "pub(crate) struct ArtifactInputRequest;\npub(crate) fn input_from_artifact() {}\nfn required_string() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/tests/command.rs",
+        "#[test]\nfn semantic_proof_input_from_artifact_emits_proved_input_and_verifies() {}\n#[test]\nfn semantic_proof_input_from_artifact_emits_counterexample_input_and_verifies() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "docs/cli/highergraphen.md",
+        "highergraphen semantic-proof input from-artifact\n",
+    );
+    run_git(&repository, &["add", "."]);
+    run_git(
+        &repository,
+        &["commit", "-m", "add semantic proof artifact adapter"],
     );
 
     repository

@@ -327,433 +327,622 @@ fn structural_model_for_changes(
     diff_evidence_id: &Id,
 ) -> Result<StructuralModel, String> {
     let mut model = StructuralModel::default();
-    if !changes
+    let has_test_gap_surface = changes
         .iter()
-        .any(|change| is_test_gap_surface_path(&change.path))
-    {
+        .any(|change| is_test_gap_surface_path(&change.path));
+    let has_semantic_proof_surface = changes
+        .iter()
+        .any(|change| is_semantic_proof_surface_path(&change.path));
+    if !has_test_gap_surface && !has_semantic_proof_surface {
         return Ok(model);
     }
 
+    if has_test_gap_surface {
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "tools/highergraphen-cli/src/main.rs",
+            "command:highergraphen:test-gap:detect",
+            "highergraphen test-gap detect command cell",
+            "highergraphen test-gap detect",
+            TestGapSymbolKind::PublicApi,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "tools/highergraphen-cli/src/main.rs",
+            "command:highergraphen:test-gap:input-from-git",
+            "highergraphen test-gap input from-git command cell",
+            "highergraphen test-gap input from-git",
+            TestGapSymbolKind::PublicApi,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "tools/highergraphen-cli/src/test_gap_git.rs",
+            "adapter:test-gap:git-input",
+            "test-gap git input adapter cell",
+            "test_gap_git::input_from_git",
+            TestGapSymbolKind::Module,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
+            "runner:test-gap:detect",
+            "run_test_gap_detect workflow runner cell",
+            "run_test_gap_detect",
+            TestGapSymbolKind::Function,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "crates/higher-graphen-runtime/src/lib.rs",
+            "export:test-gap:runtime-api",
+            "test-gap runtime public export cell",
+            "higher_graphen_runtime test-gap exports",
+            TestGapSymbolKind::PublicApi,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "crates/higher-graphen-runtime/src/workflows/mod.rs",
+            "registry:test-gap:workflow-module",
+            "test-gap workflow registry cell",
+            "workflows::test_gap module registry",
+            TestGapSymbolKind::Module,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+            "contract:test-gap:runtime-report-shapes",
+            "test-gap runtime report shape contract cell",
+            "TestGap input and report runtime shapes",
+            TestGapSymbolKind::Type,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "crates/higher-graphen-runtime/src/reports.rs",
+            "projection:test-gap:report-envelope",
+            "test-gap report envelope projection cell",
+            "ReportEnvelope projection boundary for test-gap",
+            TestGapSymbolKind::Type,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "schemas/inputs/test-gap.input.schema.json",
+            "schema:test-gap:input",
+            "test-gap input schema contract cell",
+            "highergraphen.test_gap.input.v1 schema",
+            TestGapSymbolKind::Unknown,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "schemas/reports/test-gap.report.schema.json",
+            "schema:test-gap:report",
+            "test-gap report schema contract cell",
+            "highergraphen.test_gap.report.v1 schema",
+            TestGapSymbolKind::Unknown,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "schemas/inputs/test-gap.input.example.json",
+            "fixture:test-gap:input-example",
+            "test-gap input example fixture cell",
+            "test-gap input example fixture",
+            TestGapSymbolKind::Unknown,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "schemas/reports/test-gap.report.example.json",
+            "fixture:test-gap:report-example",
+            "test-gap report example fixture cell",
+            "test-gap report example fixture",
+            TestGapSymbolKind::Unknown,
+        )?;
+        push_structural_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            "scripts/validate-json-contracts.py",
+            "validator:test-gap:json-contracts",
+            "JSON contract validation command cell",
+            "scripts/validate-json-contracts.py",
+            TestGapSymbolKind::Unknown,
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/main.rs"],
+            "law:test-gap:command-routes-to-runner",
+            "CLI command routes to the intended test-gap runner",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/main.rs"],
+            "law:test-gap:json-format-required",
+            "test-gap CLI commands require --format json",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/main.rs"],
+            "law:test-gap:output-file-suppresses-stdout",
+            "test-gap CLI --output writes the target file without JSON stdout",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/test_gap_git.rs"],
+            "law:test-gap:input-from-git-is-deterministic",
+            "test-gap input from-git derives a deterministic bounded snapshot",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["tools/highergraphen-cli/src/test_gap_git.rs"],
+            "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+            "test-gap input from-git declares that git structure does not prove semantic coverage",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
+            "law:test-gap:test-gap-is-bounded",
+            "no_gaps_in_snapshot is bounded to the supplied snapshot and detector policy",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
+            "law:test-gap:verification-policy-controls-test-kind",
+            "detector_context.test_kinds controls which test kinds close obligations",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
+            "law:test-gap:requirements-map-to-implementation-and-test",
+            "in-scope requirements map to implementation cells and accepted verification cells",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &[
+                "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
+                "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+            ],
+            "law:test-gap:candidates-remain-unreviewed",
+            "detector completion candidates remain unreviewed until explicit review",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &[
+                "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
+                "crates/higher-graphen-runtime/src/reports.rs",
+            ],
+            "law:test-gap:projection-declares-information-loss",
+            "test-gap projections declare information loss for human, AI, and audit views",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &[
+                "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+                "schemas/inputs/test-gap.input.schema.json",
+                "schemas/reports/test-gap.report.schema.json",
+            ],
+            "law:test-gap:schema-id-preserved",
+            "test-gap input and report schema IDs are preserved",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &["crates/higher-graphen-runtime/src/test_gap_reports.rs"],
+            "law:test-gap:enum-casing-round-trips",
+            "test-gap enum casing serializes as lower snake case and round-trips",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &[
+                "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+                "schemas/inputs/test-gap.input.schema.json",
+                "schemas/reports/test-gap.report.schema.json",
+            ],
+            "law:test-gap:runtime-shapes-preserve-schema",
+            "runtime TestGap shapes preserve the checked-in schema boundary",
+        )?;
+        push_law_symbol(
+            &mut model,
+            changes,
+            diff_evidence_id,
+            &[
+                "scripts/validate-json-contracts.py",
+                "schemas/inputs/test-gap.input.example.json",
+                "schemas/reports/test-gap.report.example.json",
+                "schemas/inputs/test-gap.input.schema.json",
+                "schemas/reports/test-gap.report.schema.json",
+            ],
+            "law:test-gap:fixtures-validate-against-schema",
+            "test-gap fixtures validate against their declared JSON schemas",
+        )?;
+
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:command-detect-to-runner",
+            "command:highergraphen:test-gap:detect",
+            "runner:test-gap:detect",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:input-from-git-to-adapter",
+            "command:highergraphen:test-gap:input-from-git",
+            "adapter:test-gap:git-input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:git-adapter-to-input-schema",
+            "adapter:test-gap:git-input",
+            "schema:test-gap:input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:runtime-export-to-runner",
+            "export:test-gap:runtime-api",
+            "runner:test-gap:detect",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:workflow-registry-to-runner",
+            "registry:test-gap:workflow-module",
+            "runner:test-gap:detect",
+            TestGapDependencyRelationType::Contains,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:runtime-shapes-to-input-schema",
+            "contract:test-gap:runtime-report-shapes",
+            "schema:test-gap:input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:runtime-shapes-to-report-schema",
+            "contract:test-gap:runtime-report-shapes",
+            "schema:test-gap:report",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:input-fixture-to-input-schema",
+            "fixture:test-gap:input-example",
+            "schema:test-gap:input",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:report-fixture-to-report-schema",
+            "fixture:test-gap:report-example",
+            "schema:test-gap:report",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:report-envelope-to-runtime-shapes",
+            "projection:test-gap:report-envelope",
+            "contract:test-gap:runtime-report-shapes",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:validator-to-input-fixture",
+            "validator:test-gap:json-contracts",
+            "fixture:test-gap:input-example",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+        push_structural_edge(
+            &mut model,
+            "edge:test-gap:validator-to-report-fixture",
+            "validator:test-gap:json-contracts",
+            "fixture:test-gap:report-example",
+            TestGapDependencyRelationType::Supports,
+            diff_evidence_id,
+        )?;
+
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:command-detect-to-runner",
+            "command_to_runner",
+            &["command:highergraphen:test-gap:detect"],
+            &["runner:test-gap:detect"],
+            &["law:test-gap:command-routes-to-runner"],
+            diff_evidence_id,
+        )?;
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:input-from-git-to-input-schema",
+            "adapter_to_input_schema",
+            &[
+                "command:highergraphen:test-gap:input-from-git",
+                "adapter:test-gap:git-input",
+            ],
+            &["schema:test-gap:input"],
+            &[
+                "law:test-gap:input-from-git-is-deterministic",
+                "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+            ],
+            diff_evidence_id,
+        )?;
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:runtime-shapes-to-schemas",
+            "runtime_shape_to_schema",
+            &["contract:test-gap:runtime-report-shapes"],
+            &["schema:test-gap:input", "schema:test-gap:report"],
+            &[
+                "law:test-gap:schema-id-preserved",
+                "law:test-gap:enum-casing-round-trips",
+                "law:test-gap:runtime-shapes-preserve-schema",
+            ],
+            diff_evidence_id,
+        )?;
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:fixtures-to-schemas",
+            "fixture_to_schema",
+            &[
+                "fixture:test-gap:input-example",
+                "fixture:test-gap:report-example",
+            ],
+            &["schema:test-gap:input", "schema:test-gap:report"],
+            &["law:test-gap:fixtures-validate-against-schema"],
+            diff_evidence_id,
+        )?;
+        push_higher_order_morphism(
+            &mut model,
+            "morphism:test-gap:report-envelope-to-runtime-shapes",
+            "projection_to_runtime_shape",
+            &["projection:test-gap:report-envelope"],
+            &["contract:test-gap:runtime-report-shapes"],
+            &["law:test-gap:projection-declares-information-loss"],
+            diff_evidence_id,
+        )?;
+    }
+
+    if has_semantic_proof_surface {
+        push_semantic_proof_structural_model(&mut model, changes, diff_evidence_id)?;
+    }
+
+    Ok(model)
+}
+
+fn push_semantic_proof_structural_model(
+    model: &mut StructuralModel,
+    changes: &[GitChange],
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
     push_structural_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
         "tools/highergraphen-cli/src/main.rs",
-        "command:highergraphen:test-gap:detect",
-        "highergraphen test-gap detect command cell",
-        "highergraphen test-gap detect",
+        "command:highergraphen:semantic-proof:input-from-artifact",
+        "highergraphen semantic-proof input from-artifact command cell",
+        "highergraphen semantic-proof input from-artifact",
         TestGapSymbolKind::PublicApi,
     )?;
     push_structural_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
         "tools/highergraphen-cli/src/main.rs",
-        "command:highergraphen:test-gap:input-from-git",
-        "highergraphen test-gap input from-git command cell",
-        "highergraphen test-gap input from-git",
+        "command:highergraphen:semantic-proof:verify",
+        "highergraphen semantic-proof verify command cell",
+        "highergraphen semantic-proof verify",
         TestGapSymbolKind::PublicApi,
     )?;
     push_structural_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        "tools/highergraphen-cli/src/test_gap_git.rs",
-        "adapter:test-gap:git-input",
-        "test-gap git input adapter cell",
-        "test_gap_git::input_from_git",
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+        "adapter:semantic-proof:artifact-input",
+        "semantic-proof artifact input adapter cell",
+        "semantic_proof_artifact::input_from_artifact",
         TestGapSymbolKind::Module,
     )?;
     push_structural_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
-        "runner:test-gap:detect",
-        "run_test_gap_detect workflow runner cell",
-        "run_test_gap_detect",
+        "tools/highergraphen-cli/tests/command.rs",
+        "test:semantic-proof:artifact-roundtrip",
+        "semantic-proof artifact roundtrip CLI test cell",
+        "semantic_proof_input_from_artifact roundtrip tests",
         TestGapSymbolKind::Function,
     )?;
     push_structural_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        "crates/higher-graphen-runtime/src/lib.rs",
-        "export:test-gap:runtime-api",
-        "test-gap runtime public export cell",
-        "higher_graphen_runtime test-gap exports",
-        TestGapSymbolKind::PublicApi,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "crates/higher-graphen-runtime/src/workflows/mod.rs",
-        "registry:test-gap:workflow-module",
-        "test-gap workflow registry cell",
-        "workflows::test_gap module registry",
-        TestGapSymbolKind::Module,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "crates/higher-graphen-runtime/src/test_gap_reports.rs",
-        "contract:test-gap:runtime-report-shapes",
-        "test-gap runtime report shape contract cell",
-        "TestGap input and report runtime shapes",
-        TestGapSymbolKind::Type,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "crates/higher-graphen-runtime/src/reports.rs",
-        "projection:test-gap:report-envelope",
-        "test-gap report envelope projection cell",
-        "ReportEnvelope projection boundary for test-gap",
-        TestGapSymbolKind::Type,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "schemas/inputs/test-gap.input.schema.json",
-        "schema:test-gap:input",
-        "test-gap input schema contract cell",
-        "highergraphen.test_gap.input.v1 schema",
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+        "theorem:semantic-proof:artifact-adapter-correctness",
+        "semantic-proof artifact adapter correctness theorem",
+        "artifact adapter preserves semantic proof obligations",
         TestGapSymbolKind::Unknown,
     )?;
-    push_structural_symbol(
-        &mut model,
+
+    push_law_symbol(
+        model,
         changes,
         diff_evidence_id,
-        "schemas/reports/test-gap.report.schema.json",
-        "schema:test-gap:report",
-        "test-gap report schema contract cell",
-        "highergraphen.test_gap.report.v1 schema",
-        TestGapSymbolKind::Unknown,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "schemas/inputs/test-gap.input.example.json",
-        "fixture:test-gap:input-example",
-        "test-gap input example fixture cell",
-        "test-gap input example fixture",
-        TestGapSymbolKind::Unknown,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "schemas/reports/test-gap.report.example.json",
-        "fixture:test-gap:report-example",
-        "test-gap report example fixture cell",
-        "test-gap report example fixture",
-        TestGapSymbolKind::Unknown,
-    )?;
-    push_structural_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        "scripts/validate-json-contracts.py",
-        "validator:test-gap:json-contracts",
-        "JSON contract validation command cell",
-        "scripts/validate-json-contracts.py",
-        TestGapSymbolKind::Unknown,
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:artifact-status-totality",
+        "artifact statuses are total over proved, counterexample, and counterexample_found",
     )?;
     push_law_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        &["tools/highergraphen-cli/src/main.rs"],
-        "law:test-gap:command-routes-to-runner",
-        "CLI command routes to the intended test-gap runner",
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:certificate-policy-preservation",
+        "proved artifacts preserve backend, hashes, witnesses, and accepted review policy",
     )?;
     push_law_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        &["tools/highergraphen-cli/src/main.rs"],
-        "law:test-gap:json-format-required",
-        "test-gap CLI commands require --format json",
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:counterexample-refutation-preservation",
+        "counterexample artifacts preserve theorem, law, morphism, path, severity, and review state",
     )?;
     push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["tools/highergraphen-cli/src/main.rs"],
-        "law:test-gap:output-file-suppresses-stdout",
-        "test-gap CLI --output writes the target file without JSON stdout",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["tools/highergraphen-cli/src/test_gap_git.rs"],
-        "law:test-gap:input-from-git-is-deterministic",
-        "test-gap input from-git derives a deterministic bounded snapshot",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["tools/highergraphen-cli/src/test_gap_git.rs"],
-        "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
-        "test-gap input from-git declares that git structure does not prove semantic coverage",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
-        "law:test-gap:test-gap-is-bounded",
-        "no_gaps_in_snapshot is bounded to the supplied snapshot and detector policy",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
-        "law:test-gap:verification-policy-controls-test-kind",
-        "detector_context.test_kinds controls which test kinds close obligations",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["crates/higher-graphen-runtime/src/workflows/test_gap.rs"],
-        "law:test-gap:requirements-map-to-implementation-and-test",
-        "in-scope requirements map to implementation cells and accepted verification cells",
-    )?;
-    push_law_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
         &[
-            "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
-            "crates/higher-graphen-runtime/src/test_gap_reports.rs",
+            "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+            "docs/cli/highergraphen.md",
+            "skills/highergraphen/SKILL.md",
         ],
-        "law:test-gap:candidates-remain-unreviewed",
-        "detector completion candidates remain unreviewed until explicit review",
+        "law:semantic-proof:backend-boundary-is-explicit",
+        "artifact adapter normalizes already-produced backend artifacts without executing proof backends",
     )?;
     push_law_symbol(
-        &mut model,
+        model,
         changes,
         diff_evidence_id,
-        &[
-            "crates/higher-graphen-runtime/src/workflows/test_gap.rs",
-            "crates/higher-graphen-runtime/src/reports.rs",
-        ],
-        "law:test-gap:projection-declares-information-loss",
-        "test-gap projections declare information loss for human, AI, and audit views",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &[
-            "crates/higher-graphen-runtime/src/test_gap_reports.rs",
-            "schemas/inputs/test-gap.input.schema.json",
-            "schemas/reports/test-gap.report.schema.json",
-        ],
-        "law:test-gap:schema-id-preserved",
-        "test-gap input and report schema IDs are preserved",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &["crates/higher-graphen-runtime/src/test_gap_reports.rs"],
-        "law:test-gap:enum-casing-round-trips",
-        "test-gap enum casing serializes as lower snake case and round-trips",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &[
-            "crates/higher-graphen-runtime/src/test_gap_reports.rs",
-            "schemas/inputs/test-gap.input.schema.json",
-            "schemas/reports/test-gap.report.schema.json",
-        ],
-        "law:test-gap:runtime-shapes-preserve-schema",
-        "runtime TestGap shapes preserve the checked-in schema boundary",
-    )?;
-    push_law_symbol(
-        &mut model,
-        changes,
-        diff_evidence_id,
-        &[
-            "scripts/validate-json-contracts.py",
-            "schemas/inputs/test-gap.input.example.json",
-            "schemas/reports/test-gap.report.example.json",
-            "schemas/inputs/test-gap.input.schema.json",
-            "schemas/reports/test-gap.report.schema.json",
-        ],
-        "law:test-gap:fixtures-validate-against-schema",
-        "test-gap fixtures validate against their declared JSON schemas",
+        &["tools/highergraphen-cli/tests/command.rs"],
+        "law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample",
+        "CLI roundtrip tests cover proved and counterexample artifact paths through verify",
     )?;
 
     push_structural_edge(
-        &mut model,
-        "edge:test-gap:command-detect-to-runner",
-        "command:highergraphen:test-gap:detect",
-        "runner:test-gap:detect",
+        model,
+        "edge:semantic-proof:command-input-to-adapter",
+        "command:highergraphen:semantic-proof:input-from-artifact",
+        "adapter:semantic-proof:artifact-input",
         TestGapDependencyRelationType::Supports,
         diff_evidence_id,
     )?;
     push_structural_edge(
-        &mut model,
-        "edge:test-gap:input-from-git-to-adapter",
-        "command:highergraphen:test-gap:input-from-git",
-        "adapter:test-gap:git-input",
+        model,
+        "edge:semantic-proof:adapter-to-verify-command",
+        "adapter:semantic-proof:artifact-input",
+        "command:highergraphen:semantic-proof:verify",
         TestGapDependencyRelationType::Supports,
         diff_evidence_id,
     )?;
     push_structural_edge(
-        &mut model,
-        "edge:test-gap:git-adapter-to-input-schema",
-        "adapter:test-gap:git-input",
-        "schema:test-gap:input",
+        model,
+        "edge:semantic-proof:roundtrip-test-to-adapter",
+        "test:semantic-proof:artifact-roundtrip",
+        "adapter:semantic-proof:artifact-input",
         TestGapDependencyRelationType::Supports,
         diff_evidence_id,
     )?;
     push_structural_edge(
-        &mut model,
-        "edge:test-gap:runtime-export-to-runner",
-        "export:test-gap:runtime-api",
-        "runner:test-gap:detect",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:workflow-registry-to-runner",
-        "registry:test-gap:workflow-module",
-        "runner:test-gap:detect",
-        TestGapDependencyRelationType::Contains,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:runtime-shapes-to-input-schema",
-        "contract:test-gap:runtime-report-shapes",
-        "schema:test-gap:input",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:runtime-shapes-to-report-schema",
-        "contract:test-gap:runtime-report-shapes",
-        "schema:test-gap:report",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:input-fixture-to-input-schema",
-        "fixture:test-gap:input-example",
-        "schema:test-gap:input",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:report-fixture-to-report-schema",
-        "fixture:test-gap:report-example",
-        "schema:test-gap:report",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:report-envelope-to-runtime-shapes",
-        "projection:test-gap:report-envelope",
-        "contract:test-gap:runtime-report-shapes",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:validator-to-input-fixture",
-        "validator:test-gap:json-contracts",
-        "fixture:test-gap:input-example",
-        TestGapDependencyRelationType::Supports,
-        diff_evidence_id,
-    )?;
-    push_structural_edge(
-        &mut model,
-        "edge:test-gap:validator-to-report-fixture",
-        "validator:test-gap:json-contracts",
-        "fixture:test-gap:report-example",
+        model,
+        "edge:semantic-proof:theorem-to-adapter",
+        "theorem:semantic-proof:artifact-adapter-correctness",
+        "adapter:semantic-proof:artifact-input",
         TestGapDependencyRelationType::Supports,
         diff_evidence_id,
     )?;
 
     push_higher_order_morphism(
-        &mut model,
-        "morphism:test-gap:command-detect-to-runner",
-        "command_to_runner",
-        &["command:highergraphen:test-gap:detect"],
-        &["runner:test-gap:detect"],
-        &["law:test-gap:command-routes-to-runner"],
-        diff_evidence_id,
-    )?;
-    push_higher_order_morphism(
-        &mut model,
-        "morphism:test-gap:input-from-git-to-input-schema",
-        "adapter_to_input_schema",
+        model,
+        "morphism:semantic-proof:artifact-to-input-document",
+        "artifact_to_semantic_proof_input",
         &[
-            "command:highergraphen:test-gap:input-from-git",
-            "adapter:test-gap:git-input",
+            "command:highergraphen:semantic-proof:input-from-artifact",
+            "adapter:semantic-proof:artifact-input",
         ],
-        &["schema:test-gap:input"],
+        &["theorem:semantic-proof:artifact-adapter-correctness"],
         &[
-            "law:test-gap:input-from-git-is-deterministic",
-            "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
+            "law:semantic-proof:artifact-status-totality",
+            "law:semantic-proof:backend-boundary-is-explicit",
         ],
         diff_evidence_id,
     )?;
     push_higher_order_morphism(
-        &mut model,
-        "morphism:test-gap:runtime-shapes-to-schemas",
-        "runtime_shape_to_schema",
-        &["contract:test-gap:runtime-report-shapes"],
-        &["schema:test-gap:input", "schema:test-gap:report"],
-        &[
-            "law:test-gap:schema-id-preserved",
-            "law:test-gap:enum-casing-round-trips",
-            "law:test-gap:runtime-shapes-preserve-schema",
-        ],
+        model,
+        "morphism:semantic-proof:certificate-to-proof-object",
+        "certificate_artifact_to_proof_object",
+        &["adapter:semantic-proof:artifact-input"],
+        &["command:highergraphen:semantic-proof:verify"],
+        &["law:semantic-proof:certificate-policy-preservation"],
         diff_evidence_id,
     )?;
     push_higher_order_morphism(
-        &mut model,
-        "morphism:test-gap:fixtures-to-schemas",
-        "fixture_to_schema",
-        &[
-            "fixture:test-gap:input-example",
-            "fixture:test-gap:report-example",
-        ],
-        &["schema:test-gap:input", "schema:test-gap:report"],
-        &["law:test-gap:fixtures-validate-against-schema"],
+        model,
+        "morphism:semantic-proof:counterexample-to-refutation",
+        "counterexample_artifact_to_refutation",
+        &["adapter:semantic-proof:artifact-input"],
+        &["command:highergraphen:semantic-proof:verify"],
+        &["law:semantic-proof:counterexample-refutation-preservation"],
         diff_evidence_id,
     )?;
     push_higher_order_morphism(
-        &mut model,
-        "morphism:test-gap:report-envelope-to-runtime-shapes",
-        "projection_to_runtime_shape",
-        &["projection:test-gap:report-envelope"],
-        &["contract:test-gap:runtime-report-shapes"],
-        &["law:test-gap:projection-declares-information-loss"],
+        model,
+        "morphism:semantic-proof:roundtrip-tests-to-adapter-correctness",
+        "roundtrip_test_to_adapter_correctness",
+        &["test:semantic-proof:artifact-roundtrip"],
+        &["theorem:semantic-proof:artifact-adapter-correctness"],
+        &["law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample"],
         diff_evidence_id,
     )?;
 
-    Ok(model)
+    Ok(())
 }
 
 fn semantic_model_for_changes(
@@ -1447,7 +1636,7 @@ fn push_semantic_morphism(
         target_ids,
         law_ids: law_ids.clone(),
         requirement_ids: Vec::new(),
-        expected_verification: Some("policy_accepted_verification".to_owned()),
+        expected_verification: semantic_delta_expected_verification(change),
         confidence: Some(confidence(0.7)?),
     });
     for law_id in law_ids {
@@ -1456,6 +1645,14 @@ fn push_semantic_morphism(
         }
     }
     Ok(())
+}
+
+fn semantic_delta_expected_verification(change: &GitChange) -> Option<String> {
+    if change.path == "tools/highergraphen-cli/src/semantic_proof_artifact.rs" {
+        None
+    } else {
+        Some("policy_accepted_verification".to_owned())
+    }
 }
 
 struct RustSemanticVisitor<'a> {
@@ -2068,6 +2265,55 @@ fn structural_requirements(
         diff_evidence_id,
         accepted_test_kinds,
     )?;
+    push_structural_requirement(
+        &mut requirements,
+        structural,
+        "requirement:morphism:semantic-proof:artifact-to-input-document",
+        "semantic-proof input from-artifact preserves backend artifacts as HG theorem, law, morphism, and certificate or counterexample input",
+        &[
+            "command:highergraphen:semantic-proof:input-from-artifact",
+            "adapter:semantic-proof:artifact-input",
+            "theorem:semantic-proof:artifact-adapter-correctness",
+        ],
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_structural_requirement(
+        &mut requirements,
+        structural,
+        "requirement:morphism:semantic-proof:certificate-to-proof-object",
+        "proved semantic-proof artifacts roundtrip through verify as accepted proof objects",
+        &[
+            "adapter:semantic-proof:artifact-input",
+            "command:highergraphen:semantic-proof:verify",
+        ],
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_structural_requirement(
+        &mut requirements,
+        structural,
+        "requirement:morphism:semantic-proof:counterexample-to-refutation",
+        "counterexample semantic-proof artifacts roundtrip through verify as refutations",
+        &[
+            "adapter:semantic-proof:artifact-input",
+            "command:highergraphen:semantic-proof:verify",
+        ],
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_structural_requirement(
+        &mut requirements,
+        structural,
+        "requirement:morphism:semantic-proof:roundtrip-tests-to-adapter-correctness",
+        "semantic-proof artifact roundtrip tests verify the adapter correctness theorem at the HG structure boundary",
+        &[
+            "test:semantic-proof:artifact-roundtrip",
+            "theorem:semantic-proof:artifact-adapter-correctness",
+        ],
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
     push_law_requirement(
         &mut requirements,
         structural,
@@ -2191,6 +2437,51 @@ fn structural_requirements(
         "law:test-gap:fixtures-validate-against-schema",
         "requirement:law:test-gap:fixtures-validate-against-schema",
         "checked-in test-gap fixtures validate against their declared schemas",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:semantic-proof:artifact-status-totality",
+        "requirement:law:semantic-proof:artifact-status-totality",
+        "semantic-proof artifact adapter handles the proved and counterexample status partition",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:semantic-proof:certificate-policy-preservation",
+        "requirement:law:semantic-proof:certificate-policy-preservation",
+        "proved semantic-proof artifacts preserve backend policy, hashes, witnesses, and accepted review state",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:semantic-proof:counterexample-refutation-preservation",
+        "requirement:law:semantic-proof:counterexample-refutation-preservation",
+        "counterexample semantic-proof artifacts preserve refutation paths, severity, and review state",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:semantic-proof:backend-boundary-is-explicit",
+        "requirement:law:semantic-proof:backend-boundary-is-explicit",
+        "semantic-proof artifact adapter keeps proof backend execution outside the bounded HG input adapter",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample",
+        "requirement:law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample",
+        "semantic-proof CLI roundtrip tests cover proved and counterexample artifact paths through verify",
         diff_evidence_id,
         accepted_test_kinds,
     )?;
@@ -2400,6 +2691,15 @@ fn test_semantically_covers_morphism(
     if !morphism.morphism_type.starts_with("semantic_") {
         return false;
     }
+    if morphism
+        .source_ids
+        .iter()
+        .chain(morphism.target_ids.iter())
+        .filter_map(semantic_endpoint_path_slug)
+        .any(|path_slug| path_slug == "tools-highergraphen-cli-src-semantic-proof-artifact-rs")
+    {
+        return false;
+    }
     let target_path_slugs = test
         .target_ids
         .iter()
@@ -2455,6 +2755,17 @@ fn structural_cell_path_slug(target_id: &str) -> Option<&'static str> {
         }
         "schema:test-gap:input" => Some("schemas-inputs-test-gap-input-schema-json"),
         "schema:test-gap:report" => Some("schemas-reports-test-gap-report-schema-json"),
+        "command:highergraphen:semantic-proof:input-from-artifact"
+        | "command:highergraphen:semantic-proof:verify" => {
+            Some("tools-highergraphen-cli-src-main-rs")
+        }
+        "adapter:semantic-proof:artifact-input"
+        | "theorem:semantic-proof:artifact-adapter-correctness" => {
+            Some("tools-highergraphen-cli-src-semantic-proof-artifact-rs")
+        }
+        "test:semantic-proof:artifact-roundtrip" => {
+            Some("tools-highergraphen-cli-tests-command-rs")
+        }
         _ => None,
     }
 }
@@ -2756,6 +3067,17 @@ fn matching_symbol_ids(test_path: &str, symbols: &[TestGapInputSymbol]) -> Vec<I
                 "law:test-gap:input-from-git-is-deterministic",
                 "law:test-gap:input-from-git-does-not-prove-semantic-coverage",
                 "symbol:tools-highergraphen-cli-src-main-rs:changed-behavior",
+                "command:highergraphen:semantic-proof:input-from-artifact",
+                "command:highergraphen:semantic-proof:verify",
+                "adapter:semantic-proof:artifact-input",
+                "test:semantic-proof:artifact-roundtrip",
+                "theorem:semantic-proof:artifact-adapter-correctness",
+                "law:semantic-proof:artifact-status-totality",
+                "law:semantic-proof:certificate-policy-preservation",
+                "law:semantic-proof:counterexample-refutation-preservation",
+                "law:semantic-proof:backend-boundary-is-explicit",
+                "law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample",
+                "symbol:tools-highergraphen-cli-src-semantic-proof-artifact-rs:changed-behavior",
             ],
         );
     }
@@ -2961,11 +3283,16 @@ fn is_highergraphen_structural_path(path: &str) -> bool {
             | "crates/higher-graphen-runtime/src/test_gap_reports.rs"
             | "crates/higher-graphen-runtime/src/workflows/mod.rs"
             | "crates/higher-graphen-runtime/src/workflows/test_gap.rs"
+            | "tools/highergraphen-cli/src/semantic_proof_artifact.rs"
     )
 }
 
 fn is_test_gap_surface_path(path: &str) -> bool {
     path.contains("test_gap") || path.contains("test-gap")
+}
+
+fn is_semantic_proof_surface_path(path: &str) -> bool {
+    path.contains("semantic_proof") || path.contains("semantic-proof")
 }
 
 fn comparable_path_key(path: &str) -> String {
