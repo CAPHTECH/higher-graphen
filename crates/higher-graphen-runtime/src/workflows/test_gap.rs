@@ -1092,7 +1092,10 @@ fn detect_obstructions(input: &TestGapInputDocument) -> RuntimeResult<Vec<TestGa
         }
     }
     for symbol in &input.symbols {
-        if symbol_is_public_behavior(symbol) && !has_accepted_test_for_symbol(input, &symbol.id) {
+        if symbol_is_public_behavior(symbol)
+            && !symbol_is_higher_order_obligation_surface(symbol)
+            && !has_accepted_test_for_symbol(input, &symbol.id)
+        {
             obstructions.push(missing_public_behavior_obstruction(input, symbol)?);
         }
     }
@@ -1102,7 +1105,9 @@ fn detect_obstructions(input: &TestGapInputDocument) -> RuntimeResult<Vec<TestGa
         }
     }
     for law in &input.laws {
-        if law.expected_verification.is_some() && !has_accepted_verification_for_law(input, &law.id)
+        if law.expected_verification.is_some()
+            && !has_requirement_for_implementation(input, &law.id)
+            && !has_accepted_verification_for_law(input, &law.id)
         {
             obstructions.push(missing_law_obstruction(input, law)?);
         }
@@ -2244,6 +2249,23 @@ fn symbol_is_public_behavior(symbol: &TestGapInputSymbol) -> bool {
         )
 }
 
+fn symbol_is_higher_order_obligation_surface(symbol: &TestGapInputSymbol) -> bool {
+    let id = symbol.id.as_str();
+    id.starts_with("law:")
+        || id.starts_with("adapter:")
+        || id.starts_with("command:")
+        || id.starts_with("runner:")
+        || id.starts_with("schema:")
+        || id.starts_with("fixture:")
+        || id.starts_with("validator:")
+        || id.starts_with("theorem:")
+        || id.starts_with("contract:")
+        || id.starts_with("projection:")
+        || id.starts_with("registry:")
+        || id.starts_with("export:")
+        || id.starts_with("test:")
+}
+
 fn branch_needs_unit_test(branch: &TestGapInputBranch) -> bool {
     matches!(
         branch.branch_type,
@@ -2260,6 +2282,16 @@ fn has_accepted_test_for_requirement(input: &TestGapInputDocument, requirement_i
     input.tests.iter().any(|test| {
         accepts_test_kind(input, test.test_type) && test.requirement_ids.contains(requirement_id)
     })
+}
+
+fn has_requirement_for_implementation(
+    input: &TestGapInputDocument,
+    implementation_id: &Id,
+) -> bool {
+    input
+        .requirements
+        .iter()
+        .any(|requirement| requirement.implementation_ids.contains(implementation_id))
 }
 
 fn has_accepted_regression_test_for_requirement(

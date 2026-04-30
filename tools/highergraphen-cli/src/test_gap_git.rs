@@ -717,7 +717,17 @@ fn structural_model_for_changes(
     let has_semantic_proof_surface = changes
         .iter()
         .any(|change| is_semantic_proof_surface_path(&change.path));
-    if !has_test_gap_surface && !has_semantic_proof_surface {
+    let has_test_semantics_surface = changes
+        .iter()
+        .any(|change| is_test_semantics_surface_path(&change.path));
+    let has_pr_review_surface = changes
+        .iter()
+        .any(|change| is_pr_review_surface_path(&change.path));
+    if !has_test_gap_surface
+        && !has_semantic_proof_surface
+        && !has_test_semantics_surface
+        && !has_pr_review_surface
+    {
         return Ok(model);
     }
 
@@ -1212,8 +1222,217 @@ fn structural_model_for_changes(
     if has_semantic_proof_surface {
         push_semantic_proof_structural_model(&mut model, changes, diff_evidence_id)?;
     }
+    if has_test_semantics_surface {
+        push_test_semantics_structural_model(&mut model, changes, diff_evidence_id)?;
+    }
+    if has_pr_review_surface {
+        push_pr_review_structural_model(&mut model, changes, diff_evidence_id)?;
+    }
 
     Ok(model)
+}
+
+fn push_test_semantics_structural_model(
+    model: &mut StructuralModel,
+    changes: &[GitChange],
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/test_semantics_interpretation.rs",
+        "adapter:test-semantics:interpretation",
+        "test-semantics interpretation adapter cell",
+        "test_semantics_interpretation::interpret",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/test_semantics_review.rs",
+        "adapter:test-semantics:review",
+        "test-semantics interpretation review adapter cell",
+        "test_semantics_review::review",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/test_semantics_verification.rs",
+        "adapter:test-semantics:verification",
+        "test-semantics verification adapter cell",
+        "test_semantics_verification::verify",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/test_semantics_gap.rs",
+        "adapter:test-semantics:gap",
+        "test-semantics expected-obligation gap adapter cell",
+        "test_semantics_gap::detect",
+        TestGapSymbolKind::Module,
+    )?;
+
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_interpretation.rs"],
+        "law:test-semantics:interpretation-candidates-remain-unreviewed",
+        "test-semantics interpretation emits candidate structure without accepted coverage",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_review.rs"],
+        "law:test-semantics:review-accept-does-not-promote-coverage",
+        "accepting an interpretation candidate records review without promoting coverage or proof",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_review.rs"],
+        "law:test-semantics:review-reject-does-not-promote-coverage",
+        "rejecting an interpretation candidate records review without promoting coverage or proof",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_verification.rs"],
+        "law:test-semantics:verify-positive-gates-promote-coverage",
+        "accepted review, passed evidence, and semantic binding together promote verified coverage",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_verification.rs"],
+        "law:test-semantics:verify-rejected-review-fails-review-gate",
+        "a rejected or unaccepted review prevents test-semantics verification",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_verification.rs"],
+        "law:test-semantics:verify-missing-evidence-fails-evidence-gate",
+        "test-semantics verification requires passed execution evidence linked to the candidate",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_verification.rs"],
+        "law:test-semantics:verify-missing-binding-fails-semantic-binding-gate",
+        "test-semantics verification requires a candidate law, morphism, or semantic target binding",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_verification.rs"],
+        "law:test-semantics:verify-does-not-create-proof-objects",
+        "test-semantics verification creates proof obligations and semantic proof inputs but no proof objects",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_gap.rs"],
+        "law:test-semantics:gap-missing-obligation-emits-candidate",
+        "test-semantics gap emits missing-test obstruction and candidate for uncovered expected obligations",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/test_semantics_gap.rs"],
+        "law:test-semantics:gap-no-gaps-when-all-obligations-covered",
+        "test-semantics gap reports no gaps when every expected obligation is verified",
+    )?;
+    Ok(())
+}
+
+fn push_pr_review_structural_model(
+    model: &mut StructuralModel,
+    changes: &[GitChange],
+    diff_evidence_id: &Id,
+) -> Result<(), String> {
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/pr_review_git.rs",
+        "adapter:pr-review:git-input",
+        "pr-review git input adapter cell",
+        "pr_review_git::input_from_git",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/pr_review_git_support.rs",
+        "adapter:pr-review:git-support",
+        "pr-review git parsing support cell",
+        "pr_review_git_support diff parsing helpers",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/pr_review_structural.rs",
+        "adapter:pr-review:structural-boundary",
+        "pr-review structural boundary analyzer adapter cell",
+        "pr_review_structural::changed_structural_boundary",
+        TestGapSymbolKind::Module,
+    )?;
+
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/pr_review_git.rs"],
+        "law:pr-review:input-from-git-emits-bounded-snapshot",
+        "pr-review input from-git emits a bounded provider-neutral review target snapshot",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/pr_review_git_support.rs"],
+        "law:pr-review:git-parser-handles-rename-and-quoted-paths",
+        "pr-review git support parses rename, quoted path, and numstat edge cases deterministically",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/pr_review_structural.rs"],
+        "law:pr-review:structural-detects-boundary-incidence-composition",
+        "pr-review structural analysis detects boundary, incidence, and composition observations",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &[
+            "tools/highergraphen-cli/src/pr_review_git.rs",
+            "tools/highergraphen-cli/src/pr_review_git_support.rs",
+        ],
+        "law:pr-review:recommendations-remain-unreviewed",
+        "pr-review generated targets and candidates remain unreviewed suggestions",
+    )?;
+    Ok(())
 }
 
 fn push_semantic_proof_structural_model(
@@ -1882,6 +2101,63 @@ const DEFAULT_HG_RUST_TEST_BINDING_RULES: &[DefaultHgRustTestBindingRule] = &[
         cli_label: None,
         target_ids: &["schema:test-gap:input", "law:test-gap:schema-id-preserved"],
     },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["test_semantics_interpret_emits_unreviewed_ai_candidate_structure"],
+        cli_label: Some("highergraphen test-semantics interpret"),
+        target_ids: &[
+            "adapter:test-semantics:interpretation",
+            "law:test-semantics:interpretation-candidates-remain-unreviewed",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &[
+            "test_semantics_review_accepts_candidate_without_promoting_coverage_or_proof",
+        ],
+        cli_label: Some("highergraphen test-semantics review accept"),
+        target_ids: &[
+            "adapter:test-semantics:review",
+            "law:test-semantics:review-accept-does-not-promote-coverage",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &[
+            "test_semantics_verify_promotes_reviewed_candidate_with_execution_evidence",
+        ],
+        cli_label: Some("highergraphen test-semantics verify"),
+        target_ids: &[
+            "adapter:test-semantics:verification",
+            "law:test-semantics:verify-positive-gates-promote-coverage",
+            "law:test-semantics:verify-does-not-create-proof-objects",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["test_semantics_gap_detects_missing_expected_obligation"],
+        cli_label: Some("highergraphen test-semantics gap"),
+        target_ids: &[
+            "adapter:test-semantics:gap",
+            "law:test-semantics:gap-missing-obligation-emits-candidate",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["pr_review_input_from_git_emits_bounded_snapshot"],
+        cli_label: Some("highergraphen pr-review input from-git"),
+        target_ids: &[
+            "adapter:pr-review:git-input",
+            "law:pr-review:input-from-git-emits-bounded-snapshot",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["pr_review_input_from_git_output_feeds_recommender"],
+        cli_label: Some("highergraphen pr-review targets recommend"),
+        target_ids: &["law:pr-review:recommendations-remain-unreviewed"],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &[
+            "pr_review_targets_recommend_reads_fixture_and_writes_one_json_report_to_stdout",
+        ],
+        cli_label: Some("highergraphen pr-review targets recommend"),
+        target_ids: &["law:pr-review:recommendations-remain-unreviewed"],
+    },
 ];
 
 fn binding_rules_from_path(path: Option<&Path>) -> Result<HgRustTestBindingRules, String> {
@@ -2176,11 +2452,10 @@ fn push_rust_test_content_cells(
             evidence_cell_ids.push(observation_id);
         }
 
-        let target_ids = hg_rust_test_content_target_ids(
-            target_model,
-            binding_rules,
-            &function.string_literals,
-        )?;
+        let mut binding_terms = function.string_literals.clone();
+        binding_terms.insert(function.name.clone());
+        let target_ids =
+            hg_rust_test_content_target_ids(target_model, binding_rules, &binding_terms)?;
         for target_id in target_ids {
             push_unique_id(
                 content_model
@@ -3896,6 +4171,132 @@ fn structural_requirements(
         diff_evidence_id,
         accepted_test_kinds,
     )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:interpretation-candidates-remain-unreviewed",
+        "requirement:law:test-semantics:interpretation-candidates-remain-unreviewed",
+        "test-semantics interpretation keeps AI-created cells, morphisms, laws, bindings, and evidence links unreviewed",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:review-accept-does-not-promote-coverage",
+        "requirement:law:test-semantics:review-accept-does-not-promote-coverage",
+        "test-semantics review accept records explicit review without accepted facts, coverage, or proof objects",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:review-reject-does-not-promote-coverage",
+        "requirement:law:test-semantics:review-reject-does-not-promote-coverage",
+        "test-semantics review reject records explicit review without accepted facts, coverage, or proof objects",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:verify-positive-gates-promote-coverage",
+        "requirement:law:test-semantics:verify-positive-gates-promote-coverage",
+        "test-semantics verification promotes reviewed candidates only when review, evidence, and semantic-binding gates pass",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:verify-rejected-review-fails-review-gate",
+        "requirement:law:test-semantics:verify-rejected-review-fails-review-gate",
+        "test-semantics verification reports not_verified when the review gate is rejected or unaccepted",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:verify-missing-evidence-fails-evidence-gate",
+        "requirement:law:test-semantics:verify-missing-evidence-fails-evidence-gate",
+        "test-semantics verification reports not_verified when passed execution evidence is missing",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:verify-missing-binding-fails-semantic-binding-gate",
+        "requirement:law:test-semantics:verify-missing-binding-fails-semantic-binding-gate",
+        "test-semantics verification reports not_verified when the candidate has no semantic target binding",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:verify-does-not-create-proof-objects",
+        "requirement:law:test-semantics:verify-does-not-create-proof-objects",
+        "test-semantics verification leaves proof objects empty until a separate proof backend verifies obligations",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:gap-missing-obligation-emits-candidate",
+        "requirement:law:test-semantics:gap-missing-obligation-emits-candidate",
+        "test-semantics gap emits missing-test obstructions and candidates for uncovered expected obligations",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:test-semantics:gap-no-gaps-when-all-obligations-covered",
+        "requirement:law:test-semantics:gap-no-gaps-when-all-obligations-covered",
+        "test-semantics gap reports no_gaps_detected when all expected obligations are covered",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:pr-review:input-from-git-emits-bounded-snapshot",
+        "requirement:law:pr-review:input-from-git-emits-bounded-snapshot",
+        "pr-review input from-git emits bounded changed-file, evidence, context, owner, and risk-signal structure",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:pr-review:git-parser-handles-rename-and-quoted-paths",
+        "requirement:law:pr-review:git-parser-handles-rename-and-quoted-paths",
+        "pr-review git support handles rename, quoted path, and numstat parser edge cases",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:pr-review:structural-detects-boundary-incidence-composition",
+        "requirement:law:pr-review:structural-detects-boundary-incidence-composition",
+        "pr-review structural analysis detects boundary, incidence, and composition roles directly",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
+    push_law_requirement(
+        &mut requirements,
+        structural,
+        "law:pr-review:recommendations-remain-unreviewed",
+        "requirement:law:pr-review:recommendations-remain-unreviewed",
+        "pr-review generated review targets, obstructions, and completion candidates remain unreviewed suggestions",
+        diff_evidence_id,
+        accepted_test_kinds,
+    )?;
     Ok(requirements)
 }
 
@@ -4769,6 +5170,13 @@ fn is_highergraphen_structural_path(path: &str) -> bool {
             | "tools/highergraphen-cli/src/semantic_proof_artifact.rs"
             | "tools/highergraphen-cli/src/semantic_proof_backend.rs"
             | "tools/highergraphen-cli/src/semantic_proof_reinput.rs"
+            | "tools/highergraphen-cli/src/test_semantics_gap.rs"
+            | "tools/highergraphen-cli/src/test_semantics_interpretation.rs"
+            | "tools/highergraphen-cli/src/test_semantics_review.rs"
+            | "tools/highergraphen-cli/src/test_semantics_verification.rs"
+            | "tools/highergraphen-cli/src/pr_review_git.rs"
+            | "tools/highergraphen-cli/src/pr_review_git_support.rs"
+            | "tools/highergraphen-cli/src/pr_review_structural.rs"
     )
 }
 
@@ -4778,6 +5186,14 @@ fn is_test_gap_surface_path(path: &str) -> bool {
 
 fn is_semantic_proof_surface_path(path: &str) -> bool {
     path.contains("semantic_proof") || path.contains("semantic-proof")
+}
+
+fn is_test_semantics_surface_path(path: &str) -> bool {
+    path.contains("test_semantics") || path.contains("test-semantics")
+}
+
+fn is_pr_review_surface_path(path: &str) -> bool {
+    path.contains("pr_review") || path.contains("pr-review")
 }
 
 fn comparable_path_key(path: &str) -> String {

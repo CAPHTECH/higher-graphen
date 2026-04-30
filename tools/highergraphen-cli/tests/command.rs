@@ -1741,6 +1741,46 @@ fn test_gap_input_from_path_emits_current_tree_snapshot_and_feeds_detector() {
     );
     write_repo_file(
         &repository,
+        "tools/highergraphen-cli/src/test_semantics_interpretation.rs",
+        "pub(crate) fn interpret() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_semantics_review.rs",
+        "pub(crate) fn review() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_semantics_verification.rs",
+        "pub(crate) fn verify() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/test_semantics_gap.rs",
+        "pub(crate) fn detect() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/pr_review_git.rs",
+        "pub(crate) fn input_from_git() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/pr_review_git_support.rs",
+        "pub(crate) fn changed_files() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/src/pr_review_structural.rs",
+        "pub(crate) fn changed_structural_boundary() {}\n",
+    );
+    write_repo_file(
+        &repository,
+        "tools/highergraphen-cli/tests/command.rs",
+        "#[test]\nfn test_semantics_interpret_emits_unreviewed_ai_candidate_structure() { assert_eq!(\"unreviewed\", \"unreviewed\"); }\n#[test]\nfn test_semantics_review_accepts_candidate_without_promoting_coverage_or_proof() { assert_eq!(\"accepted\", \"accepted\"); }\n#[test]\nfn test_semantics_verify_promotes_reviewed_candidate_with_execution_evidence() { assert_eq!(\"verified\", \"verified\"); }\n#[test]\nfn test_semantics_gap_detects_missing_expected_obligation() { assert_eq!(\"missing_count\", \"missing_count\"); }\n#[test]\nfn pr_review_input_from_git_emits_bounded_snapshot() { assert_eq!(\"highergraphen.pr_review_target.input.v1\", \"highergraphen.pr_review_target.input.v1\"); }\n#[test]\nfn pr_review_targets_recommend_reads_fixture_and_writes_one_json_report_to_stdout() { assert_eq!(\"unreviewed\", \"unreviewed\"); }\n",
+    );
+    write_repo_file(
+        &repository,
         "schemas/inputs/test-gap.input.schema.json",
         r#"{"type":"object","properties":{"schema":{"const":"highergraphen.test_gap.input.v1"}}}"#,
     );
@@ -1767,6 +1807,20 @@ fn test_gap_input_from_path_emits_current_tree_snapshot_and_feeds_detector() {
         "tools/highergraphen-cli/src/semantic_proof_artifact.rs".to_owned(),
         "--path".to_owned(),
         "tools/highergraphen-cli/src/semantic_proof_reinput.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_semantics_interpretation.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_semantics_review.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_semantics_verification.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/test_semantics_gap.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/pr_review_git.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/pr_review_git_support.rs".to_owned(),
+        "--path".to_owned(),
+        "tools/highergraphen-cli/src/pr_review_structural.rs".to_owned(),
         "--path".to_owned(),
         "schemas/inputs/test-gap.input.schema.json".to_owned(),
         "--include-tests".to_owned(),
@@ -1852,6 +1906,39 @@ fn test_gap_input_from_path_emits_current_tree_snapshot_and_feeds_detector() {
             .is_some_and(
                 |target_ids| target_ids.contains(&json!("law:test-gap:schema-id-preserved"))
             )));
+    let obstruction_targets = report["result"]["obstructions"]
+        .as_array()
+        .expect("obstructions")
+        .iter()
+        .flat_map(|obstruction| {
+            obstruction["target_ids"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .cloned()
+        })
+        .collect::<Vec<_>>();
+    assert!(obstruction_targets.contains(&json!(
+        "law:test-semantics:review-reject-does-not-promote-coverage"
+    )));
+    assert!(obstruction_targets.contains(&json!(
+        "law:test-semantics:verify-rejected-review-fails-review-gate"
+    )));
+    assert!(obstruction_targets.contains(&json!(
+        "law:test-semantics:verify-missing-evidence-fails-evidence-gate"
+    )));
+    assert!(obstruction_targets.contains(&json!(
+        "law:test-semantics:verify-missing-binding-fails-semantic-binding-gate"
+    )));
+    assert!(obstruction_targets.contains(&json!(
+        "law:pr-review:git-parser-handles-rename-and-quoted-paths"
+    )));
+    assert!(obstruction_targets.contains(&json!(
+        "law:pr-review:structural-detects-boundary-incidence-composition"
+    )));
+    assert!(!obstruction_targets.contains(&json!(
+        "symbol:tools-highergraphen-cli-src-pr-review-git-rs:changed-behavior"
+    )));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
     fs::remove_dir_all(repository).expect("remove temp test repository");
