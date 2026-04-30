@@ -9,6 +9,7 @@ mod semantic_proof_backend;
 mod semantic_proof_reinput;
 mod test_gap_evidence;
 mod test_gap_git;
+mod test_semantics_gap;
 mod test_semantics_interpretation;
 mod test_semantics_review;
 mod test_semantics_verification;
@@ -48,6 +49,7 @@ const USAGE: &str = "usage:
   highergraphen test-semantics review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
   highergraphen test-semantics review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
   highergraphen test-semantics verify --interpretation <path> --review <path> --format json [--test-run <path>] [--output <path>]
+  highergraphen test-semantics gap --expected <path> --verified <path> [--verified <path> ...] --format json [--output <path>]
   highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--test-run <path>] [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
@@ -156,6 +158,11 @@ enum Command {
         interpretation: PathBuf,
         review: PathBuf,
         test_run: Option<PathBuf>,
+        output: Option<PathBuf>,
+    },
+    TestSemanticsGap {
+        expected: PathBuf,
+        verified: Vec<PathBuf>,
         output: Option<PathBuf>,
     },
     SemanticProofVerify {
@@ -452,6 +459,19 @@ impl Command {
                     output: options.output,
                 })
             }
+            Some("gap") => {
+                let options = TestSemanticsGapOptions::parse(args)?;
+                if options.verified.is_empty() {
+                    return Err(CliError::usage("--verified <path> is required"));
+                }
+                Ok(Self::TestSemanticsGap {
+                    expected: options
+                        .expected
+                        .ok_or_else(|| CliError::usage("--expected <path> is required"))?,
+                    verified: options.verified,
+                    output: options.output,
+                })
+            }
             Some(_) | None => Err(CliError::usage(
                 "unsupported test-semantics command segment",
             )),
@@ -657,6 +677,7 @@ impl Command {
             | Self::TestSemanticsInterpret { output, .. }
             | Self::TestSemanticsReview { output, .. }
             | Self::TestSemanticsVerify { output, .. }
+            | Self::TestSemanticsGap { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofInputFromReport { output, .. }
@@ -826,6 +847,22 @@ impl Command {
                     },
                 )
                 .map_err(CliError::TestSemanticsVerification)?;
+                serde_json::to_string(&report)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestSemanticsGap {
+                expected, verified, ..
+            } => {
+                let expected = read_json_value(expected)?;
+                let verified_reports = verified
+                    .iter()
+                    .map(|path| read_json_value(path))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let report = test_semantics_gap::detect(test_semantics_gap::GapRequest {
+                    expected,
+                    verified_reports,
+                })
+                .map_err(CliError::TestSemanticsGap)?;
                 serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -1136,6 +1173,44 @@ impl TestSemanticsVerifyOptions {
                 options.review = Some(require_path(&mut args, "--review")?);
             } else if arg == "--test-run" {
                 options.test_run = Some(require_path(&mut args, "--test-run")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct TestSemanticsGapOptions {
+    expected: Option<PathBuf>,
+    verified: Vec<PathBuf>,
+    output: Option<PathBuf>,
+}
+
+impl TestSemanticsGapOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--expected" {
+                options.expected = Some(require_path(&mut args, "--expected")?);
+            } else if arg == "--verified" {
+                options
+                    .verified
+                    .push(require_path(&mut args, "--verified")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -1475,6 +1550,7 @@ enum CliError {
     TestSemanticsInterpretation(String),
     TestSemanticsReview(String),
     TestSemanticsVerification(String),
+    TestSemanticsGap(String),
     RustTestSemantics(String),
     SemanticProofArtifact(String),
     Output(std::io::Error),
@@ -1545,6 +1621,9 @@ impl fmt::Display for CliError {
                     formatter,
                     "failed to build test semantics verification: {message}"
                 )
+            }
+            Self::TestSemanticsGap(message) => {
+                write!(formatter, "failed to detect test semantics gaps: {message}")
             }
             Self::RustTestSemantics(message) => {
                 write!(formatter, "failed to build rust test semantics: {message}")

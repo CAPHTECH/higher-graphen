@@ -266,6 +266,23 @@ verified report may emit `accepted_fact_ids`, `coverage_ids`,
 separate proof backend verifies the generated obligation.
 
 ```sh
+highergraphen test-semantics gap \
+  --expected <path> \
+  --verified <path> \
+  [--verified <path> ...] \
+  --format json \
+  [--output <path>]
+```
+
+This command reads expected semantic test obligations and one or more verified
+test semantics reports, then compares expected target IDs against verified
+coverage, proof obligations, semantic proof input IDs, verified morphisms, and
+verified candidate targets. It emits
+`highergraphen.test_semantics.gap.report.v1` with covered obligations, missing
+obligations, missing-test obstructions, and unreviewed missing-test completion
+candidates.
+
+```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
 ```
 
@@ -437,6 +454,8 @@ the source report and do not promote the candidate into accepted facts.
 | `--interpretation <path>` | For `test-semantics verify` | Reads the AI-created test semantics interpretation document. |
 | `--review <path>` | For `test-semantics verify` | Reads the explicit interpretation review report. |
 | `--test-run <path>` | For `test-semantics verify` | Records the test-run artifact path used to produce interpretation evidence links. |
+| `--expected <path>` | For `test-semantics gap` | Reads expected semantic test obligations. |
+| `--verified <path>` | For `test-semantics gap` | Reads a verified test semantics report; repeat for multiple verified reports. |
 | `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
 | `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
@@ -843,6 +862,21 @@ gates under `result.gates`. Only when all gates pass does it emit
 `result.verified_morphism_ids`. It deliberately leaves
 `result.proof_object_ids` empty; proof objects require a later proof backend.
 
+The test semantics gap report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.test_semantics.gap.report.v1` |
+| Report type | `test_semantics_gap` |
+| Report version | `1` |
+| Report schema | [`test-semantics-gap.report.schema.json`](../../schemas/reports/test-semantics-gap.report.schema.json) |
+| Runtime runner | CLI-local gap adapter |
+
+The gap report compares `highergraphen.test_semantics.expected_obligations.input.v1`
+against verified test semantics reports. Missing obligations are emitted as
+`result.missing_obligations`, `result.obstructions`, and unreviewed
+`result.completion_candidates` for missing tests.
+
 ## Semantic Rules
 
 Consumers must preserve these semantics:
@@ -858,6 +892,9 @@ Consumers must preserve these semantics:
 - Verifying a reviewed test semantics candidate may create coverage and proof
   obligations only when review, passed execution evidence, and semantic binding
   gates all pass.
+- Test semantics gap detection compares accepted expected obligations against
+  verified semantic coverage and emits missing-test candidates as unreviewed
+  suggestions.
 - Test semantics verification creates proof input identifiers, not proof
   objects; proof object creation remains owned by `semantic-proof verify`.
 - The input lift path treats JSON `components` and `relations` as accepted

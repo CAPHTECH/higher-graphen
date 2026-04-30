@@ -116,6 +116,18 @@ highergraphen test-semantics interpret \
   --format json
 ```
 
+`test-semantics-expected-obligations.input.schema.json` defines accepted
+semantic test obligations for gap detection,
+`highergraphen.test_semantics.expected_obligations.input.v1`. It is compared
+with one or more verified test semantics reports by:
+
+```sh
+highergraphen test-semantics gap \
+  --expected test-semantics-expected-obligations.input.json \
+  --verified test-semantics-verification.report.json \
+  --format json
+```
+
 `test-gap-binding-rules.input.schema.json` defines the project-specific binding
 contract, `highergraphen.test_gap.binding_rules.input.v1`. It maps extracted
 Rust test semantic trigger terms to CLI labels and HigherGraphen target IDs.

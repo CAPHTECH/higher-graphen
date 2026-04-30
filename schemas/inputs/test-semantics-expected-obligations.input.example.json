@@ -1,0 +1,38 @@
+{
+  "schema": "highergraphen.test_semantics.expected_obligations.input.v1",
+  "source": {
+    "kind": "spec",
+    "boundary": "HigherGraphen CLI command contract obligations",
+    "adapter": "manual-fixture.v1"
+  },
+  "obligations": [
+    {
+      "id": "obligation:test-semantics:architecture-smoke-direct-db-access-json",
+      "obligation_type": "command_contract",
+      "summary": "architecture smoke direct-db-access must emit the expected JSON command contract.",
+      "target_ids": [
+        "candidate-law:command-contract:architecture-smoke-direct-db-access-format-json"
+      ],
+      "severity": "high",
+      "source_ids": [
+        "docs:cli:highergraphen:architecture-smoke-direct-db-access"
+      ],
+      "review_status": "accepted",
+      "confidence": 0.9
+    },
+    {
+      "id": "obligation:test-semantics:architecture-smoke-human-format-error",
+      "obligation_type": "error_path",
+      "summary": "architecture smoke direct-db-access must reject unsupported human format.",
+      "target_ids": [
+        "candidate-law:command-contract:architecture-smoke-direct-db-access-format-human"
+      ],
+      "severity": "medium",
+      "source_ids": [
+        "docs:cli:highergraphen:format-json-only"
+      ],
+      "review_status": "accepted",
+      "confidence": 0.82
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "schema": "highergraphen.test_semantics.gap.report.v1",
+  "report_type": "test_semantics_gap",
+  "report_version": 1,
+  "metadata": {
+    "command": "highergraphen test-semantics gap",
+    "cli_package": "highergraphen-cli"
+  },
+  "scenario": {
+    "expected_schema": "highergraphen.test_semantics.expected_obligations.input.v1",
+    "verified_schema": "highergraphen.test_semantics.verification.report.v1",
+    "verified_report_ids": [
+      "binding-candidate:architecture-smoke-direct-db-access-format-json"
+    ]
+  },
+  "result": {
+    "status": "gaps_detected",
+    "total_expected": 2,
+    "covered_count": 1,
+    "missing_count": 1,
+    "covered_obligations": [
+      {
+        "id": "obligation:test-semantics:architecture-smoke-direct-db-access-json",
+        "obligation_type": "command_contract",
+        "summary": "architecture smoke direct-db-access must emit the expected JSON command contract.",
+        "target_ids": [
+          "candidate-law:command-contract:architecture-smoke-direct-db-access-format-json"
+        ],
+        "severity": "high",
+        "source_ids": [
+          "docs:cli:highergraphen:architecture-smoke-direct-db-access"
+        ],
+        "coverage_status": "covered",
+        "review_status": "accepted",
+        "confidence": 0.9
+      }
+    ],
+    "missing_obligations": [
+      {
+        "id": "obligation:test-semantics:architecture-smoke-human-format-error",
+        "obligation_type": "error_path",
+        "summary": "architecture smoke direct-db-access must reject unsupported human format.",
+        "target_ids": [
+          "candidate-law:command-contract:architecture-smoke-direct-db-access-format-human"
+        ],
+        "severity": "medium",
+        "source_ids": [
+          "docs:cli:highergraphen:format-json-only"
+        ],
+        "coverage_status": "missing",
+        "review_status": "accepted",
+        "confidence": 0.82
+      }
+    ],
+    "obstructions": [
+      {
+        "id": "obstruction:test-semantics:missing-test:obligation-test-semantics-architecture-smoke-human-format-error",
+        "obstruction_type": "missing_test_semantics_coverage",
+        "summary": "Missing verified test coverage for obligation:test-semantics:architecture-smoke-human-format-error.",
+        "target_ids": [
+          "candidate-law:command-contract:architecture-smoke-direct-db-access-format-human"
+        ],
+        "severity": "medium",
+        "source_ids": [
+          "obligation:test-semantics:architecture-smoke-human-format-error"
+        ],
+        "review_status": "unreviewed",
+        "confidence": 0.78
+      }
+    ],
+    "completion_candidates": [
+      {
+        "id": "candidate:test-semantics:missing-test:obligation-test-semantics-architecture-smoke-human-format-error",
+        "candidate_type": "missing_test",
+        "summary": "Add a test that verifies obligation:test-semantics:architecture-smoke-human-format-error.",
+        "suggested_test": {
+          "name": "covers_obligation_test_semantics_architecture_smoke_human_format_error",
+          "target_ids": [
+            "candidate-law:command-contract:architecture-smoke-direct-db-access-format-human"
+          ],
+          "test_type": "unit_or_integration"
+        },
+        "source_ids": [
+          "obligation:test-semantics:architecture-smoke-human-format-error"
+        ],
+        "review_status": "unreviewed",
+        "confidence": 0.74
+      }
+    ]
+  },
+  "projection": {
+    "audience": "ai_agent",
+    "purpose": "test_semantics_gap_detection",
+    "summary": "Detected 1 missing test semantics obligations.",
+    "recommended_actions": [
+      "Add tests that cover each missing obligation target ID.",
+      "Run test-semantics interpret, review, and verify again after adding tests."
+    ],
+    "source_ids": [
+      "obligation:test-semantics:architecture-smoke-human-format-error"
+    ],
+    "information_loss": [
+      {
+        "description": "Gap detection compares expected obligation IDs and target IDs against verified semantic coverage; it does not inspect full source bodies.",
+        "source_ids": [
+          "binding-candidate:architecture-smoke-direct-db-access-format-json"
+        ]
+      },
+      {
+        "description": "Missing-test completion candidates are unreviewed suggestions until a later review workflow accepts or rejects them.",
+        "source_ids": [
+          "candidate:test-semantics:missing-test:obligation-test-semantics-architecture-smoke-human-format-error"
+        ]
+      }
+    ]
+  }
+}

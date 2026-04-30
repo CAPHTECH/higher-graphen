@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_semantics.gap.report.v1",
+  "title": "HigherGraphen Test Semantics Gap Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_semantics.gap.report.v1"
+    },
+    "report_type": {
+      "const": "test_semantics_gap"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "const": "highergraphen test-semantics gap"
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_schema",
+        "verified_schema",
+        "verified_report_ids"
+      ],
+      "properties": {
+        "expected_schema": {
+          "const": "highergraphen.test_semantics.expected_obligations.input.v1"
+        },
+        "verified_schema": {
+          "const": "highergraphen.test_semantics.verification.report.v1"
+        },
+        "verified_report_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "total_expected",
+        "covered_count",
+        "missing_count",
+        "covered_obligations",
+        "missing_obligations",
+        "obstructions",
+        "completion_candidates"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "gaps_detected",
+            "no_gaps_detected"
+          ]
+        },
+        "total_expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/obligation_result"
+          }
+        },
+        "missing_obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/obligation_result"
+          }
+        },
+        "obstructions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/open_object"
+          }
+        },
+        "completion_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/open_object"
+          }
+        }
+      }
+    },
+    "obligation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "obligation_type",
+        "summary",
+        "target_ids",
+        "severity",
+        "source_ids",
+        "coverage_status",
+        "review_status",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "obligation_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "source_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "coverage_status": {
+          "enum": [
+            "covered",
+            "missing"
+          ]
+        },
+        "review_status": {
+          "enum": [
+            "accepted",
+            "unreviewed"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "ai_agent"
+        },
+        "purpose": {
+          "const": "test_semantics_gap_detection"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/information_loss"
+          }
+        }
+      }
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "source_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "open_object": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

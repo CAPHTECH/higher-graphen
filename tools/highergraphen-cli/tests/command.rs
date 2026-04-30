@@ -21,6 +21,7 @@ const TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA: &str =
     "highergraphen.test_semantics.interpretation_review.report.v1";
 const TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA: &str =
     "highergraphen.test_semantics.verification.report.v1";
+const TEST_SEMANTICS_GAP_REPORT_SCHEMA: &str = "highergraphen.test_semantics.gap.report.v1";
 const SEMANTIC_PROOF_INPUT_SCHEMA: &str = "highergraphen.semantic_proof.input.v1";
 const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
@@ -2419,6 +2420,175 @@ fn test_semantics_verify_promotes_reviewed_candidate_with_execution_evidence() {
         .expect("semantic proof inputs")
         .is_empty());
     assert_eq!(value["result"]["proof_object_ids"], json!([]));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn test_semantics_gap_detects_missing_expected_obligation() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let expected_path = directory.join("expected-obligations.input.json");
+    let verified_path = directory.join("test-semantics.verification.report.json");
+    fs::write(
+        &expected_path,
+        serde_json::to_string(&json!({
+            "schema": "highergraphen.test_semantics.expected_obligations.input.v1",
+            "source": {
+                "kind": "spec",
+                "boundary": "test semantics gap fixture",
+                "adapter": "test-fixture.v1"
+            },
+            "obligations": [
+                {
+                    "id": "obligation:test-semantics:architecture-smoke-direct-db-access-json",
+                    "obligation_type": "command_contract",
+                    "summary": "architecture smoke direct-db-access emits JSON.",
+                    "target_ids": [
+                        "candidate-law:command-contract:architecture-smoke-direct-db-access-format-json"
+                    ],
+                    "severity": "high",
+                    "source_ids": ["docs:cli:highergraphen"],
+                    "review_status": "accepted",
+                    "confidence": 0.9
+                },
+                {
+                    "id": "obligation:test-semantics:architecture-smoke-human-format-error",
+                    "obligation_type": "error_path",
+                    "summary": "architecture smoke direct-db-access rejects human format.",
+                    "target_ids": [
+                        "candidate-law:command-contract:architecture-smoke-direct-db-access-format-human"
+                    ],
+                    "severity": "medium",
+                    "source_ids": ["docs:cli:highergraphen"],
+                    "review_status": "accepted",
+                    "confidence": 0.82
+                }
+            ]
+        }))
+        .expect("serialize expected obligations"),
+    )
+    .expect("write expected obligations");
+    fs::write(
+        &verified_path,
+        serde_json::to_string(&json!({
+            "schema": TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA,
+            "report_type": "test_semantics_verification",
+            "report_version": 1,
+            "metadata": {
+                "command": "highergraphen test-semantics verify",
+                "cli_package": "highergraphen-cli"
+            },
+            "scenario": {
+                "interpretation_schema": TEST_SEMANTICS_INTERPRETATION_SCHEMA,
+                "review_schema": TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA,
+                "candidate_id": "binding-candidate:architecture-smoke-direct-db-access-format-json",
+                "candidate_kind": "binding_candidate",
+                "reviewer_id": "reviewer:test",
+                "test_run_path": "test-run.txt",
+                "candidate": {
+                    "id": "binding-candidate:architecture-smoke-direct-db-access-format-json",
+                    "candidate_target_ids": [
+                        "candidate-law:command-contract:architecture-smoke-direct-db-access-format-json"
+                    ],
+                    "source_ids": ["rust-test:function:smoke-command-writes-one-json-report-to-stdout"]
+                }
+            },
+            "result": {
+                "status": "verified",
+                "gates": [
+                    {
+                        "id": "gate:test-semantics:review",
+                        "gate_type": "review",
+                        "status": "passed",
+                        "summary": "Review report accepts the selected interpretation candidate.",
+                        "source_ids": ["binding-candidate:architecture-smoke-direct-db-access-format-json"]
+                    },
+                    {
+                        "id": "gate:test-semantics:evidence",
+                        "gate_type": "evidence",
+                        "status": "passed",
+                        "summary": "Passed execution evidence links to the selected candidate source IDs.",
+                        "source_ids": ["rust-test:function:smoke-command-writes-one-json-report-to-stdout"]
+                    },
+                    {
+                        "id": "gate:test-semantics:semantic-binding",
+                        "gate_type": "semantic_binding",
+                        "status": "passed",
+                        "summary": "Candidate binds to at least one target law, morphism, or semantic role.",
+                        "source_ids": [
+                            "candidate-law:command-contract:architecture-smoke-direct-db-access-format-json"
+                        ]
+                    }
+                ],
+                "verified_candidate_ids": ["binding-candidate:architecture-smoke-direct-db-access-format-json"],
+                "unverified_candidate_ids": [],
+                "accepted_fact_ids": ["fact:test-semantics:binding-candidate-architecture-smoke-direct-db-access-format-json"],
+                "coverage_ids": ["coverage:test-semantics:binding-candidate-architecture-smoke-direct-db-access-format-json"],
+                "proof_obligation_ids": ["proof-obligation:test-semantics:candidate-law-command-contract-architecture-smoke-direct-db-access-format-json"],
+                "semantic_proof_input_ids": ["semantic-proof-input:test-semantics:candidate-law-command-contract-architecture-smoke-direct-db-access-format-json"],
+                "proof_object_ids": [],
+                "verified_morphism_ids": [
+                    "verified-morphism:test-semantics:binding-candidate-architecture-smoke-direct-db-access-format-json:candidate-law-command-contract-architecture-smoke-direct-db-access-format-json"
+                ],
+                "evidence_links": [],
+                "verification_cells": []
+            },
+            "projection": {
+                "audience": "ai_agent",
+                "purpose": "test_semantics_verification",
+                "summary": "Verified reviewed test semantics candidate.",
+                "recommended_actions": ["Keep proof_object_ids empty until a proof backend verifies the obligation."],
+                "source_ids": ["binding-candidate:architecture-smoke-direct-db-access-format-json"],
+                "information_loss": [
+                    {
+                        "description": "fixture",
+                        "source_ids": ["binding-candidate:architecture-smoke-direct-db-access-format-json"]
+                    }
+                ]
+            }
+        }))
+        .expect("serialize verified report"),
+    )
+    .expect("write verified report");
+
+    let output = run_cli_owned(&[
+        "test-semantics".to_owned(),
+        "gap".to_owned(),
+        "--expected".to_owned(),
+        expected_path
+            .to_str()
+            .expect("expected path should be utf-8")
+            .to_owned(),
+        "--verified".to_owned(),
+        verified_path
+            .to_str()
+            .expect("verified path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(TEST_SEMANTICS_GAP_REPORT_SCHEMA));
+    assert_eq!(value["result"]["status"], json!("gaps_detected"));
+    assert_eq!(value["result"]["covered_count"], json!(1));
+    assert_eq!(value["result"]["missing_count"], json!(1));
+    assert_eq!(
+        value["result"]["missing_obligations"][0]["id"],
+        json!("obligation:test-semantics:architecture-smoke-human-format-error")
+    );
+    assert_eq!(
+        value["result"]["completion_candidates"][0]["candidate_type"],
+        json!("missing_test")
+    );
+    assert_eq!(
+        value["result"]["completion_candidates"][0]["review_status"],
+        json!("unreviewed")
+    );
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
 }

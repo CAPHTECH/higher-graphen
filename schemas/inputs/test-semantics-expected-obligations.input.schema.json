@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_semantics.expected_obligations.input.v1",
+  "title": "HigherGraphen Test Semantics Expected Obligations Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "obligations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_semantics.expected_obligations.input.v1"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "boundary"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "spec",
+            "code",
+            "manual"
+          ]
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/obligation"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "obligation_type",
+        "summary",
+        "target_ids",
+        "severity",
+        "source_ids",
+        "review_status",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "obligation_type": {
+          "enum": [
+            "command_contract",
+            "schema_identity",
+            "json_field_contract",
+            "error_path",
+            "boundary_case",
+            "regression_law"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "review_status": {
+          "enum": [
+            "accepted",
+            "unreviewed"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}
