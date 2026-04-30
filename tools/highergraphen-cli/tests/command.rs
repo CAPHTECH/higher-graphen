@@ -1020,6 +1020,117 @@ fn semantic_proof_input_from_test_semantics_verification_report_feeds_verify() {
 }
 
 #[test]
+fn semantic_proof_attach_artifact_proves_test_semantics_obligation() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let base_input_path = directory.join("semantic-proof.from-test-semantics.input.json");
+    let proved_input_path = directory.join("semantic-proof.with-artifact.input.json");
+    let artifact_path = directory.join("proof-artifact.json");
+    let verification_report = test_semantics_verification_report_fixture();
+
+    let generated = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "input".to_owned(),
+        "from-report".to_owned(),
+        "--report".to_owned(),
+        verification_report
+            .to_str()
+            .expect("verification report path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        base_input_path
+            .to_str()
+            .expect("proof input path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(generated.status.success(), "stderr: {}", stderr(&generated));
+
+    fs::write(
+        &artifact_path,
+        json!({
+            "status": "proved",
+            "input_hash": "fnv64:test-semantics-input",
+            "proof_hash": "fnv64:test-semantics-proof",
+            "review_status": "accepted",
+            "confidence": 0.93
+        })
+        .to_string(),
+    )
+    .expect("write proof artifact");
+
+    let attached = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "input".to_owned(),
+        "attach-artifact".to_owned(),
+        "--input".to_owned(),
+        base_input_path
+            .to_str()
+            .expect("base input path should be utf-8")
+            .to_owned(),
+        "--artifact".to_owned(),
+        artifact_path
+            .to_str()
+            .expect("artifact path should be utf-8")
+            .to_owned(),
+        "--backend".to_owned(),
+        "kani".to_owned(),
+        "--backend-version".to_owned(),
+        "1.0.0".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        proved_input_path
+            .to_str()
+            .expect("proved input path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(attached.status.success(), "stderr: {}", stderr(&attached));
+    assert!(stdout(&attached).is_empty());
+
+    let value: Value = serde_json::from_str(
+        &fs::read_to_string(&proved_input_path).expect("read attached proof input"),
+    )
+    .expect("attached proof input should be JSON");
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("adapters")
+        .contains(&json!("semantic-proof-attach-artifact.v1")));
+    assert_eq!(
+        value["proof_certificates"][0]["law_ids"],
+        value["theorem"]["law_ids"]
+    );
+    assert_eq!(
+        value["proof_certificates"][0]["morphism_ids"],
+        value["theorem"]["morphism_ids"]
+    );
+
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        proved_input_path
+            .to_str()
+            .expect("proved input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["result"]["status"], json!("proved"));
+    assert!(!report["result"]["proof_objects"]
+        .as_array()
+        .expect("proof objects")
+        .is_empty());
+    assert!(report["result"].get("issues").is_none());
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
 fn test_gap_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[

@@ -364,6 +364,24 @@ unresolved proof obligations can be routed back to backend execution or
 artifact attachment without treating suggested or failed structure as accepted.
 
 ```sh
+highergraphen semantic-proof input attach-artifact \
+  --input <path> \
+  --artifact <path> \
+  --backend <name> \
+  --backend-version <version> \
+  --format json \
+  [--output <path>]
+```
+
+This command reads an existing `highergraphen.semantic_proof.input.v1` snapshot
+and attaches a bounded backend artifact as a proof certificate or counterexample
+for the input theorem, laws, and morphisms. It records the
+`semantic-proof-attach-artifact.v1` adapter, adds the backend to the accepted
+backend policy, and preserves the existing theorem structure. A proved artifact
+must still satisfy the proof verification policy when the resulting input is
+passed to `semantic-proof verify`.
+
+```sh
 highergraphen semantic-proof verify --input <path> --format json [--output <path>]
 ```
 
@@ -441,6 +459,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--base-cell <id>` / `--base-label <text>` | For `semantic-proof input from-artifact` | Defines the source semantic endpoint for the morphism. |
 | `--head-cell <id>` / `--head-label <text>` | For `semantic-proof input from-artifact` | Defines the target semantic endpoint for the morphism. |
 | `--report <path>` | For `semantic-proof input from-report` | Reads an insufficient semantic-proof report or verified test-semantics verification report and emits semantic proof input. |
+| `--artifact <path>` | For `semantic-proof input attach-artifact` | Reads a bounded backend artifact and attaches it to an existing semantic proof input. |
 | `--input <path>` | For `semantic-proof verify` | Reads the bounded semantic proof certificate snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |

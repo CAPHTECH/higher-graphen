@@ -76,6 +76,17 @@ highergraphen semantic-proof input from-report \
   --format json
 ```
 
+The generated proof input can then receive a backend certificate with:
+
+```sh
+highergraphen semantic-proof input attach-artifact \
+  --input semantic-proof.input.json \
+  --artifact proof-artifact.json \
+  --backend kani \
+  --backend-version 1.0.0 \
+  --format json
+```
+
 `feed-reader.report.schema.json` defines the v1 contract for
 `highergraphen.feed.reader.report.v1`. The matching example fixture is
 generated from:

@@ -4,6 +4,7 @@ mod pr_review_git;
 mod pr_review_structural;
 mod rust_test_semantics;
 mod semantic_proof_artifact;
+mod semantic_proof_attach_artifact;
 mod semantic_proof_backend;
 mod semantic_proof_reinput;
 mod test_gap_evidence;
@@ -51,6 +52,7 @@ const USAGE: &str = "usage:
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
   highergraphen semantic-proof input from-report --report <path> --format json [--output <path>]
+  highergraphen semantic-proof input attach-artifact --input <path> --artifact <path> --backend <name> --backend-version <version> --format json [--output <path>]
   highergraphen semantic-proof verify --input <path> --format json [--output <path>]
   highergraphen completion review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]
   highergraphen completion review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--reviewed-at <text>] [--output <path>]";
@@ -186,6 +188,13 @@ enum Command {
     },
     SemanticProofInputFromReport {
         report: PathBuf,
+        output: Option<PathBuf>,
+    },
+    SemanticProofInputAttachArtifact {
+        input: PathBuf,
+        artifact: PathBuf,
+        backend: String,
+        backend_version: String,
         output: Option<PathBuf>,
     },
     CompletionReview {
@@ -580,6 +589,24 @@ impl Command {
                     output: options.output,
                 })
             }
+            Some("attach-artifact") => {
+                let options = SemanticProofAttachArtifactOptions::parse(args)?;
+                Ok(Self::SemanticProofInputAttachArtifact {
+                    input: options
+                        .input
+                        .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+                    artifact: options
+                        .artifact
+                        .ok_or_else(|| CliError::usage("--artifact <path> is required"))?,
+                    backend: options
+                        .backend
+                        .ok_or_else(|| CliError::usage("--backend <name> is required"))?,
+                    backend_version: options.backend_version.ok_or_else(|| {
+                        CliError::usage("--backend-version <version> is required")
+                    })?,
+                    output: options.output,
+                })
+            }
             Some(_) | None => Err(CliError::usage(
                 "unsupported semantic-proof input command segment",
             )),
@@ -633,6 +660,7 @@ impl Command {
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofInputFromReport { output, .. }
+            | Self::SemanticProofInputAttachArtifact { output, .. }
             | Self::SemanticProofVerify { output, .. }
             | Self::CompletionReview { output, .. } => output.as_ref(),
         }
@@ -869,6 +897,26 @@ impl Command {
                 let report = read_json_value(report)?;
                 let document = semantic_proof_reinput::input_from_report_value(report)
                     .map_err(CliError::SemanticProofArtifact)?;
+                serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::SemanticProofInputAttachArtifact {
+                input,
+                artifact,
+                backend,
+                backend_version,
+                ..
+            } => {
+                let input = read_semantic_proof_input_document(input)?;
+                let document = semantic_proof_attach_artifact::attach_artifact(
+                    semantic_proof_attach_artifact::AttachArtifactRequest {
+                        input,
+                        artifact: artifact.clone(),
+                        backend: backend.clone(),
+                        backend_version: backend_version.clone(),
+                    },
+                )
+                .map_err(CliError::SemanticProofArtifact)?;
                 serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
@@ -1271,6 +1319,48 @@ impl SemanticProofReportInputOptions {
                 format_seen = true;
             } else if arg == "--report" {
                 options.report = Some(require_path(&mut args, "--report")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct SemanticProofAttachArtifactOptions {
+    input: Option<PathBuf>,
+    artifact: Option<PathBuf>,
+    backend: Option<String>,
+    backend_version: Option<String>,
+    output: Option<PathBuf>,
+}
+
+impl SemanticProofAttachArtifactOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--artifact" {
+                options.artifact = Some(require_path(&mut args, "--artifact")?);
+            } else if arg == "--backend" {
+                options.backend = Some(require_string(&mut args, "--backend")?);
+            } else if arg == "--backend-version" {
+                options.backend_version = Some(require_string(&mut args, "--backend-version")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
