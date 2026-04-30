@@ -51,6 +51,23 @@ semantics interpretation candidate. It preserves the source candidate snapshot,
 records the reviewed candidate status, and deliberately leaves accepted facts,
 coverage IDs, and proof object IDs empty.
 
+`test-semantics-verification.report.schema.json` defines the v1 contract for
+`highergraphen.test_semantics.verification.report.v1`. The report is generated
+by:
+
+```sh
+highergraphen test-semantics verify \
+  --interpretation test-semantics.interpretation.json \
+  --review test-semantics.interpretation-review.report.json \
+  --test-run test-run.txt \
+  --format json
+```
+
+This report applies review, evidence, and semantic-binding gates before
+promoting a reviewed interpretation candidate into accepted facts, coverage,
+proof obligations, semantic proof input IDs, and verified morphisms. It keeps
+`proof_object_ids` empty until a proof backend verifies the obligation.
+
 `feed-reader.report.schema.json` defines the v1 contract for
 `highergraphen.feed.reader.report.v1`. The matching example fixture is
 generated from:

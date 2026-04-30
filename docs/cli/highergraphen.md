@@ -247,6 +247,25 @@ or proof objects; they are review decisions that a later verification workflow
 can consume.
 
 ```sh
+highergraphen test-semantics verify \
+  --interpretation <path> \
+  --review <path> \
+  --format json \
+  [--test-run <path>] \
+  [--output <path>]
+```
+
+This command reads a test semantics interpretation and a matching
+interpretation review report. It applies three gates before promoting the
+candidate into verified structure: the review report must accept the candidate,
+passed execution evidence must link to the candidate's source IDs, and the
+candidate must bind to at least one target law, morphism, or semantic role. A
+verified report may emit `accepted_fact_ids`, `coverage_ids`,
+`proof_obligation_ids`, `semantic_proof_input_ids`, and
+`verified_morphism_ids`. It still keeps `proof_object_ids` empty until a
+separate proof backend verifies the generated obligation.
+
+```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
 ```
 
@@ -393,6 +412,9 @@ the source report and do not promote the candidate into accepted facts.
 | `--candidate <id>` | For `test-semantics review` | Selects the interpreted cell, interpreted morphism, candidate law, binding candidate, or evidence link to accept or reject. |
 | `--reviewer <id>` | For `test-semantics review` | Records the explicit reviewer or workflow identifier. |
 | `--reason <text>` | For `test-semantics review` | Records the explicit acceptance or rejection rationale. |
+| `--interpretation <path>` | For `test-semantics verify` | Reads the AI-created test semantics interpretation document. |
+| `--review <path>` | For `test-semantics verify` | Reads the explicit interpretation review report. |
+| `--test-run <path>` | For `test-semantics verify` | Records the test-run artifact path used to produce interpretation evidence links. |
 | `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
 | `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
@@ -780,6 +802,24 @@ records the explicit decision under `result.review_record.request`.
 `result.accepted_fact_ids`, `result.coverage_ids`, and
 `result.proof_object_ids` remain empty because review is not verification.
 
+The test semantics verification report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.test_semantics.verification.report.v1` |
+| Report type | `test_semantics_verification` |
+| Report version | `1` |
+| Report schema | [`test-semantics-verification.report.schema.json`](../../schemas/reports/test-semantics-verification.report.schema.json) |
+| Runtime runner | CLI-local verification adapter |
+
+The verification report records the reviewed candidate under
+`scenario.candidate`, then evaluates review, evidence, and semantic-binding
+gates under `result.gates`. Only when all gates pass does it emit
+`result.accepted_fact_ids`, `result.coverage_ids`,
+`result.proof_obligation_ids`, `result.semantic_proof_input_ids`, and
+`result.verified_morphism_ids`. It deliberately leaves
+`result.proof_object_ids` empty; proof objects require a later proof backend.
+
 ## Semantic Rules
 
 Consumers must preserve these semantics:
@@ -792,6 +832,11 @@ Consumers must preserve these semantics:
   review report and never edits or silently promotes the source candidate.
 - Accepting or rejecting a test semantics interpretation candidate emits a
   separate auditable review report and never creates coverage or proof objects.
+- Verifying a reviewed test semantics candidate may create coverage and proof
+  obligations only when review, passed execution evidence, and semantic binding
+  gates all pass.
+- Test semantics verification creates proof input identifiers, not proof
+  objects; proof object creation remains owned by `semantic-proof verify`.
 - The input lift path treats JSON `components` and `relations` as accepted
   facts and JSON `inferred_structures` as unreviewed candidates.
 - The feed reader path treats JSON `source_feeds` and `entries` as accepted

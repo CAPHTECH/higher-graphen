@@ -19,6 +19,8 @@ const RUST_TEST_SEMANTICS_SCHEMA: &str = "highergraphen.rust_test_semantics.inpu
 const TEST_SEMANTICS_INTERPRETATION_SCHEMA: &str = "highergraphen.test_semantics.interpretation.v1";
 const TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA: &str =
     "highergraphen.test_semantics.interpretation_review.report.v1";
+const TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA: &str =
+    "highergraphen.test_semantics.verification.report.v1";
 const SEMANTIC_PROOF_INPUT_SCHEMA: &str = "highergraphen.semantic_proof.input.v1";
 const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
@@ -2069,6 +2071,162 @@ fn test_semantics_review_accepts_candidate_without_promoting_coverage_or_proof()
         .as_object()
         .expect("report object")
         .contains_key("coverage"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn test_semantics_verify_promotes_reviewed_candidate_with_execution_evidence() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let interpretation_path = directory.join("test-semantics.interpretation.json");
+    let review_path = directory.join("test-semantics.review.report.json");
+    let test_run_path = directory.join("test-run.txt");
+    fs::write(
+        &interpretation_path,
+        serde_json::to_string(&json!({
+            "schema": TEST_SEMANTICS_INTERPRETATION_SCHEMA,
+            "source": {
+                "kind": "ai_agent",
+                "input_schema": RUST_TEST_SEMANTICS_SCHEMA,
+                "interpreter": "codex",
+                "review_status": "unreviewed"
+            },
+            "interpreted_cells": [],
+            "interpreted_morphisms": [],
+            "candidate_laws": [
+                {
+                    "id": "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1",
+                    "summary": "Data observation schema:acme.audit.input.v1 should preserve schema identity.",
+                    "source_ids": [
+                        "rust-test:function:tests-generic-command-rs:emits-json-contract"
+                    ],
+                    "confidence": 0.6,
+                    "review_status": "unreviewed"
+                }
+            ],
+            "binding_candidates": [
+                {
+                    "id": "binding-candidate:schema-acme-audit-input-v1",
+                    "semantic_role": "schema_identity_preservation",
+                    "trigger_terms": ["schema:acme.audit.input.v1"],
+                    "candidate_target_ids": [
+                        "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+                    ],
+                    "source_ids": [
+                        "rust-test:function:tests-generic-command-rs:emits-json-contract"
+                    ],
+                    "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+                    "confidence": 0.58,
+                    "review_status": "unreviewed"
+                }
+            ],
+            "evidence_links": [
+                {
+                    "id": "evidence-link:execution-case-tests-emits-json-contract:tests-generic-command-rs-emits-json-contract",
+                    "source_id": "execution-case:tests-emits-json-contract",
+                    "target_id": "rust-test:function-ref:tests-generic-command-rs-emits-json-contract",
+                    "relation_type": "execution_case_matches_test_function",
+                    "status": "passed",
+                    "confidence": 0.62
+                }
+            ],
+            "information_loss": [
+                "Interpretation candidates are not accepted coverage."
+            ]
+        }))
+        .expect("serialize interpretation input"),
+    )
+    .expect("write interpretation input");
+    fs::write(&test_run_path, "test tests::emits_json_contract ... ok\n")
+        .expect("write test run evidence");
+
+    let review_output = run_cli_owned(&[
+        "test-semantics".to_owned(),
+        "review".to_owned(),
+        "accept".to_owned(),
+        "--input".to_owned(),
+        interpretation_path
+            .to_str()
+            .expect("interpretation path should be utf-8")
+            .to_owned(),
+        "--candidate".to_owned(),
+        "binding-candidate:schema-acme-audit-input-v1".to_owned(),
+        "--reviewer".to_owned(),
+        "reviewer:test-semantics".to_owned(),
+        "--reason".to_owned(),
+        "The test asserts the schema identity contract.".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        review_path
+            .to_str()
+            .expect("review path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(
+        review_output.status.success(),
+        "stderr: {}",
+        stderr(&review_output)
+    );
+
+    let output = run_cli_owned(&[
+        "test-semantics".to_owned(),
+        "verify".to_owned(),
+        "--interpretation".to_owned(),
+        interpretation_path
+            .to_str()
+            .expect("interpretation path should be utf-8")
+            .to_owned(),
+        "--review".to_owned(),
+        review_path
+            .to_str()
+            .expect("review path should be utf-8")
+            .to_owned(),
+        "--test-run".to_owned(),
+        test_run_path
+            .to_str()
+            .expect("test run path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(
+        value["schema"],
+        json!(TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA)
+    );
+    assert_eq!(value["result"]["status"], json!("verified"));
+    assert_eq!(
+        value["result"]["verified_candidate_ids"],
+        json!(["binding-candidate:schema-acme-audit-input-v1"])
+    );
+    assert!(value["result"]["gates"]
+        .as_array()
+        .expect("gates")
+        .iter()
+        .all(|gate| gate["status"] == json!("passed")));
+    assert_eq!(
+        value["result"]["accepted_fact_ids"],
+        json!(["fact:test-semantics:binding-candidate-schema-acme-audit-input-v1"])
+    );
+    assert_eq!(
+        value["result"]["coverage_ids"],
+        json!(["coverage:test-semantics:binding-candidate-schema-acme-audit-input-v1"])
+    );
+    assert!(!value["result"]["proof_obligation_ids"]
+        .as_array()
+        .expect("proof obligations")
+        .is_empty());
+    assert!(!value["result"]["semantic_proof_input_ids"]
+        .as_array()
+        .expect("semantic proof inputs")
+        .is_empty());
+    assert_eq!(value["result"]["proof_object_ids"], json!([]));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
 }

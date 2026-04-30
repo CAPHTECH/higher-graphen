@@ -1,0 +1,137 @@
+{
+  "schema": "highergraphen.test_semantics.verification.report.v1",
+  "report_type": "test_semantics_verification",
+  "report_version": 1,
+  "metadata": {
+    "command": "highergraphen test-semantics verify",
+    "cli_package": "highergraphen-cli"
+  },
+  "scenario": {
+    "interpretation_schema": "highergraphen.test_semantics.interpretation.v1",
+    "review_schema": "highergraphen.test_semantics.interpretation_review.report.v1",
+    "candidate_id": "binding-candidate:schema-acme-audit-input-v1",
+    "candidate_kind": "binding_candidate",
+    "reviewer_id": "reviewer:test-semantics",
+    "test_run_path": "test-run.txt",
+    "candidate": {
+      "id": "binding-candidate:schema-acme-audit-input-v1",
+      "semantic_role": "schema_identity_preservation",
+      "trigger_terms": [
+        "schema:acme.audit.input.v1"
+      ],
+      "candidate_target_ids": [
+        "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+      ],
+      "source_ids": [
+        "rust-test:function:tests-generic-command-rs:emits-json-contract"
+      ],
+      "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+      "confidence": 0.58,
+      "review_status": "unreviewed"
+    }
+  },
+  "result": {
+    "status": "verified",
+    "gates": [
+      {
+        "id": "gate:test-semantics:review",
+        "gate_type": "review",
+        "status": "passed",
+        "summary": "Review report accepts the selected interpretation candidate.",
+        "source_ids": [
+          "binding-candidate:schema-acme-audit-input-v1"
+        ]
+      },
+      {
+        "id": "gate:test-semantics:evidence",
+        "gate_type": "evidence",
+        "status": "passed",
+        "summary": "Passed execution evidence links to the selected candidate source IDs.",
+        "source_ids": [
+          "rust-test:function:tests-generic-command-rs:emits-json-contract"
+        ]
+      },
+      {
+        "id": "gate:test-semantics:semantic-binding",
+        "gate_type": "semantic_binding",
+        "status": "passed",
+        "summary": "Candidate binds to at least one target law, morphism, or semantic role.",
+        "source_ids": [
+          "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+        ]
+      }
+    ],
+    "verified_candidate_ids": [
+      "binding-candidate:schema-acme-audit-input-v1"
+    ],
+    "unverified_candidate_ids": [],
+    "accepted_fact_ids": [
+      "fact:test-semantics:binding-candidate-schema-acme-audit-input-v1"
+    ],
+    "coverage_ids": [
+      "coverage:test-semantics:binding-candidate-schema-acme-audit-input-v1"
+    ],
+    "proof_obligation_ids": [
+      "proof-obligation:test-semantics:candidate-law-schema-identity-preservation-schema-acme-audit-input-v1"
+    ],
+    "semantic_proof_input_ids": [
+      "semantic-proof-input:test-semantics:candidate-law-schema-identity-preservation-schema-acme-audit-input-v1"
+    ],
+    "proof_object_ids": [],
+    "verified_morphism_ids": [
+      "verified-morphism:test-semantics:binding-candidate-schema-acme-audit-input-v1:candidate-law-schema-identity-preservation-schema-acme-audit-input-v1"
+    ],
+    "evidence_links": [
+      {
+        "id": "evidence-link:execution-case-tests-emits-json-contract:tests-generic-command-rs-emits-json-contract",
+        "source_id": "execution-case:tests-emits-json-contract",
+        "target_id": "rust-test:function-ref:tests-generic-command-rs-emits-json-contract",
+        "relation_type": "execution_case_matches_test_function",
+        "status": "passed",
+        "confidence": 0.62
+      }
+    ],
+    "verification_cells": [
+      {
+        "id": "fact:test-semantics:binding-candidate-schema-acme-audit-input-v1",
+        "cell_type": "verified_test_semantics_candidate",
+        "candidate_id": "binding-candidate:schema-acme-audit-input-v1",
+        "coverage_id": "coverage:test-semantics:binding-candidate-schema-acme-audit-input-v1",
+        "source_ids": [
+          "rust-test:function:tests-generic-command-rs:emits-json-contract"
+        ],
+        "target_ids": [
+          "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+        ],
+        "review_status": "accepted",
+        "confidence": 0.74
+      }
+    ]
+  },
+  "projection": {
+    "audience": "ai_agent",
+    "purpose": "test_semantics_verification",
+    "summary": "Verified reviewed test semantics candidate binding-candidate:schema-acme-audit-input-v1 with passed execution evidence.",
+    "recommended_actions": [
+      "Use semantic_proof_input_ids to enqueue formal proof input generation when a proof backend is required.",
+      "Keep proof_object_ids empty until a proof backend verifies the obligation."
+    ],
+    "source_ids": [
+      "binding-candidate:schema-acme-audit-input-v1"
+    ],
+    "information_loss": [
+      {
+        "description": "Verification consumes bounded interpretation and review reports; it does not inspect full source bodies.",
+        "source_ids": [
+          "binding-candidate:schema-acme-audit-input-v1"
+        ]
+      },
+      {
+        "description": "This workflow creates proof obligations and semantic proof input IDs, not proof objects.",
+        "source_ids": [
+          "binding-candidate:schema-acme-audit-input-v1"
+        ]
+      }
+    ]
+  }
+}
