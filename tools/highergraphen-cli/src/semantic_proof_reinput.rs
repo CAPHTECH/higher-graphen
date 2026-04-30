@@ -1,12 +1,34 @@
-//! Rebuilds semantic proof inputs from insufficient proof reports.
+//! Rebuilds semantic proof inputs from insufficient proof and verification reports.
 
-use higher_graphen_core::{Id, SourceKind};
+use higher_graphen_core::{Confidence, Id, SourceKind};
 use higher_graphen_runtime::{
-    SemanticProofCell, SemanticProofInputDocument, SemanticProofMorphism, SemanticProofReport,
-    SemanticProofSource, SemanticProofStatus,
+    SemanticProofCell, SemanticProofInputDocument, SemanticProofLaw, SemanticProofMorphism,
+    SemanticProofReport, SemanticProofSource, SemanticProofStatus, SemanticProofTheorem,
+    SemanticProofVerificationPolicy,
 };
+use serde_json::Value;
 
 const ADAPTER_NAME: &str = "semantic-proof-reinput-from-report.v1";
+const TEST_SEMANTICS_VERIFICATION_ADAPTER_NAME: &str =
+    "test-semantics-verification-to-semantic-proof-input.v1";
+const TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA: &str =
+    "highergraphen.test_semantics.verification.report.v1";
+
+pub(crate) fn input_from_report_value(report: Value) -> Result<SemanticProofInputDocument, String> {
+    match report.get("schema").and_then(Value::as_str) {
+        Some("highergraphen.semantic_proof.report.v1") => {
+            let report = serde_json::from_value(report).map_err(|error| error.to_string())?;
+            input_from_report(report)
+        }
+        Some(TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA) => {
+            input_from_test_semantics_verification_report(&report)
+        }
+        Some(schema) => Err(format!(
+            "unsupported semantic-proof input report schema {schema}; expected highergraphen.semantic_proof.report.v1 or {TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA}"
+        )),
+        None => Err("semantic-proof input report needs schema".to_owned()),
+    }
+}
 
 pub(crate) fn input_from_report(
     report: SemanticProofReport,
@@ -119,5 +141,204 @@ fn push_ids(target: &mut Vec<Id>, ids: Vec<Id>) {
         if !target.contains(&id) {
             target.push(id);
         }
+    }
+}
+
+fn input_from_test_semantics_verification_report(
+    report: &Value,
+) -> Result<SemanticProofInputDocument, String> {
+    let result = report
+        .get("result")
+        .ok_or_else(|| "test semantics verification report needs result".to_owned())?;
+    if result.get("status").and_then(Value::as_str) != Some("verified") {
+        return Err(
+            "test semantics verification report must have result.status == verified".to_owned(),
+        );
+    }
+
+    let scenario = report
+        .get("scenario")
+        .ok_or_else(|| "test semantics verification report needs scenario".to_owned())?;
+    let candidate_id = required_string(scenario, "candidate_id")?;
+    let candidate = scenario
+        .get("candidate")
+        .ok_or_else(|| "test semantics verification report needs scenario.candidate".to_owned())?;
+    let law_ids = candidate_target_ids(candidate, result)?;
+    if law_ids.is_empty() {
+        return Err(
+            "test semantics verification report contains no semantic proof target laws".to_owned(),
+        );
+    }
+
+    let morphism_ids = verified_morphism_ids(result, candidate_id, &law_ids)?;
+    let confidence = Confidence::new(0.74).map_err(|error| error.to_string())?;
+    let source_ids = string_array(candidate.get("source_ids"))?;
+    let theorem_id = id(format!("theorem:test-semantics:{}", slug(candidate_id)))?;
+
+    let mut semantic_cells = Vec::new();
+    let candidate_cell_id = id(format!(
+        "cell:test-semantics:candidate:{}",
+        slug(candidate_id)
+    ))?;
+    semantic_cells.push(SemanticProofCell {
+        id: candidate_cell_id.clone(),
+        cell_type: "verified_test_semantics_candidate".to_owned(),
+        label: format!("Verified test semantics candidate {candidate_id}"),
+        source_ids: ids(source_ids.iter().cloned())?,
+        confidence: Some(confidence),
+    });
+
+    let mut morphisms = Vec::new();
+    let mut laws = Vec::new();
+    let mut theorem_law_ids = Vec::new();
+    let mut theorem_morphism_ids = Vec::new();
+    for (index, law_id_text) in law_ids.iter().enumerate() {
+        let law_id = id(law_id_text.clone())?;
+        let morphism_id = id(morphism_ids[index].clone())?;
+        let law_cell_id = id(format!("cell:test-semantics:law:{}", slug(law_id.as_str())))?;
+        semantic_cells.push(SemanticProofCell {
+            id: law_cell_id.clone(),
+            cell_type: "semantic_law_target".to_owned(),
+            label: format!("Semantic law target {law_id}"),
+            source_ids: vec![law_id.clone()],
+            confidence: Some(confidence),
+        });
+        morphisms.push(SemanticProofMorphism {
+            id: morphism_id.clone(),
+            morphism_type: "verified_test_semantics_candidate_to_law".to_owned(),
+            source_ids: vec![candidate_cell_id.clone()],
+            target_ids: vec![law_cell_id],
+            law_ids: vec![law_id.clone()],
+            confidence: Some(confidence),
+        });
+        laws.push(SemanticProofLaw {
+            id: law_id.clone(),
+            summary: format!(
+                "Verified test semantics candidate {candidate_id} must preserve {law_id}."
+            ),
+            applies_to_ids: vec![morphism_id.clone()],
+            confidence: Some(confidence),
+        });
+        theorem_law_ids.push(law_id);
+        theorem_morphism_ids.push(morphism_id);
+    }
+
+    Ok(SemanticProofInputDocument {
+        schema: "highergraphen.semantic_proof.input.v1".to_owned(),
+        source: SemanticProofSource {
+            kind: SourceKind::Code,
+            uri: Some(format!("test-semantics-verification:{candidate_id}")),
+            title: Some("Test semantics verification proof obligations".to_owned()),
+            confidence,
+            adapters: vec![TEST_SEMANTICS_VERIFICATION_ADAPTER_NAME.to_owned()],
+        },
+        theorem: SemanticProofTheorem {
+            id: theorem_id,
+            summary: format!(
+                "Reviewed test semantics candidate {candidate_id} has formal proof obligations."
+            ),
+            law_ids: theorem_law_ids,
+            morphism_ids: theorem_morphism_ids,
+        },
+        semantic_cells,
+        morphisms,
+        laws,
+        proof_certificates: Vec::new(),
+        counterexamples: Vec::new(),
+        verification_policy: SemanticProofVerificationPolicy {
+            accepted_backends: Vec::new(),
+            require_input_hash: true,
+            require_proof_hash: true,
+            require_accepted_review: true,
+            require_accepted_counterexample_review: true,
+        },
+    })
+}
+
+fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str, String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("missing or invalid {key}"))
+}
+
+fn candidate_target_ids(candidate: &Value, result: &Value) -> Result<Vec<String>, String> {
+    let mut law_ids = string_array(candidate.get("candidate_target_ids"))?;
+    law_ids.extend(string_array(candidate.get("target_ids"))?);
+    if law_ids.is_empty() {
+        law_ids.extend(
+            string_array(result.get("proof_obligation_ids"))?
+                .into_iter()
+                .map(|obligation_id| {
+                    obligation_id
+                        .trim_start_matches("proof-obligation:test-semantics:")
+                        .to_owned()
+                }),
+        );
+    }
+    law_ids.sort();
+    law_ids.dedup();
+    Ok(law_ids)
+}
+
+fn verified_morphism_ids(
+    result: &Value,
+    candidate_id: &str,
+    law_ids: &[String],
+) -> Result<Vec<String>, String> {
+    let supplied = string_array(result.get("verified_morphism_ids"))?;
+    if supplied.len() == law_ids.len() {
+        return Ok(supplied);
+    }
+    Ok(law_ids
+        .iter()
+        .map(|law_id| {
+            format!(
+                "morphism:test-semantics-proof:{}:{}",
+                slug(candidate_id),
+                slug(law_id)
+            )
+        })
+        .collect())
+}
+
+fn string_array(value: Option<&Value>) -> Result<Vec<String>, String> {
+    match value {
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| "expected string array entries".to_owned())
+            })
+            .collect(),
+        Some(_) => Err("expected string array".to_owned()),
+        None => Ok(Vec::new()),
+    }
+}
+
+fn ids(values: impl IntoIterator<Item = String>) -> Result<Vec<Id>, String> {
+    values.into_iter().map(id).collect()
+}
+
+fn id(value: impl Into<String>) -> Result<Id, String> {
+    Id::new(value).map_err(|error| error.to_string())
+}
+
+fn slug(value: &str) -> String {
+    let mut slug = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character.to_ascii_lowercase());
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let normalized = slug.trim_matches('-').to_owned();
+    if normalized.is_empty() {
+        "semantic-proof".to_owned()
+    } else {
+        normalized
     }
 }

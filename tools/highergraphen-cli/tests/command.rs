@@ -939,6 +939,87 @@ fn semantic_proof_input_from_report_requeues_unproved_obligations() {
 }
 
 #[test]
+fn semantic_proof_input_from_test_semantics_verification_report_feeds_verify() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let proof_input_path = directory.join("semantic-proof.from-test-semantics.input.json");
+    let verification_report = test_semantics_verification_report_fixture();
+
+    let generated = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "input".to_owned(),
+        "from-report".to_owned(),
+        "--report".to_owned(),
+        verification_report
+            .to_str()
+            .expect("verification report path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+        "--output".to_owned(),
+        proof_input_path
+            .to_str()
+            .expect("proof input path should be utf-8")
+            .to_owned(),
+    ]);
+    assert!(generated.status.success(), "stderr: {}", stderr(&generated));
+    assert!(stdout(&generated).is_empty());
+
+    let value: Value = serde_json::from_str(
+        &fs::read_to_string(&proof_input_path).expect("read generated proof input"),
+    )
+    .expect("proof input should be JSON");
+    assert_eq!(value["schema"], json!(SEMANTIC_PROOF_INPUT_SCHEMA));
+    assert!(value["source"]["adapters"]
+        .as_array()
+        .expect("adapters")
+        .contains(&json!(
+            "test-semantics-verification-to-semantic-proof-input.v1"
+        )));
+    assert_eq!(
+        value["theorem"]["law_ids"],
+        json!(["candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"])
+    );
+    assert!(!value["theorem"]["morphism_ids"]
+        .as_array()
+        .expect("morphism ids")
+        .is_empty());
+    assert!(value["proof_certificates"]
+        .as_array()
+        .expect("proof certificates")
+        .is_empty());
+
+    let verify = run_cli_owned(&[
+        "semantic-proof".to_owned(),
+        "verify".to_owned(),
+        "--input".to_owned(),
+        proof_input_path
+            .to_str()
+            .expect("proof input path should be utf-8")
+            .to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+    assert!(verify.status.success(), "stderr: {}", stderr(&verify));
+    let report: Value =
+        serde_json::from_str(stdout(&verify).trim_end()).expect("verify stdout should be JSON");
+    assert_eq!(report["schema"], json!(SEMANTIC_PROOF_REPORT_SCHEMA));
+    assert_eq!(report["result"]["status"], json!("insufficient_proof"));
+    assert!(report["result"]["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .any(|issue| issue["issue_type"] == json!("missing_law_proof")));
+    assert!(report["result"]["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .any(|issue| issue["issue_type"] == json!("missing_morphism_proof")));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
 fn test_gap_input_from_git_emits_bounded_snapshot() {
     let repository = write_git_fixture();
     let output = run_cli(&[
@@ -3062,6 +3143,12 @@ fn semantic_proof_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/semantic-proof.input.example.json")
+}
+
+fn test_semantics_verification_report_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/reports/test-semantics-verification.report.example.json")
 }
 
 fn semantic_artifact_command(artifact: &Path, output: Option<&Path>) -> Vec<String> {

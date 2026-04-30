@@ -19,7 +19,7 @@ use higher_graphen_runtime::{
     run_test_gap_detect, ArchitectureInputLiftDocument, CompletionReviewDecision,
     CompletionReviewRequest, CompletionReviewSnapshot, CompletionReviewSourceReport,
     FeedReaderInputDocument, PrReviewTargetInputDocument, RuntimeError, SemanticProofInputDocument,
-    SemanticProofReport, TestGapInputDocument,
+    TestGapInputDocument,
 };
 use rust_test_semantics::RustTestSemanticsPathRequest;
 use serde_json::Value;
@@ -866,8 +866,8 @@ impl Command {
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::SemanticProofInputFromReport { report, .. } => {
-                let semantic_report = read_semantic_proof_report(report)?;
-                let document = semantic_proof_reinput::input_from_report(semantic_report)
+                let report = read_json_value(report)?;
+                let document = semantic_proof_reinput::input_from_report_value(report)
                     .map_err(CliError::SemanticProofArtifact)?;
                 serde_json::to_string(&document)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
@@ -1574,17 +1574,6 @@ fn read_test_gap_input_document(path: &Path) -> Result<TestGapInputDocument, Cli
 }
 
 fn read_semantic_proof_input_document(path: &Path) -> Result<SemanticProofInputDocument, CliError> {
-    let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
-        path: path.to_owned(),
-        source,
-    })?;
-    serde_json::from_str(&text).map_err(|source| CliError::InputParse {
-        path: path.to_owned(),
-        source,
-    })
-}
-
-fn read_semantic_proof_report(path: &Path) -> Result<SemanticProofReport, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
         source,

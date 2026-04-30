@@ -352,12 +352,16 @@ highergraphen semantic-proof input from-report \
   [--output <path>]
 ```
 
-This command reads an `insufficient_proof` semantic-proof report and produces a
-new `highergraphen.semantic_proof.input.v1` snapshot containing the open law and
-morphism obligations, with certificates and counterexamples cleared. This is the
-bounded reinput path for agents: unresolved proof obligations can be routed back
-to backend execution or artifact attachment without treating suggested or failed
-structure as accepted.
+This command reads either an `insufficient_proof` semantic-proof report or a
+verified `highergraphen.test_semantics.verification.report.v1` report and
+produces a new `highergraphen.semantic_proof.input.v1` snapshot. For
+semantic-proof reports it requeues open law and morphism obligations with
+certificates and counterexamples cleared. For test semantics verification
+reports it turns verified coverage and proof obligation IDs into a theorem,
+semantic cells, laws, and morphisms that can be passed to
+`semantic-proof verify`. This is the bounded reinput path for agents:
+unresolved proof obligations can be routed back to backend execution or
+artifact attachment without treating suggested or failed structure as accepted.
 
 ```sh
 highergraphen semantic-proof verify --input <path> --format json [--output <path>]
@@ -436,7 +440,7 @@ the source report and do not promote the candidate into accepted facts.
 | `--morphism-id <id>` / `--morphism-type <text>` | For `semantic-proof input from-artifact` | Defines the semantic morphism checked by the proof artifact. |
 | `--base-cell <id>` / `--base-label <text>` | For `semantic-proof input from-artifact` | Defines the source semantic endpoint for the morphism. |
 | `--head-cell <id>` / `--head-label <text>` | For `semantic-proof input from-artifact` | Defines the target semantic endpoint for the morphism. |
-| `--report <path>` | For `semantic-proof input from-report` | Reads an insufficient semantic-proof report and requeues open obligations. |
+| `--report <path>` | For `semantic-proof input from-report` | Reads an insufficient semantic-proof report or verified test-semantics verification report and emits semantic proof input. |
 | `--input <path>` | For `semantic-proof verify` | Reads the bounded semantic proof certificate snapshot. |
 | `--input <path>` | For `completion review` | Reads a report or review snapshot containing completion candidates. |
 | `--candidate <id>` | For `completion review` | Selects the candidate to accept or reject. |

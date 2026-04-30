@@ -66,7 +66,15 @@ highergraphen test-semantics verify \
 This report applies review, evidence, and semantic-binding gates before
 promoting a reviewed interpretation candidate into accepted facts, coverage,
 proof obligations, semantic proof input IDs, and verified morphisms. It keeps
-`proof_object_ids` empty until a proof backend verifies the obligation.
+`proof_object_ids` empty until a proof backend verifies the obligation. The
+verified report can be converted into `highergraphen.semantic_proof.input.v1`
+with:
+
+```sh
+highergraphen semantic-proof input from-report \
+  --report test-semantics-verification.report.json \
+  --format json
+```
 
 `feed-reader.report.schema.json` defines the v1 contract for
 `highergraphen.feed.reader.report.v1`. The matching example fixture is
