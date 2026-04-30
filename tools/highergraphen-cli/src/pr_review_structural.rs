@@ -120,3 +120,38 @@ fn slug(value: &str) -> String {
         slug.to_owned()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_boundary_incidence_and_composition_roles() {
+        let subject = Id::new("file:src-main-rs").expect("valid id");
+        let added = vec![
+            "use crate::runner;".to_owned(),
+            "Some(\"run\") => Ok(Command::Run),".to_owned(),
+            "Command::Run {".to_owned(),
+        ];
+
+        assert!(
+            changed_structural_boundary("src/main.rs", &added, &[], &subject)
+                .expect("structural analysis should succeed")
+        );
+    }
+
+    #[test]
+    fn ignores_test_paths_for_structural_boundary() {
+        let subject = Id::new("file:src-tests-main-rs").expect("valid id");
+        let added = vec![
+            "use crate::runner;".to_owned(),
+            "Some(\"run\") => Ok(Command::Run),".to_owned(),
+            "Command::Run {".to_owned(),
+        ];
+
+        assert!(
+            !changed_structural_boundary("src/tests/main.rs", &added, &[], &subject)
+                .expect("structural analysis should succeed")
+        );
+    }
+}

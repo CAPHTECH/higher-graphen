@@ -2121,6 +2121,16 @@ const DEFAULT_HG_RUST_TEST_BINDING_RULES: &[DefaultHgRustTestBindingRule] = &[
     },
     DefaultHgRustTestBindingRule {
         trigger_terms: &[
+            "test_semantics_review_rejects_candidate_without_promoting_coverage_or_proof",
+        ],
+        cli_label: Some("highergraphen test-semantics review reject"),
+        target_ids: &[
+            "adapter:test-semantics:review",
+            "law:test-semantics:review-reject-does-not-promote-coverage",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &[
             "test_semantics_verify_promotes_reviewed_candidate_with_execution_evidence",
         ],
         cli_label: Some("highergraphen test-semantics verify"),
@@ -2128,6 +2138,30 @@ const DEFAULT_HG_RUST_TEST_BINDING_RULES: &[DefaultHgRustTestBindingRule] = &[
             "adapter:test-semantics:verification",
             "law:test-semantics:verify-positive-gates-promote-coverage",
             "law:test-semantics:verify-does-not-create-proof-objects",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["test_semantics_verify_rejected_review_fails_review_gate"],
+        cli_label: Some("highergraphen test-semantics verify"),
+        target_ids: &[
+            "adapter:test-semantics:verification",
+            "law:test-semantics:verify-rejected-review-fails-review-gate",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["test_semantics_verify_missing_evidence_fails_evidence_gate"],
+        cli_label: Some("highergraphen test-semantics verify"),
+        target_ids: &[
+            "adapter:test-semantics:verification",
+            "law:test-semantics:verify-missing-evidence-fails-evidence-gate",
+        ],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["test_semantics_verify_missing_binding_fails_semantic_binding_gate"],
+        cli_label: Some("highergraphen test-semantics verify"),
+        target_ids: &[
+            "adapter:test-semantics:verification",
+            "law:test-semantics:verify-missing-binding-fails-semantic-binding-gate",
         ],
     },
     DefaultHgRustTestBindingRule {
@@ -2157,6 +2191,16 @@ const DEFAULT_HG_RUST_TEST_BINDING_RULES: &[DefaultHgRustTestBindingRule] = &[
         ],
         cli_label: Some("highergraphen pr-review targets recommend"),
         target_ids: &["law:pr-review:recommendations-remain-unreviewed"],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["parses_rename_name_status_with_quoted_path_and_binary_numstat"],
+        cli_label: None,
+        target_ids: &["law:pr-review:git-parser-handles-rename-and-quoted-paths"],
+    },
+    DefaultHgRustTestBindingRule {
+        trigger_terms: &["detects_boundary_incidence_and_composition_roles"],
+        cli_label: None,
+        target_ids: &["law:pr-review:structural-detects-boundary-incidence-composition"],
     },
 ];
 

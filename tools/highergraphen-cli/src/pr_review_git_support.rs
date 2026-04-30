@@ -197,7 +197,7 @@ fn diff_file_header_path(path: &str) -> Option<String> {
 }
 
 fn unquote_git_path(path: &str) -> String {
-    path.trim_end_matches('"').to_owned()
+    path.trim().trim_matches('"').to_owned()
 }
 
 fn parse_name_status(
@@ -233,8 +233,8 @@ fn rename_change_parts(
         .ok_or_else(|| format!("invalid rename status line: {line}"))?;
     Ok((
         PrReviewTargetChangeType::Renamed,
-        Some((*old).to_owned()),
-        (*new).to_owned(),
+        Some(unquote_git_path(old)),
+        unquote_git_path(new),
     ))
 }
 
@@ -253,7 +253,7 @@ fn non_rename_change_parts(
         Some('M') => PrReviewTargetChangeType::Modified,
         _ => PrReviewTargetChangeType::Modified,
     };
-    Ok((change_type, None, path))
+    Ok((change_type, None, unquote_git_path(&path)))
 }
 
 fn parse_numstat(output: &str) -> BTreeMap<String, (u32, u32)> {
@@ -263,7 +263,7 @@ fn parse_numstat(output: &str) -> BTreeMap<String, (u32, u32)> {
             let mut parts = line.split('\t');
             let additions = parse_git_count(parts.next()?);
             let deletions = parse_git_count(parts.next()?);
-            let path = parts.next()?.to_owned();
+            let path = unquote_git_path(parts.next()?);
             Some((path, (additions, deletions)))
         })
         .collect()
@@ -699,5 +699,46 @@ pub(super) fn slug(value: &str) -> String {
         "item".to_owned()
     } else {
         slug.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_rename_name_status_with_quoted_path_and_binary_numstat() {
+        let stats = parse_numstat(
+            "-\t-\t\"tools/new path.rs\"\n\
+             12\t3\ttools/renamed.rs\n",
+        );
+
+        assert_eq!(stats.get("tools/new path.rs"), Some(&(0, 0)));
+        let change = parse_name_status("R100\ttools/old.rs\ttools/renamed.rs", &stats)
+            .expect("rename name-status should parse");
+
+        assert_eq!(change.change_type, PrReviewTargetChangeType::Renamed);
+        assert_eq!(change.old_path.as_deref(), Some("tools/old.rs"));
+        assert_eq!(change.path, "tools/renamed.rs");
+        assert_eq!(change.additions, 12);
+        assert_eq!(change.deletions, 3);
+    }
+
+    #[test]
+    fn parses_diff_headers_with_quoted_path() {
+        let files = parse_diff_files(
+            "diff --git a/tools/old.rs \"b/tools/new path.rs\"\n\
+             --- a/tools/old.rs\n\
+             +++ \"b/tools/new path.rs\"\n\
+             @@ -0,0 +1 @@\n\
+             +pub fn added() {}\n",
+        );
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "tools/new path.rs");
+        assert!(files[0]
+            .added_lines
+            .iter()
+            .any(|line| line == "pub fn added() {}"));
     }
 }
