@@ -97,6 +97,21 @@ fn smoke_command_writes_output_file_without_stdout() {
 }
 
 #[test]
+fn covers_obligation_test_semantics_architecture_smoke_human_format_error() {
+    let output = run_cli(&[
+        "architecture",
+        "smoke",
+        "direct-db-access",
+        "--format",
+        "human",
+    ]);
+
+    assert!(!output.status.success());
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).contains("only json is supported"));
+}
+
+#[test]
 fn input_lift_command_reads_fixture_and_writes_one_json_report_to_stdout() {
     let fixture = input_fixture();
     let output = run_cli(&[
