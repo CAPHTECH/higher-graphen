@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.test_semantics.interpretation_review.report.v1",
+  "title": "HigherGraphen Test Semantics Interpretation Review Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "report_type",
+    "report_version",
+    "metadata",
+    "scenario",
+    "result",
+    "projection"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.test_semantics.interpretation_review.report.v1"
+    },
+    "report_type": {
+      "const": "test_semantics_interpretation_review"
+    },
+    "report_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "cli_package"
+      ],
+      "properties": {
+        "command": {
+          "enum": [
+            "highergraphen test-semantics review accept",
+            "highergraphen test-semantics review reject"
+          ]
+        },
+        "cli_package": {
+          "const": "highergraphen-cli"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_interpretation",
+        "candidate_kind",
+        "candidate"
+      ],
+      "properties": {
+        "source_interpretation": {
+          "$ref": "#/$defs/source_interpretation"
+        },
+        "candidate_kind": {
+          "$ref": "#/$defs/candidate_kind"
+        },
+        "candidate": {
+          "$ref": "#/$defs/candidate"
+        }
+      }
+    },
+    "source_interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "input_schema",
+        "interpreter",
+        "review_status"
+      ],
+      "properties": {
+        "schema": {
+          "const": "highergraphen.test_semantics.interpretation.v1"
+        },
+        "input_schema": {
+          "$ref": "#/$defs/id"
+        },
+        "interpreter": {
+          "$ref": "#/$defs/id"
+        },
+        "review_status": {
+          "enum": [
+            "unreviewed",
+            "accepted",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "candidate_kind": {
+      "enum": [
+        "interpreted_cell",
+        "interpreted_morphism",
+        "candidate_law",
+        "binding_candidate",
+        "evidence_link"
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "review_status": {
+          "enum": [
+            "unreviewed",
+            "accepted",
+            "rejected"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "review_record",
+        "accepted_candidate_ids",
+        "rejected_candidate_ids",
+        "accepted_fact_ids",
+        "coverage_ids",
+        "proof_object_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "review_record": {
+          "$ref": "#/$defs/review_record"
+        },
+        "accepted_candidate_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "rejected_candidate_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "accepted_fact_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "coverage_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "proof_object_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "review_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "candidate_kind",
+        "candidate",
+        "reviewed_candidate",
+        "outcome_review_status"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/review_request"
+        },
+        "candidate_kind": {
+          "$ref": "#/$defs/candidate_kind"
+        },
+        "candidate": {
+          "$ref": "#/$defs/candidate"
+        },
+        "reviewed_candidate": {
+          "$ref": "#/$defs/candidate"
+        },
+        "outcome_review_status": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "review_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "decision",
+        "reviewer_id",
+        "reason"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "decision": {
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "purpose",
+        "summary",
+        "recommended_actions",
+        "source_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "audience": {
+          "const": "ai_agent"
+        },
+        "purpose": {
+          "const": "test_semantics_interpretation_review"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/information_loss"
+          }
+        }
+      }
+    },
+    "information_loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "source_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    }
+  }
+}

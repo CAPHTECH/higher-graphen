@@ -221,6 +221,32 @@ It does not accept coverage, approve a binding, or turn semantic candidates
 into proof objects.
 
 ```sh
+highergraphen test-semantics review accept \
+  --input <path> \
+  --candidate <id> \
+  --reviewer <id> \
+  --reason <text> \
+  --format json \
+  [--output <path>]
+
+highergraphen test-semantics review reject \
+  --input <path> \
+  --candidate <id> \
+  --reviewer <id> \
+  --reason <text> \
+  --format json \
+  [--output <path>]
+```
+
+These commands read `highergraphen.test_semantics.interpretation.v1`, select an
+AI-created interpreted cell, interpreted morphism, candidate law, binding
+candidate, or evidence link by ID, and emit a separate
+`highergraphen.test_semantics.interpretation_review.report.v1` report. The
+source interpretation is not edited. Accepted candidates are still not coverage
+or proof objects; they are review decisions that a later verification workflow
+can consume.
+
+```sh
 highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
 ```
 
@@ -363,6 +389,10 @@ the source report and do not promote the candidate into accepted facts.
 | `--format json` | Yes | Emits the stable JSON report. No human text format is supported yet. |
 | `--input <path>` | For `architecture input lift` | Reads the bounded architecture JSON input document. |
 | `--input <path>` | For `feed reader run` | Reads the bounded Feed Product JSON input fixture. |
+| `--input <path>` | For `test-semantics review` | Reads a test semantics interpretation document. |
+| `--candidate <id>` | For `test-semantics review` | Selects the interpreted cell, interpreted morphism, candidate law, binding candidate, or evidence link to accept or reject. |
+| `--reviewer <id>` | For `test-semantics review` | Records the explicit reviewer or workflow identifier. |
+| `--reason <text>` | For `test-semantics review` | Records the explicit acceptance or rejection rationale. |
 | `--base <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git base ref for the deterministic diff range. |
 | `--head <ref>` | For `pr-review input from-git` and `test-gap input from-git` | Git head ref for the deterministic diff range. |
 | `--repo <path>` | No | Repository path for git input commands; defaults to the current directory. |
@@ -732,6 +762,24 @@ explicit request under `result.review_record.request`. Accepted reports include
 `result.review_record.accepted_completion`; rejected reports include
 `result.review_record.rejected_completion`.
 
+The test semantics interpretation review report uses this contract:
+
+| Surface | Value |
+| --- | --- |
+| Schema ID | `highergraphen.test_semantics.interpretation_review.report.v1` |
+| Report type | `test_semantics_interpretation_review` |
+| Report version | `1` |
+| Report schema | [`test-semantics-interpretation-review.report.schema.json`](../../schemas/reports/test-semantics-interpretation-review.report.schema.json) |
+| Runtime runner | CLI-local review adapter |
+
+The review report records source interpretation metadata under
+`scenario.source_interpretation`, preserves the selected unreviewed source
+candidate under `scenario.candidate` and `result.review_record.candidate`, and
+records the explicit decision under `result.review_record.request`.
+`result.review_record.reviewed_candidate` shows the reviewed status, while
+`result.accepted_fact_ids`, `result.coverage_ids`, and
+`result.proof_object_ids` remain empty because review is not verification.
+
 ## Semantic Rules
 
 Consumers must preserve these semantics:
@@ -742,6 +790,8 @@ Consumers must preserve these semantics:
   later explicit review workflow accepts or rejects it.
 - Accepting or rejecting a completion candidate emits a separate auditable
   review report and never edits or silently promotes the source candidate.
+- Accepting or rejecting a test semantics interpretation candidate emits a
+  separate auditable review report and never creates coverage or proof objects.
 - The input lift path treats JSON `components` and `relations` as accepted
   facts and JSON `inferred_structures` as unreviewed candidates.
 - The feed reader path treats JSON `source_feeds` and `entries` as accepted

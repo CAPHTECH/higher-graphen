@@ -1,0 +1,112 @@
+{
+  "schema": "highergraphen.test_semantics.interpretation_review.report.v1",
+  "report_type": "test_semantics_interpretation_review",
+  "report_version": 1,
+  "metadata": {
+    "command": "highergraphen test-semantics review accept",
+    "cli_package": "highergraphen-cli"
+  },
+  "scenario": {
+    "source_interpretation": {
+      "schema": "highergraphen.test_semantics.interpretation.v1",
+      "input_schema": "highergraphen.rust_test_semantics.input.v1",
+      "interpreter": "codex",
+      "review_status": "unreviewed"
+    },
+    "candidate_kind": "binding_candidate",
+    "candidate": {
+      "id": "binding-candidate:schema-acme-audit-input-v1",
+      "semantic_role": "schema_identity_preservation",
+      "trigger_terms": [
+        "schema:acme.audit.input.v1"
+      ],
+      "candidate_target_ids": [
+        "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+      ],
+      "source_ids": [
+        "rust-test:function:tests-generic-command-rs:emits-json-contract"
+      ],
+      "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+      "confidence": 0.58,
+      "review_status": "unreviewed"
+    }
+  },
+  "result": {
+    "status": "accepted",
+    "review_record": {
+      "request": {
+        "candidate_id": "binding-candidate:schema-acme-audit-input-v1",
+        "decision": "accepted",
+        "reviewer_id": "reviewer:test-semantics",
+        "reason": "The test asserts the schema identity contract."
+      },
+      "candidate_kind": "binding_candidate",
+      "candidate": {
+        "id": "binding-candidate:schema-acme-audit-input-v1",
+        "semantic_role": "schema_identity_preservation",
+        "trigger_terms": [
+          "schema:acme.audit.input.v1"
+        ],
+        "candidate_target_ids": [
+          "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+        ],
+        "source_ids": [
+          "rust-test:function:tests-generic-command-rs:emits-json-contract"
+        ],
+        "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+        "confidence": 0.58,
+        "review_status": "unreviewed"
+      },
+      "reviewed_candidate": {
+        "id": "binding-candidate:schema-acme-audit-input-v1",
+        "semantic_role": "schema_identity_preservation",
+        "trigger_terms": [
+          "schema:acme.audit.input.v1"
+        ],
+        "candidate_target_ids": [
+          "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+        ],
+        "source_ids": [
+          "rust-test:function:tests-generic-command-rs:emits-json-contract"
+        ],
+        "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+        "confidence": 0.58,
+        "review_status": "accepted"
+      },
+      "outcome_review_status": "accepted"
+    },
+    "accepted_candidate_ids": [
+      "binding-candidate:schema-acme-audit-input-v1"
+    ],
+    "rejected_candidate_ids": [],
+    "accepted_fact_ids": [],
+    "coverage_ids": [],
+    "proof_object_ids": []
+  },
+  "projection": {
+    "audience": "ai_agent",
+    "purpose": "test_semantics_interpretation_review",
+    "summary": "Accepted test semantics interpretation candidate binding-candidate:schema-acme-audit-input-v1.",
+    "recommended_actions": [
+      "Keep the review report with the source interpretation for auditability.",
+      "Promote accepted candidates into coverage or proof only through a later verification workflow."
+    ],
+    "source_ids": [
+      "binding-candidate:schema-acme-audit-input-v1"
+    ],
+    "information_loss": [
+      {
+        "description": "Review records an explicit decision but does not mutate the source interpretation.",
+        "source_ids": [
+          "binding-candidate:schema-acme-audit-input-v1"
+        ]
+      },
+      {
+        "description": "Accepted interpretation candidates are not accepted facts, coverage, or proof objects.",
+        "source_ids": [
+          "binding-candidate:schema-acme-audit-input-v1"
+        ]
+      }
+    ]
+  }
+}

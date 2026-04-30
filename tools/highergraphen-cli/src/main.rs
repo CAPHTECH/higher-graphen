@@ -9,6 +9,7 @@ mod semantic_proof_reinput;
 mod test_gap_evidence;
 mod test_gap_git;
 mod test_semantics_interpretation;
+mod test_semantics_review;
 
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
@@ -42,6 +43,8 @@ const USAGE: &str = "usage:
   highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
   highergraphen test-gap detect --input <path> --format json [--output <path>]
   highergraphen test-semantics interpret --input <path> --format json [--interpreter <id>] [--output <path>]
+  highergraphen test-semantics review accept --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
+  highergraphen test-semantics review reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
   highergraphen rust-test semantics from-path --path <path> [--path <path> ...] --format json [--repo <path>] [--test-run <path>] [--output <path>]
   highergraphen semantic-proof backend run --backend <name> --backend-version <version> --command <path> [--arg <text> ...] [--input <path>] --format json [--output <path>]
   highergraphen semantic-proof input from-artifact --artifact <path> --backend <name> --backend-version <version> --theorem-id <id> --theorem-summary <text> --law-id <id> --law-summary <text> --morphism-id <id> --morphism-type <text> --base-cell <id> --base-label <text> --head-cell <id> --head-label <text> --format json [--output <path>]
@@ -135,6 +138,14 @@ enum Command {
     TestSemanticsInterpret {
         input: PathBuf,
         interpreter: String,
+        output: Option<PathBuf>,
+    },
+    TestSemanticsReview {
+        decision: test_semantics_review::TestSemanticsReviewDecision,
+        input: PathBuf,
+        candidate_id: String,
+        reviewer_id: String,
+        reason: String,
         output: Option<PathBuf>,
     },
     SemanticProofVerify {
@@ -398,13 +409,51 @@ impl Command {
     }
 
     fn parse_test_semantics(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
-        require_token(&mut args, "interpret")?;
-        let options = TestSemanticsInterpretOptions::parse(args)?;
-        Ok(Self::TestSemanticsInterpret {
+        let segment = required_segment(&mut args, "test-semantics command")?;
+        match segment.to_str() {
+            Some("interpret") => {
+                let options = TestSemanticsInterpretOptions::parse(args)?;
+                Ok(Self::TestSemanticsInterpret {
+                    input: options
+                        .input
+                        .ok_or_else(|| CliError::usage("--input <path> is required"))?,
+                    interpreter: options.interpreter.unwrap_or_else(|| "ai-agent".to_owned()),
+                    output: options.output,
+                })
+            }
+            Some("review") => Self::parse_test_semantics_review(args),
+            Some(_) | None => Err(CliError::usage(
+                "unsupported test-semantics command segment",
+            )),
+        }
+    }
+
+    fn parse_test_semantics_review(
+        mut args: impl Iterator<Item = OsString>,
+    ) -> Result<Self, CliError> {
+        let decision = match required_segment(&mut args, "test-semantics review action")?.to_str() {
+            Some("accept") => test_semantics_review::TestSemanticsReviewDecision::Accepted,
+            Some("reject") => test_semantics_review::TestSemanticsReviewDecision::Rejected,
+            Some(_) | None => {
+                return Err(CliError::usage("unsupported test-semantics review action"));
+            }
+        };
+        let options = TestSemanticsReviewOptions::parse(args)?;
+
+        Ok(Self::TestSemanticsReview {
+            decision,
             input: options
                 .input
                 .ok_or_else(|| CliError::usage("--input <path> is required"))?,
-            interpreter: options.interpreter.unwrap_or_else(|| "ai-agent".to_owned()),
+            candidate_id: options
+                .candidate_id
+                .ok_or_else(|| CliError::usage("--candidate <id> is required"))?,
+            reviewer_id: options
+                .reviewer_id
+                .ok_or_else(|| CliError::usage("--reviewer <id> is required"))?,
+            reason: options
+                .reason
+                .ok_or_else(|| CliError::usage("--reason <text> is required"))?,
             output: options.output,
         })
     }
@@ -558,6 +607,7 @@ impl Command {
             | Self::TestGapDetect { output, .. }
             | Self::RustTestSemanticsFromPath { output, .. }
             | Self::TestSemanticsInterpret { output, .. }
+            | Self::TestSemanticsReview { output, .. }
             | Self::SemanticProofBackendRun { output, .. }
             | Self::SemanticProofInputFromArtifact { output, .. }
             | Self::SemanticProofInputFromReport { output, .. }
@@ -686,6 +736,26 @@ impl Command {
                 )
                 .map_err(CliError::TestSemanticsInterpretation)?;
                 serde_json::to_string(&document)
+                    .map_err(|error| RuntimeError::serialization(error.to_string()).into())
+            }
+            Self::TestSemanticsReview {
+                decision,
+                input,
+                candidate_id,
+                reviewer_id,
+                reason,
+                ..
+            } => {
+                let interpretation = read_json_value(input)?;
+                let report = test_semantics_review::review(test_semantics_review::ReviewRequest {
+                    interpretation,
+                    decision: *decision,
+                    candidate_id: candidate_id.clone(),
+                    reviewer_id: reviewer_id.clone(),
+                    reason: reason.clone(),
+                })
+                .map_err(CliError::TestSemanticsReview)?;
+                serde_json::to_string(&report)
                     .map_err(|error| RuntimeError::serialization(error.to_string()).into())
             }
             Self::SemanticProofVerify { input, .. } => {
@@ -894,6 +964,48 @@ impl TestSemanticsInterpretOptions {
                 options.input = Some(require_path(&mut args, "--input")?);
             } else if arg == "--interpreter" {
                 options.interpreter = Some(require_string(&mut args, "--interpreter")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if !format_seen {
+            return Err(CliError::usage("--format json is required"));
+        }
+
+        Ok(options)
+    }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct TestSemanticsReviewOptions {
+    input: Option<PathBuf>,
+    candidate_id: Option<String>,
+    reviewer_id: Option<String>,
+    reason: Option<String>,
+    output: Option<PathBuf>,
+}
+
+impl TestSemanticsReviewOptions {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--candidate" {
+                options.candidate_id = Some(require_string(&mut args, "--candidate")?);
+            } else if arg == "--reviewer" {
+                options.reviewer_id = Some(require_string(&mut args, "--reviewer")?);
+            } else if arg == "--reason" {
+                options.reason = Some(require_string(&mut args, "--reason")?);
             } else if arg == "--output" {
                 options.output = Some(require_path(&mut args, "--output")?);
             } else {
@@ -1189,6 +1301,7 @@ enum CliError {
     GitInput(String),
     TestGapEvidence(String),
     TestSemanticsInterpretation(String),
+    TestSemanticsReview(String),
     RustTestSemantics(String),
     SemanticProofArtifact(String),
     Output(std::io::Error),
@@ -1246,6 +1359,12 @@ impl fmt::Display for CliError {
                 write!(
                     formatter,
                     "failed to build test semantics interpretation: {message}"
+                )
+            }
+            Self::TestSemanticsReview(message) => {
+                write!(
+                    formatter,
+                    "failed to build test semantics interpretation review: {message}"
                 )
             }
             Self::RustTestSemantics(message) => {

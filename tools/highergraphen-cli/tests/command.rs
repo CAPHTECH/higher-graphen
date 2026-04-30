@@ -17,6 +17,8 @@ const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
 const RUST_TEST_SEMANTICS_SCHEMA: &str = "highergraphen.rust_test_semantics.input.v1";
 const TEST_SEMANTICS_INTERPRETATION_SCHEMA: &str = "highergraphen.test_semantics.interpretation.v1";
+const TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA: &str =
+    "highergraphen.test_semantics.interpretation_review.report.v1";
 const SEMANTIC_PROOF_INPUT_SCHEMA: &str = "highergraphen.semantic_proof.input.v1";
 const SEMANTIC_PROOF_REPORT_SCHEMA: &str = "highergraphen.semantic_proof.report.v1";
 const COMPLETION_REVIEW_REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";
@@ -1964,6 +1966,108 @@ fn test_semantics_interpret_emits_unreviewed_ai_candidate_structure() {
     assert!(!value
         .as_object()
         .expect("document object")
+        .contains_key("coverage"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn test_semantics_review_accepts_candidate_without_promoting_coverage_or_proof() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let input_path = directory.join("test-semantics.interpretation.json");
+    fs::write(
+        &input_path,
+        serde_json::to_string(&json!({
+            "schema": TEST_SEMANTICS_INTERPRETATION_SCHEMA,
+            "source": {
+                "kind": "ai_agent",
+                "input_schema": RUST_TEST_SEMANTICS_SCHEMA,
+                "interpreter": "codex",
+                "review_status": "unreviewed"
+            },
+            "interpreted_cells": [],
+            "interpreted_morphisms": [],
+            "candidate_laws": [],
+            "binding_candidates": [
+                {
+                    "id": "binding-candidate:schema-acme-audit-input-v1",
+                    "semantic_role": "schema_identity_preservation",
+                    "trigger_terms": ["schema:acme.audit.input.v1"],
+                    "candidate_target_ids": [
+                        "candidate-law:schema-identity-preservation:schema-acme-audit-input-v1"
+                    ],
+                    "source_ids": [
+                        "rust-test:function:tests-generic-command-rs:emits-json-contract"
+                    ],
+                    "rationale": "Observed structured data assertion schema:acme.audit.input.v1.",
+                    "confidence": 0.58,
+                    "review_status": "unreviewed"
+                }
+            ],
+            "evidence_links": [],
+            "information_loss": [
+                "Interpretation candidates are not accepted coverage."
+            ]
+        }))
+        .expect("serialize interpretation input"),
+    )
+    .expect("write interpretation input");
+
+    let output = run_cli_owned(&[
+        "test-semantics".to_owned(),
+        "review".to_owned(),
+        "accept".to_owned(),
+        "--input".to_owned(),
+        input_path
+            .to_str()
+            .expect("input path should be utf-8")
+            .to_owned(),
+        "--candidate".to_owned(),
+        "binding-candidate:schema-acme-audit-input-v1".to_owned(),
+        "--reviewer".to_owned(),
+        "reviewer:test-semantics".to_owned(),
+        "--reason".to_owned(),
+        "The test asserts the schema identity contract.".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(
+        value["schema"],
+        json!(TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA)
+    );
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("highergraphen test-semantics review accept")
+    );
+    assert_eq!(value["result"]["status"], json!("accepted"));
+    assert_eq!(
+        value["result"]["review_record"]["outcome_review_status"],
+        json!("accepted")
+    );
+    assert_eq!(
+        value["result"]["review_record"]["candidate"]["review_status"],
+        json!("unreviewed")
+    );
+    assert_eq!(
+        value["result"]["review_record"]["reviewed_candidate"]["review_status"],
+        json!("accepted")
+    );
+    assert_eq!(
+        value["result"]["accepted_candidate_ids"],
+        json!(["binding-candidate:schema-acme-audit-input-v1"])
+    );
+    assert_eq!(value["result"]["accepted_fact_ids"], json!([]));
+    assert_eq!(value["result"]["coverage_ids"], json!([]));
+    assert_eq!(value["result"]["proof_object_ids"], json!([]));
+    assert!(!value
+        .as_object()
+        .expect("report object")
         .contains_key("coverage"));
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
