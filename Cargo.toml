@@ -15,7 +15,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.80"
 authors = ["CAPH TECH Inc."]
@@ -26,13 +26,13 @@ keywords = ["ai", "graph", "workflow", "reasoning", "cli"]
 categories = ["development-tools", "data-structures", "command-line-utilities"]
 
 [workspace.dependencies]
-higher-graphen-core = { version = "0.2.1", path = "crates/higher-graphen-core" }
-higher-graphen-structure = { version = "0.2.1", path = "crates/higher-graphen-structure" }
-higher-graphen-projection = { version = "0.2.1", path = "crates/higher-graphen-projection" }
-higher-graphen-evidence = { version = "0.2.1", path = "crates/higher-graphen-evidence" }
-higher-graphen-reasoning = { version = "0.2.1", path = "crates/higher-graphen-reasoning" }
-higher-graphen-interpretation = { version = "0.2.1", path = "crates/higher-graphen-interpretation" }
-higher-graphen-runtime = { version = "0.2.1", path = "crates/higher-graphen-runtime" }
+higher-graphen-core = { version = "0.3.0", path = "crates/higher-graphen-core" }
+higher-graphen-structure = { version = "0.3.0", path = "crates/higher-graphen-structure" }
+higher-graphen-projection = { version = "0.3.0", path = "crates/higher-graphen-projection" }
+higher-graphen-evidence = { version = "0.3.0", path = "crates/higher-graphen-evidence" }
+higher-graphen-reasoning = { version = "0.3.0", path = "crates/higher-graphen-reasoning" }
+higher-graphen-interpretation = { version = "0.3.0", path = "crates/higher-graphen-interpretation" }
+higher-graphen-runtime = { version = "0.3.0", path = "crates/higher-graphen-runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 syn = { version = "2", features = ["full", "visit"] }
