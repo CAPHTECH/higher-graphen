@@ -147,10 +147,48 @@ Verify a semantic proof certificate bundle:
 
 ```sh
 cargo run -q -p highergraphen-cli -- \
+  semantic-proof backend run \
+  --backend kani \
+  --backend-version 1.0.0 \
+  --command /path/to/backend \
+  --arg verify \
+  --input proof-obligation.json \
+  --format json \
+  --output proof-artifact.json
+
+cargo run -q -p highergraphen-cli -- \
+  semantic-proof input from-artifact \
+  --artifact proof-artifact.json \
+  --backend kani \
+  --backend-version 1.0.0 \
+  --theorem-id theorem:semantic:pricing \
+  --theorem-summary "Pricing typed signature is preserved." \
+  --law-id law:semantic:signature-preserved \
+  --law-summary "Public typed signature is preserved." \
+  --morphism-id morphism:semantic:pricing-signature \
+  --morphism-type typed_signature_preservation \
+  --base-cell cell:semantic:pricing:base \
+  --base-label "base calculate_discount MIR" \
+  --head-cell cell:semantic:pricing:head \
+  --head-label "head calculate_discount MIR" \
+  --format json \
+  --output semantic-proof.input.json
+
+cargo run -q -p highergraphen-cli -- \
   semantic-proof verify \
-  --input schemas/inputs/semantic-proof.input.example.json \
+  --input semantic-proof.input.json \
   --format json \
   --output semantic-proof.report.json
+```
+
+Requeue unproved semantic proof obligations from an insufficient report:
+
+```sh
+cargo run -q -p highergraphen-cli -- \
+  semantic-proof input from-report \
+  --report semantic-proof.report.json \
+  --format json \
+  --output semantic-proof.reinput.json
 ```
 
 Validate all checked-in schema-bearing fixtures:
@@ -227,10 +265,30 @@ cargo test -p highergraphen-cli semantic_proof
   JSON Schema semantic cells, semantic delta morphisms, incidence, and
   `requirement:morphism:*` records as the primary high-order verification
   structure.
+- For HigherGraphen semantic-proof changes, interpret
+  `theorem:semantic-proof:artifact-adapter-correctness`,
+  `theorem:semantic-proof:backend-run-trust-boundary`,
+  `theorem:semantic-proof:obligation-reinput-correctness`,
+  `law:semantic-proof:*`, and `morphism:semantic-proof:*` as the primary
+  verification structure. Helper-level Rust semantic deltas are observable
+  structure, but missing-test decisions should be read through the high-order
+  theorem/law/morphism proof objects.
 - For `highergraphen semantic-proof verify`, treat accepted proof certificates
-  as formal verification cells only inside the bounded certificate snapshot and
-  verification policy. The command checks certificate references and policy; it
-  does not run Kani, Prusti, SMT, MIR extraction, or symbolic execution itself.
+  and accepted counterexamples as formal verification cells only inside the
+  bounded certificate snapshot and verification policy. The command checks
+  certificate, counterexample, reference, and review policy.
+- Prefer `highergraphen semantic-proof backend run` when the agent needs to
+  execute a local proof command. It records command path, args, exit status,
+  hashes, and excerpts as a bounded artifact; zero exit is accepted proof
+  material, while non-zero exit remains an unreviewed counterexample artifact
+  until HG policy accepts it.
+- Prefer `highergraphen semantic-proof input from-artifact` when an external
+  proof backend has already produced a local artifact. The adapter converts
+  the artifact into theorem, law, morphism, semantic cell, certificate, or
+  counterexample structure for HG.
+- Use `highergraphen semantic-proof input from-report` after
+  `insufficient_proof` to generate a new bounded input containing the open laws
+  and morphisms with proof certificates and counterexamples cleared.
 - Treat test-gap statuses such as `gaps_detected` and
   `no_gaps_in_snapshot` as successful report data. `no_gaps_in_snapshot` is
   bounded to the supplied snapshot and is not global proof that the repository
@@ -263,8 +321,9 @@ When reporting results to a user, include:
 - Projection information loss for human, AI-agent, and audit views when
   present.
 - Any unsupported scope the user requested, especially full repository
-  crawling, external proof backend execution, semantic coverage inference,
-  candidate acceptance, MCP, plugin packaging, or marketplace work.
+  crawling, backend-specific proof semantics beyond local process execution,
+  semantic coverage inference, candidate acceptance, MCP, plugin packaging, or
+  marketplace work.
 
 ## Safety Rules
 
@@ -283,6 +342,12 @@ When reporting results to a user, include:
   behavior coverage.
 - Do not claim `highergraphen semantic-proof verify` runs external proof
   backends. It verifies supplied proof certificates and counterexamples.
+- Do not treat `highergraphen semantic-proof backend run` output as accepted HG
+  proof until it has passed `semantic-proof input from-artifact` and
+  `semantic-proof verify` under the review policy.
+- Do not claim `highergraphen semantic-proof input from-artifact` proves
+  anything by itself. It normalizes already-produced backend artifacts into the
+  bounded HG proof-input contract.
 - Do not hide information loss in projections.
 - Do not introduce MCP implementation or dependencies for this CLI skill path.
 - Do not modify lower-level crates to change the report contract unless the user

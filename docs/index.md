@@ -23,21 +23,22 @@ The original proposal remains available as source material:
 14. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
 15. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
 16. [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md)
-17. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
-18. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
-19. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
-20. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
-21. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
-22. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
-23. [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md)
+17. [`specs/ddd-review-cli-contract.md`](specs/ddd-review-cli-contract.md)
+18. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
+19. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
+20. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
+21. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
+22. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
+23. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
 24. [`cli/highergraphen.md`](cli/highergraphen.md)
 25. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-26. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
-27. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-28. [`specs/engine-traits.md`](specs/engine-traits.md)
-29. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-30. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-31. [`mvp-roadmap.md`](mvp-roadmap.md)
+26. [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md)
+27. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
+28. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+29. [`specs/engine-traits.md`](specs/engine-traits.md)
+30. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+31. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+32. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -57,8 +58,7 @@ The original proposal remains available as source material:
 | [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md) | Summarizes the completed CaseGraphen CLI and skill operator surface, bridge boundaries, review workflows, and verification gates. |
 | [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md) | Defines the native CaseGraphen case management design around CaseSpace, CaseCell taxonomy, MorphismLog replay, derived readiness, review semantics, close invariants, store layout, CLI/API targets, and workflow migration. |
 | [`../examples/casegraphen/native/README.md`](../examples/casegraphen/native/README.md) | Provides native CaseGraphen operator examples for `casegraphen case ...` and `casegraphen morphism ...`, including expected report pointers and residual limitations. |
-| [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md) | Provides a DDD domain model diagnostic example using native CaseGraphen reports for Sales/Billing Customer boundary review. |
-| [`../skills/casegraphen-ddd-diagnostics/SKILL.md`](../skills/casegraphen-ddd-diagnostics/SKILL.md) | Provides the repository-owned skill for DDD and bounded context diagnostics over CaseGraphen data. |
+| [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md) | Provides the legacy Sales/Billing Customer DDD fixture used to motivate the HigherGraphen DDD review workflow. |
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
@@ -68,9 +68,11 @@ The original proposal remains available as source material:
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |
 | [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md) | Defines the handoff contract for provider-specific agent tooling that consumes the first runtime CLI report. |
 | [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md) | Defines the bounded PR review target input and report contract, including unreviewed AI target semantics and projection records. |
+| [`specs/ddd-review-cli-contract.md`](specs/ddd-review-cli-contract.md) | Defines the bounded DDD review CLI contract, input and report schemas, evidence boundaries, projection loss, review gaps, and closeability semantics. |
 | [`specs/test-gap-detector.md`](specs/test-gap-detector.md) | Defines the pre-implementation contract for a bounded missing unit test detector, including structural lift, invariants, obstructions, completion candidates, and projections. |
 | [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for `highergraphen` runtime workflows, including PR review target recommendation. |
 | [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using HigherGraphen report contracts, including PR review target reports. |
+| [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md) | Provides the repository-owned skill for agents using `highergraphen ddd` review contracts and reports. |
 | [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md) | Provides the repository-owned release preparation, verification, packaging, and publication workflow. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |

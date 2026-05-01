@@ -169,9 +169,47 @@ It includes Darwin arm64 binaries for:
 - `casegraphen`
 - `highergraphen`
 
-Cargo packages are not published to crates.io yet; workspace packages currently
-set `publish = false`. To build locally from source, use Cargo from the
-repository root:
+Cargo packages are configured for registry packaging. After the package
+publication step, install the CLI surfaces with:
+
+```sh
+cargo install highergraphen-cli
+cargo install casegraphen
+```
+
+Library consumers can depend on the workspace crates directly, for example:
+
+```toml
+[dependencies]
+higher-graphen-core = "0.2.1"
+higher-graphen-runtime = "0.2.1"
+```
+
+Publish reusable crates before dependent crates and CLI tools:
+
+```sh
+cargo publish -p higher-graphen-core
+cargo publish -p higher-graphen-space
+cargo publish -p higher-graphen-context
+cargo publish -p higher-graphen-morphism
+cargo publish -p higher-graphen-obstruction
+cargo publish -p higher-graphen-projection
+cargo publish -p higher-graphen-completion
+cargo publish -p higher-graphen-model-checking
+cargo publish -p higher-graphen-abstract-interpretation
+cargo publish -p higher-graphen-causal
+cargo publish -p higher-graphen-confidence-model
+cargo publish -p higher-graphen-topology
+cargo publish -p higher-graphen-prover
+cargo publish -p higher-graphen-interpretation
+cargo publish -p higher-graphen-invariant
+cargo publish -p higher-graphen-runtime
+cargo publish -p casegraphen
+cargo publish -p highergraphen-cli
+```
+
+The example workspace packages remain unpublished validation fixtures. To build
+locally from source, use Cargo from the repository root:
 
 ```sh
 cargo build --workspace --release --locked
@@ -268,9 +306,10 @@ CaseGraphen makes the product thesis inspectable:
 - [`examples/casegraphen/native/`](examples/casegraphen/native/) shows the
   native `CaseSpace` plus `MorphismLog` case management flow.
 - [`examples/casegraphen/ddd/domain-model-design/`](examples/casegraphen/ddd/domain-model-design/)
-  shows DDD domain model diagnostics over native CaseGraphen reports.
-- [`skills/casegraphen-ddd-diagnostics/SKILL.md`](skills/casegraphen-ddd-diagnostics/SKILL.md)
-  gives AI agents a bounded context and domain model review protocol.
+  remains the legacy fixture that motivates the product-facing DDD review
+  workflow.
+- [`skills/highergraphen-ddd/SKILL.md`](skills/highergraphen-ddd/SKILL.md)
+  gives AI agents an operating protocol for `highergraphen ddd` review reports.
 
 This matters because it demonstrates the intended direction of HigherGraphen:
 complex work is not reduced to a human-facing issue list, document, dashboard,
@@ -308,9 +347,10 @@ If you are new to HigherGraphen, start here:
 3. Run the Architecture Product smoke command above and inspect the JSON report.
 4. Run the CaseGraphen workflow reasoning command above and inspect
    [`examples/casegraphen/reference/`](examples/casegraphen/reference/).
-5. Run the native CaseGraphen or DDD diagnostic examples when you want to see
-   `CaseSpace`, `MorphismLog`, evidence boundaries, completion candidates, and
-   projection loss in action.
+5. Run the native CaseGraphen examples when you want to see `CaseSpace` and
+   `MorphismLog` in action, or run the `highergraphen ddd` workflow when you
+   want DDD evidence boundaries, completion candidates, projection loss, and
+   closeability in a product CLI report.
 6. Use [`docs/index.md`](docs/index.md) when you want the full specification
    reading order.
 
@@ -318,6 +358,8 @@ If you are new to HigherGraphen, start here:
 
 HigherGraphen's public core is licensed under the
 [Apache License 2.0](LICENSE).
+
+Copyright 2026 CAPH TECH Inc.
 
 The public repository is intended to contain the shared higher-structure core,
 baseline intermediate tools, schemas, documentation, public examples, skills,
@@ -344,11 +386,12 @@ boundary.
 - [`docs/specs/intermediate-tools/casegraphen-native-case-management.md`](docs/specs/intermediate-tools/casegraphen-native-case-management.md) - Native CaseGraphen CaseSpace and MorphismLog case management contract
 - [`examples/casegraphen/reference/README.md`](examples/casegraphen/reference/README.md) - CaseGraphen reference workflow example
 - [`examples/casegraphen/native/README.md`](examples/casegraphen/native/README.md) - Native CaseGraphen reference flow
-- [`examples/casegraphen/ddd/domain-model-design/README.md`](examples/casegraphen/ddd/domain-model-design/README.md) - DDD domain model diagnostic example
+- [`examples/casegraphen/ddd/domain-model-design/README.md`](examples/casegraphen/ddd/domain-model-design/README.md) - Legacy DDD domain model fixture that motivates the HigherGraphen DDD review workflow
+- [`docs/specs/ddd-review-cli-contract.md`](docs/specs/ddd-review-cli-contract.md) - HigherGraphen DDD review CLI contract
 - [`docs/specs/ai-agent-integration.md`](docs/specs/ai-agent-integration.md) - Skills, plugins, MCP, and marketplace integration strategy
 - [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
+- [`skills/highergraphen-ddd/SKILL.md`](skills/highergraphen-ddd/SKILL.md) - Repository-owned DDD review CLI skill
 - [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Repository-owned CaseGraphen CLI skill
-- [`skills/casegraphen-ddd-diagnostics/SKILL.md`](skills/casegraphen-ddd-diagnostics/SKILL.md) - Repository-owned DDD diagnostic skill
 - [`skills/release-runner/SKILL.md`](skills/release-runner/SKILL.md) - Repository-owned release preparation and publication skill
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification

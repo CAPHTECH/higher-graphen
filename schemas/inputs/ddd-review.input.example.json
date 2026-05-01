@@ -1,0 +1,200 @@
+{
+  "schema": "highergraphen.ddd_review.input.v1",
+  "source": {
+    "kind": "case_space",
+    "uri": "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json",
+    "title": "Sales/Billing Customer DDD CaseSpace",
+    "captured_at": "2026-05-01T00:00:00Z",
+    "confidence": 1.0,
+    "adapters": [
+      "casegraphen_case_space.v1"
+    ]
+  },
+  "review_subject": {
+    "id": "case_space:ddd-sales-billing-demo",
+    "subject_type": "case_space",
+    "title": "Sales and Billing Customer unification review",
+    "description": "Review whether a shared Customer model can preserve Sales and Billing semantics."
+  },
+  "source_boundary": {
+    "input_paths": [
+      "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json"
+    ],
+    "accepted_fact_boundaries": [
+      "source_backed",
+      "adapter_supplied"
+    ],
+    "inference_boundaries": [
+      "ai_inference",
+      "unreviewed_note"
+    ],
+    "omitted_material": [
+      "No CaseGraphen store replay or MorphismLog history was read.",
+      "Full workshop notes, ADRs, source code, tickets, and tests were not read."
+    ],
+    "information_loss": [
+      "Native CaseSpace records are summarized into a bounded DDD review snapshot.",
+      "Implementation projection details are represented only by stable IDs and loss notes."
+    ]
+  },
+  "accepted_facts": [
+    {
+      "id": "context:sales",
+      "record_type": "bounded_context",
+      "label": "Sales",
+      "properties": {
+        "customer_meaning": "prospect or deal participant"
+      },
+      "confidence": 1.0,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    },
+    {
+      "id": "context:billing",
+      "record_type": "bounded_context",
+      "label": "Billing",
+      "properties": {
+        "customer_meaning": "legal billing counterparty"
+      },
+      "confidence": 1.0,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    },
+    {
+      "id": "decision:unified-customer-model",
+      "record_type": "decision",
+      "label": "Use one Customer model across Sales and Billing",
+      "context_ids": [
+        "context:sales",
+        "context:billing"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes"
+      ],
+      "confidence": 0.86,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    },
+    {
+      "id": "semantic_case:customer-identity-loss",
+      "record_type": "boundary",
+      "label": "Customer identity semantics differ across contexts",
+      "context_ids": [
+        "context:sales",
+        "context:billing"
+      ],
+      "target_ids": [
+        "decision:unified-customer-model"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes"
+      ],
+      "confidence": 0.92,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    },
+    {
+      "id": "evidence:workshop-notes",
+      "record_type": "evidence",
+      "label": "Workshop notes describing distinct Sales and Billing Customer meanings",
+      "context_ids": [
+        "context:sales",
+        "context:billing"
+      ],
+      "confidence": 0.95,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "constraint:accepted-equivalence-required",
+      "record_type": "constraint",
+      "label": "Shared cross-context model requires accepted equivalence evidence",
+      "target_ids": [
+        "decision:unified-customer-model"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes"
+      ],
+      "confidence": 1.0,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "review:domain-model-acceptance",
+      "record_type": "review",
+      "label": "Domain model acceptance review is required before close",
+      "target_ids": [
+        "decision:unified-customer-model"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes"
+      ],
+      "properties": {
+        "required_status": "accepted",
+        "current_status": "unreviewed"
+      },
+      "confidence": 1.0,
+      "review_status": "accepted",
+      "evidence_boundary": "source_backed"
+    }
+  ],
+  "inferred_claims": [
+    {
+      "id": "evidence:customer-equivalence-proof",
+      "claim_type": "equivalence_proof",
+      "label": "AI-inferred proof that Sales Customer and Billing Customer are equivalent",
+      "source_ids": [
+        "decision:unified-customer-model"
+      ],
+      "target_ids": [
+        "context:sales",
+        "context:billing"
+      ],
+      "confidence": 0.62,
+      "review_status": "unreviewed",
+      "evidence_boundary": "ai_inference"
+    }
+  ],
+  "completion_hints": [
+    {
+      "id": "completion:missing-sales-billing-acl",
+      "candidate_type": "boundary_mapping",
+      "target_ids": [
+        "context:sales",
+        "context:billing",
+        "decision:unified-customer-model"
+      ],
+      "source_ids": [
+        "semantic_case:customer-identity-loss",
+        "evidence:workshop-notes"
+      ],
+      "suggested_change": {
+        "summary": "Define an explicit Sales-to-Billing anti-corruption mapping before sharing Customer data."
+      },
+      "confidence": 0.88,
+      "severity": "high",
+      "review_status": "unreviewed"
+    }
+  ],
+  "projection_requests": [
+    {
+      "id": "projection:implementation-view",
+      "view": "implementation_view",
+      "focus_ids": [
+        "decision:unified-customer-model"
+      ]
+    },
+    {
+      "id": "projection:audit-trace",
+      "view": "audit_trace",
+      "focus_ids": [
+        "evidence:workshop-notes",
+        "evidence:customer-equivalence-proof"
+      ]
+    }
+  ]
+}

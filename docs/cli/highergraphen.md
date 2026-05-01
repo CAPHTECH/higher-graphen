@@ -4,9 +4,9 @@ The `highergraphen` command is the operational CLI for HigherGraphen runtime
 workflows. It exposes the deterministic Architecture Product direct database
 access smoke workflow, the bounded architecture input lift workflow, the
 bounded Feed Product reader workflow, the bounded PR review target
-recommendation workflow, the bounded test-gap detector workflow, the semantic
-proof artifact adapter and verifier, and the explicit completion review
-workflow as stable JSON reports.
+recommendation workflow, the bounded test-gap detector workflow, the bounded
+DDD review workflow, the semantic proof artifact adapter and verifier, and the
+explicit completion review workflow as stable JSON reports.
 
 For the underlying implementation contract, see
 [`runtime-cli-scope.md`](../specs/runtime-cli-scope.md) and
@@ -310,6 +310,33 @@ candidates remain `review_status: "unreviewed"` until a later explicit review
 workflow accepts or rejects them.
 
 ```sh
+highergraphen ddd input from-case-space --case-space <path> --format json [--output <path>]
+```
+
+This command deterministically converts one native CaseGraphen `CaseSpace` JSON
+document into a bounded `highergraphen.ddd_review.input.v1` snapshot. It is the
+adapter path for fixtures such as
+`examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json`.
+The adapter copies source-backed CaseSpace records as accepted input
+observations and preserves AI-inferred or unreviewed records as unreviewed
+claims or completion hints. It does not import a CaseGraphen store, replay
+history, call `cg`, fetch network data, read unrelated repository files, or use
+LLM inference.
+
+```sh
+highergraphen ddd review --input <path> --format json [--output <path>]
+```
+
+This command reads a bounded `highergraphen.ddd_review.input.v1` snapshot and
+emits a DDD review report. The workflow evaluates deterministic bounded-context
+and domain-model review invariants, then reports obstructions, completion
+candidates, evidence boundaries, projection loss, review gaps, and closeability.
+DDD-specific interpretation stays in this runtime/CLI workflow and its schemas;
+it is not `higher-graphen-core` behavior. Accepted source facts remain separate
+from AI-inferred or unreviewed claims, and no inferred claim is silently
+promoted.
+
+```sh
 highergraphen semantic-proof backend run \
   --backend <name> \
   --backend-version <version> \
@@ -466,6 +493,8 @@ the source report and do not promote the candidate into accepted facts.
 | `--interpreter <id>` | No | For `test-semantics interpret`, names the AI agent or process that authored the unreviewed interpretation candidates. |
 | `--input <path>` | For `pr-review targets recommend` | Reads the bounded PR review target JSON input snapshot. |
 | `--input <path>` | For `test-gap detect` and `test-gap evidence from-test-run` | Reads the bounded test-gap JSON input snapshot. |
+| `--case-space <path>` | For `ddd input from-case-space` | Reads one native CaseGraphen `CaseSpace` JSON file and converts it into a bounded DDD review input snapshot. |
+| `--input <path>` | For `ddd review` | Reads the bounded DDD review JSON input snapshot. |
 | `--command <path>` | For `semantic-proof backend run` | Runs the local proof backend process without a shell. |
 | `--arg <text>` | For `semantic-proof backend run` | Adds one backend process argument; repeat for multiple arguments. |
 | `--input <path>` | For `semantic-proof backend run` | Optional backend input material included in the artifact input hash. |
@@ -540,6 +569,23 @@ Run the checked-in test-gap fixture:
 ./target/debug/highergraphen test-gap detect \
   --input schemas/inputs/test-gap.input.example.json \
   --format json
+```
+
+Run the checked-in DDD review fixture:
+
+```sh
+./target/debug/highergraphen ddd review \
+  --input schemas/inputs/ddd-review.input.example.json \
+  --format json
+```
+
+Generate a DDD review input from the Sales/Billing Customer CaseSpace fixture:
+
+```sh
+./target/debug/highergraphen ddd input from-case-space \
+  --case-space examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json \
+  --format json \
+  --output ddd-review.input.json
 ```
 
 Generate a PR review target input from a local git range:
@@ -618,6 +664,15 @@ Write a test-gap report to a file:
   --output test-gap.report.json
 ```
 
+Write a DDD review report to a file:
+
+```sh
+./target/debug/highergraphen ddd review \
+  --input schemas/inputs/ddd-review.input.example.json \
+  --format json \
+  --output ddd-review.report.json
+```
+
 Verify a semantic proof certificate bundle:
 
 ```sh
@@ -653,7 +708,7 @@ python3 scripts/validate-cli-report-contract.py \
 ```
 
 Validate all checked-in JSON schemas and fixtures, including the PR review
-target and test-gap input and report contracts:
+target, test-gap, and DDD review input and report contracts:
 
 ```sh
 python3 scripts/validate-json-contracts.py

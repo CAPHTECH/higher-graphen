@@ -1,0 +1,12 @@
+case_id: hg_ddd_review_cli_workflow
+title: DDD review CLI workflow
+description: 'Promote the existing CaseGraphen DDD diagnostic prototype into a stable highergraphen CLI workflow. Done means the repository has a bounded DDD input contract, a deterministic review report contract, fixtures based on the Sales/Billing Customer example, documentation, and verification showing AI inference remains separated from accepted evidence. Out of scope: putting DDD-specific concepts into higher-graphen-core or silently accepting inferred domain conclusions.'
+state: open
+labels: []
+metadata: {}
+extensions: {}
+created_at: 2026-05-01T02:55:25.950Z
+updated_at: 2026-05-01T09:44:36.889Z
+case_revision:
+  current: 24
+  last_event_id: 01KQHET0RSSKS7KV7FQ5DCJ59T

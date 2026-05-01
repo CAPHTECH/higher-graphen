@@ -1,0 +1,384 @@
+{
+  "schema": "highergraphen.ddd_review.report.v1",
+  "report_type": "ddd_review",
+  "report_version": 1,
+  "metadata": {
+    "command": "highergraphen ddd review",
+    "runtime_package": "higher-graphen-runtime",
+    "runtime_crate": "higher_graphen_runtime",
+    "cli_package": "highergraphen-cli"
+  },
+  "scenario": {
+    "input_schema": "highergraphen.ddd_review.input.v1",
+    "review_subject": {
+      "id": "case_space:ddd-sales-billing-demo",
+      "subject_type": "case_space",
+      "title": "Sales and Billing Customer unification review"
+    },
+    "source_boundary": {
+      "input_paths": [
+        "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json"
+      ],
+      "accepted_fact_boundaries": [
+        "source_backed",
+        "adapter_supplied"
+      ],
+      "inference_boundaries": [
+        "ai_inference",
+        "unreviewed_note"
+      ],
+      "omitted_material": [
+        "No CaseGraphen store replay or MorphismLog history was read.",
+        "Full workshop notes, ADRs, source code, tickets, and tests were not read."
+      ],
+      "information_loss": [
+        "Native CaseSpace records are summarized into a bounded DDD review snapshot."
+      ]
+    },
+    "accepted_facts": [
+      {
+        "id": "context:sales",
+        "record_type": "bounded_context"
+      },
+      {
+        "id": "context:billing",
+        "record_type": "bounded_context"
+      },
+      {
+        "id": "decision:unified-customer-model",
+        "record_type": "decision"
+      },
+      {
+        "id": "semantic_case:customer-identity-loss",
+        "record_type": "boundary"
+      },
+      {
+        "id": "evidence:workshop-notes",
+        "record_type": "evidence"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "constraint:accepted-equivalence-required",
+        "record_type": "constraint"
+      }
+    ],
+    "reviews": [
+      {
+        "id": "review:domain-model-acceptance",
+        "record_type": "review"
+      }
+    ],
+    "inferred_claims": [
+      {
+        "id": "evidence:customer-equivalence-proof",
+        "claim_type": "equivalence_proof",
+        "review_status": "unreviewed"
+      }
+    ],
+    "completion_hints": [
+      {
+        "id": "completion:missing-sales-billing-acl",
+        "candidate_type": "boundary_mapping",
+        "review_status": "unreviewed"
+      }
+    ],
+    "lifted_structure": {
+      "space_id": "space:ddd-review:ddd-sales-billing-demo",
+      "cell_ids": [
+        "context:sales",
+        "context:billing",
+        "decision:unified-customer-model",
+        "semantic_case:customer-identity-loss",
+        "evidence:workshop-notes",
+        "constraint:accepted-equivalence-required",
+        "review:domain-model-acceptance",
+        "evidence:customer-equivalence-proof",
+        "completion:missing-sales-billing-acl"
+      ],
+      "incidence_ids": [
+        "incidence:unified-customer-spans-sales-billing",
+        "incidence:risk-supported-by-workshop-notes"
+      ],
+      "context_ids": [
+        "context:sales",
+        "context:billing"
+      ],
+      "morphism_summary_ids": [
+        "morphism-summary:customer-equivalence-unaccepted",
+        "morphism-summary:missing-sales-billing-acl"
+      ]
+    }
+  },
+  "result": {
+    "status": "issues_detected",
+    "accepted_fact_ids": [
+      "context:sales",
+      "context:billing",
+      "decision:unified-customer-model",
+      "semantic_case:customer-identity-loss",
+      "evidence:workshop-notes",
+      "constraint:accepted-equivalence-required",
+      "review:domain-model-acceptance"
+    ],
+    "inferred_claim_ids": [
+      "evidence:customer-equivalence-proof"
+    ],
+    "evaluated_invariant_ids": [
+      "invariant:context-language-preserved",
+      "invariant:cross-context-identity-not-collapsed",
+      "invariant:boundary-translation-explicit",
+      "invariant:review-gates-satisfied-before-close",
+      "invariant:inference-not-accepted-evidence",
+      "invariant:projection-declares-loss"
+    ],
+    "obstructions": [
+      {
+        "id": "obstruction:customer-boundary-semantic-loss",
+        "obstruction_type": "boundary_semantic_loss",
+        "title": "Shared Customer model drops context-specific semantics",
+        "target_ids": [
+          "decision:unified-customer-model",
+          "context:sales",
+          "context:billing"
+        ],
+        "witness": {
+          "sales_meaning": "prospect or deal participant",
+          "billing_meaning": "legal billing counterparty"
+        },
+        "invariant_ids": [
+          "invariant:context-language-preserved",
+          "invariant:cross-context-identity-not-collapsed"
+        ],
+        "evidence_ids": [
+          "semantic_case:customer-identity-loss",
+          "evidence:workshop-notes"
+        ],
+        "severity": "high",
+        "confidence": 0.92,
+        "review_status": "unreviewed"
+      },
+      {
+        "id": "obstruction:customer-equivalence-evidence-unaccepted",
+        "obstruction_type": "missing_evidence",
+        "title": "Equivalence proof is AI inference and cannot satisfy accepted evidence",
+        "target_ids": [
+          "decision:unified-customer-model",
+          "evidence:customer-equivalence-proof"
+        ],
+        "witness": {
+          "required_evidence": "accepted context equivalence proof",
+          "supplied_boundary": "ai_inference"
+        },
+        "invariant_ids": [
+          "invariant:inference-not-accepted-evidence"
+        ],
+        "evidence_ids": [
+          "evidence:customer-equivalence-proof"
+        ],
+        "severity": "high",
+        "confidence": 0.9,
+        "review_status": "unreviewed"
+      },
+      {
+        "id": "obstruction:domain-model-review-required",
+        "obstruction_type": "review_required",
+        "title": "Domain model acceptance review is not accepted",
+        "target_ids": [
+          "review:domain-model-acceptance",
+          "decision:unified-customer-model"
+        ],
+        "witness": {
+          "required_status": "accepted",
+          "current_status": "unreviewed"
+        },
+        "invariant_ids": [
+          "invariant:review-gates-satisfied-before-close"
+        ],
+        "evidence_ids": [
+          "review:domain-model-acceptance"
+        ],
+        "severity": "high",
+        "confidence": 1.0,
+        "review_status": "unreviewed"
+      },
+      {
+        "id": "obstruction:implementation-projection-hides-risk",
+        "obstruction_type": "projection_information_loss",
+        "title": "Implementation projection hides boundary risk and accepted workshop evidence",
+        "target_ids": [
+          "projection:implementation-view"
+        ],
+        "witness": {
+          "omitted_ids": [
+            "semantic_case:customer-identity-loss",
+            "evidence:workshop-notes"
+          ]
+        },
+        "invariant_ids": [
+          "invariant:projection-declares-loss"
+        ],
+        "evidence_ids": [
+          "projection:implementation-view"
+        ],
+        "severity": "medium",
+        "confidence": 0.86,
+        "review_status": "unreviewed"
+      }
+    ],
+    "completion_candidates": [
+      {
+        "id": "completion:missing-sales-billing-acl",
+        "candidate_type": "boundary_mapping",
+        "target_ids": [
+          "context:sales",
+          "context:billing",
+          "decision:unified-customer-model"
+        ],
+        "obstruction_ids": [
+          "obstruction:customer-boundary-semantic-loss"
+        ],
+        "suggested_change": {
+          "summary": "Define an explicit Sales-to-Billing anti-corruption mapping before sharing Customer data."
+        },
+        "rationale": "Sales and Billing use Customer with different semantics, so cross-context use needs an explicit translation boundary.",
+        "provenance": {
+          "source_ids": [
+            "semantic_case:customer-identity-loss",
+            "evidence:workshop-notes"
+          ],
+          "extraction_method": "ddd_review.v1"
+        },
+        "severity": "high",
+        "confidence": 0.88,
+        "review_status": "unreviewed"
+      }
+    ],
+    "evidence_boundaries": [
+      {
+        "id": "evidence-boundary:workshop-notes",
+        "boundary_type": "source_backed",
+        "source_ids": [
+          "evidence:workshop-notes"
+        ],
+        "accepted": true,
+        "review_status": "accepted"
+      },
+      {
+        "id": "evidence-boundary:customer-equivalence-proof",
+        "boundary_type": "ai_inference",
+        "source_ids": [
+          "evidence:customer-equivalence-proof"
+        ],
+        "accepted": false,
+        "review_status": "unreviewed"
+      }
+    ],
+    "projection_loss": [
+      {
+        "projection_id": "projection:implementation-view",
+        "omitted_ids": [
+          "semantic_case:customer-identity-loss",
+          "evidence:workshop-notes",
+          "evidence:customer-equivalence-proof"
+        ],
+        "loss_type": "boundary_semantics_hidden",
+        "summary": "The implementation view hides the boundary issue and evidence review state.",
+        "review_status": "unreviewed"
+      }
+    ],
+    "review_gaps": [
+      {
+        "id": "review-gap:domain-model-acceptance",
+        "gap_type": "unaccepted_review",
+        "target_ids": [
+          "review:domain-model-acceptance",
+          "decision:unified-customer-model"
+        ],
+        "required_review": "accepted domain model review",
+        "current_status": "unreviewed",
+        "review_status": "unreviewed"
+      }
+    ],
+    "closeability": {
+      "closeable": false,
+      "blocker_ids": [
+        "obstruction:customer-boundary-semantic-loss",
+        "obstruction:customer-equivalence-evidence-unaccepted",
+        "obstruction:domain-model-review-required"
+      ],
+      "required_actions": [
+        "Decide whether Sales Customer and Billing Customer can share one model without semantic loss.",
+        "Add an accepted equivalence proof or split the model by bounded context.",
+        "Review or implement the Sales-to-Billing anti-corruption mapping candidate."
+      ]
+    },
+    "source_ids": [
+      "case_space:ddd-sales-billing-demo",
+      "context:sales",
+      "context:billing",
+      "decision:unified-customer-model",
+      "semantic_case:customer-identity-loss",
+      "evidence:workshop-notes",
+      "constraint:accepted-equivalence-required",
+      "review:domain-model-acceptance",
+      "evidence:customer-equivalence-proof",
+      "completion:missing-sales-billing-acl"
+    ]
+  },
+  "projection": {
+    "human_review": {
+      "summary": "The Sales/Billing shared Customer decision is not closeable because boundary semantics differ, equivalence evidence is unreviewed AI inference, and domain review is still open.",
+      "recommended_actions": [
+        "Record accepted evidence for equivalence or split the Customer model by context.",
+        "Define and review an explicit Sales-to-Billing anti-corruption mapping.",
+        "Complete the domain model acceptance review before close."
+      ],
+      "represented_ids": [
+        "obstruction:customer-boundary-semantic-loss",
+        "obstruction:customer-equivalence-evidence-unaccepted",
+        "completion:missing-sales-billing-acl",
+        "review-gap:domain-model-acceptance"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes",
+        "semantic_case:customer-identity-loss"
+      ],
+      "information_loss": [
+        "Summarizes CaseSpace structure and does not include full workshop notes."
+      ]
+    },
+    "ai_view": {
+      "summary": "Preserves IDs for contexts, decision, evidence boundaries, obstructions, candidate, projection loss, and closeability blockers.",
+      "represented_ids": [
+        "context:sales",
+        "context:billing",
+        "decision:unified-customer-model",
+        "evidence:customer-equivalence-proof",
+        "obstruction:customer-boundary-semantic-loss",
+        "completion:missing-sales-billing-acl"
+      ],
+      "source_ids": [
+        "case_space:ddd-sales-billing-demo"
+      ],
+      "information_loss": [
+        "Does not replay native CaseGraphen history or inspect source code."
+      ]
+    },
+    "audit_trace": {
+      "summary": "Accepted workshop evidence is separated from unreviewed AI inference; no inferred claim is promoted.",
+      "represented_ids": [
+        "evidence-boundary:workshop-notes",
+        "evidence-boundary:customer-equivalence-proof",
+        "projection:implementation-view"
+      ],
+      "source_ids": [
+        "evidence:workshop-notes",
+        "evidence:customer-equivalence-proof"
+      ],
+      "information_loss": [
+        "Records omitted material and projection loss rather than treating absent data as evidence of safety."
+      ]
+    }
+  }
+}

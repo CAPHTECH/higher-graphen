@@ -55,6 +55,29 @@ Interpretation:
 | Obstruction | Unsupported claim, contradiction, unreviewed inference presented as fact. |
 | Projection | Evidence report, claim confidence summary, review queue. |
 
+## DDD Review Product
+
+Purpose:
+
+Represent bounded contexts, domain model decisions, aggregate boundaries,
+context mappings, evidence, and review gates as higher structure.
+
+Interpretation:
+
+| HigherGraphen primitive | DDD review interpretation |
+| --- | --- |
+| Cell | Bounded context, aggregate, entity, value object, service, API, database, evidence, review gate. |
+| Morphism | Context mapping, anti-corruption translation, model split, equivalence claim, decision revision. |
+| Invariant | Shared cross-context model requires accepted equivalence evidence; boundary translations must be explicit; review gates must be accepted before close. |
+| Obstruction | Boundary semantic loss, cross-context identity collapse, missing evidence, missing boundary mapping, projection information loss. |
+| Completion | Add anti-corruption mapping, split model by context, request source-backed evidence, complete domain review. |
+| Projection | DDD review report, implementation risk view, AI-agent view, audit trace. |
+
+The stable CLI contract is
+[`../specs/ddd-review-cli-contract.md`](../specs/ddd-review-cli-contract.md).
+DDD-specific interpretation belongs to this product workflow and must not be
+promoted into `higher-graphen-core`.
+
 ## Product Package Requirements
 
 Every product package should provide:
@@ -67,4 +90,3 @@ Every product package should provide:
 - Projection templates.
 - Lift adapters from common input formats.
 - Example scenarios.
-

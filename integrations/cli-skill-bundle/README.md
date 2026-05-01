@@ -18,9 +18,9 @@ integrations/cli-skill-bundle/
   skills/
     highergraphen/
       SKILL.md
-    casegraphen/
+    highergraphen-ddd/
       SKILL.md
-    casegraphen-ddd-diagnostics/
+    casegraphen/
       SKILL.md
     architecture-review/
       SKILL.md
@@ -39,11 +39,11 @@ plus MorphismLog operation without introducing MCP or provider SDK
 integrations. Installed `cg` is the meta `.casegraphen` workflow driver, not
 the native CaseGraphen product model.
 
-The bundled `casegraphen-ddd-diagnostics` skill is copied from
-`skills/casegraphen-ddd-diagnostics/SKILL.md`. It guides agents through DDD
-domain model review using native CaseGraphen `CaseSpace` plus `MorphismLog`
-reports, including boundary semantic loss, missing evidence, completion
-candidates, projection loss, and close-check interpretation.
+The bundled `highergraphen-ddd` skill is copied from
+`skills/highergraphen-ddd/SKILL.md`. It guides agents through the bounded
+`highergraphen ddd` product workflow, including boundary semantic loss,
+missing evidence, completion candidates, projection loss, review gaps, and
+closeability interpretation.
 
 The bundled `architecture-review` skill is a thin workflow guide for the
 current Architecture Product smoke report. It points agents back to the

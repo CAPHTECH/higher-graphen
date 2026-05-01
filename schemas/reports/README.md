@@ -135,6 +135,22 @@ workflow are suggestions with `review_status: "unreviewed"`. The report does
 not approve a pull request, assign reviewers, post provider comments, or record
 the human decision; humans should record explicit review decisions elsewhere.
 
+`ddd-review.report.schema.json` defines the v1 contract for
+`highergraphen.ddd_review.report.v1`. The checked-in fixture is generated from:
+
+```sh
+highergraphen ddd review \
+  --input schemas/inputs/ddd-review.input.example.json \
+  --format json
+```
+
+The report envelope covers bounded DDD review source facts, unreviewed inferred
+claims, obstructions, completion candidates, evidence boundaries, projection
+loss, review gaps, closeability, and human/AI/audit projections. The Sales and
+Billing Customer fixture is the motivating reference. AI-inferred equivalence
+proofs and missing anti-corruption mapping candidates remain unreviewed until
+an explicit review workflow accepts or rejects them.
+
 Schemas are intended to lock the public report envelope, deterministic scenario
 IDs, machine-checkable result shape, obstruction and completion candidate fields,
 projection audience and purpose, review boundaries between accepted facts and
@@ -155,8 +171,8 @@ python3 scripts/validate-cli-report-contract.py \
   --report schemas/reports/architecture-direct-db-access-smoke.report.example.json
 ```
 
-Validate all checked-in JSON contracts, including PR review target input and
-report fixtures, with:
+Validate all checked-in JSON contracts, including PR review target, test-gap,
+and DDD review input and report fixtures, with:
 
 ```sh
 python3 scripts/validate-json-contracts.py

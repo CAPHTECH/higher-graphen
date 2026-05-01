@@ -34,6 +34,11 @@ core model crate. The command is `highergraphen` because it is the umbrella
 product CLI; intermediate tools such as `casegraphen` remain separate tool
 families.
 
+DDD review follows the same ownership rule. The stable command namespace is
+`highergraphen ddd ...` because it is a product workflow over bounded source
+structure. DDD-specific interpretation must not be moved into
+`higher-graphen-core` or CaseGraphen core.
+
 ## Runtime Package Scope
 
 `higher-graphen-runtime` owns orchestration APIs for humans, tools, and AI
@@ -152,6 +157,47 @@ Command behavior:
   report contains a detected architecture violation.
 - Nonzero exit codes are reserved for command usage errors, runtime failures,
   serialization failures, or file output failures.
+
+## DDD Review Workflow Scope
+
+The DDD review workflow is a bounded, deterministic extension of the
+`highergraphen` CLI surface:
+
+```text
+highergraphen ddd input from-case-space --case-space <path> --format json
+highergraphen ddd review --input <path> --format json
+```
+
+`ddd input from-case-space` adapts one native CaseGraphen `CaseSpace` JSON file
+into `highergraphen.ddd_review.input.v1`. `ddd review` reads that bounded input
+and emits `highergraphen.ddd_review.report.v1`.
+
+The workflow uses the Sales/Billing Customer example as its first reference:
+
+```text
+examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json
+```
+
+The DDD workflow boundary is intentionally narrow:
+
+- source-backed CaseSpace records and supplied DDD input records may become
+  accepted input observations;
+- AI-inferred equivalence proofs, generated diagnostics, inferred missing
+  mappings, and unreviewed notes remain unreviewed claims or candidates;
+- report sections must expose obstructions, completion candidates, evidence
+  boundaries, projection loss, review gaps, and closeability;
+- the CLI must not fetch network data, call provider APIs, invoke hidden LLM
+  inference, scan unrelated repository files, or silently promote inferred
+  claims.
+
+The report schema and fixture live at:
+
+```text
+schemas/inputs/ddd-review.input.schema.json
+schemas/inputs/ddd-review.input.example.json
+schemas/reports/ddd-review.report.schema.json
+schemas/reports/ddd-review.report.example.json
+```
 
 ## First Workflow Contract
 

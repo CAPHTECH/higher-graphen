@@ -73,6 +73,32 @@ The git adapter emits deterministic changed-file facts, commit/diff evidence,
 path-derived owners and contexts, and risk signals. It does not approve PRs or
 record human review decisions.
 
+`ddd-review.input.schema.json` defines the bounded DDD review input contract,
+`highergraphen.ddd_review.input.v1`. It accepts source-backed DDD facts,
+constraints, reviews, unreviewed inferred claims, completion hints, projection
+requests, and an explicit source boundary. Accepted source facts are separate
+from AI-inferred or unreviewed claims.
+
+The matching fixture is:
+
+```sh
+schemas/inputs/ddd-review.input.example.json
+```
+
+The fixture mirrors the Sales/Billing Customer CaseGraphen example:
+
+```sh
+examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json
+```
+
+Run the DDD review fixture with:
+
+```sh
+highergraphen ddd review \
+  --input schemas/inputs/ddd-review.input.example.json \
+  --format json
+```
+
 `rust-test-semantics.input.schema.json` defines a bounded, project-neutral Rust
 test semantic extraction contract, `highergraphen.rust_test_semantics.input.v1`. It
 captures selected paths, Rust test functions, assertion macros, CLI-like token

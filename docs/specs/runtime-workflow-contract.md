@@ -10,6 +10,12 @@ boundaries in [`package-boundaries.md`](package-boundaries.md),
 The CLI, MCP servers, provider plugins, and future apps should consume this
 runtime workflow rather than reimplementing orchestration over lower crates.
 
+Additional runtime workflows should keep the same envelope, review-status, and
+source-boundary rules. Domain workflows such as DDD review may add
+domain-specific schemas and result sections, but domain interpretation belongs
+in runtime/CLI workflow modules and product docs, not in
+`higher-graphen-core`.
+
 ## Identity
 
 | Surface | Contract |
@@ -237,6 +243,40 @@ or `examples/architecture`.
 Lower-level crates must not depend on runtime, CLI, providers, MCP, plugin
 packaging, or Architecture Product workflow code. Report-specific adapters,
 scenario builders, and convenience views belong inside runtime.
+
+## DDD Review Extension Contract
+
+The DDD review workflow is specified in
+[`ddd-review-cli-contract.md`](ddd-review-cli-contract.md). Its command surface
+is:
+
+```text
+highergraphen ddd input from-case-space --case-space <path> --format json
+highergraphen ddd review --input <path> --format json
+```
+
+Runtime ownership follows the report-first pattern:
+
+| Surface | Contract |
+| --- | --- |
+| Workflow name | `ddd_review` |
+| Input schema | `highergraphen.ddd_review.input.v1` |
+| Report schema | `highergraphen.ddd_review.report.v1` |
+| Report type | `ddd_review` |
+| CLI consumer | `highergraphen ddd review` |
+| Reference fixture | `examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json` |
+
+The workflow may use shared HigherGraphen primitives for source refs,
+confidence, review status, cells, incidences, morphism summaries, obstructions,
+completion candidates, evidence, and projections. It must keep DDD-specific
+labels and invariants, such as bounded context, Customer identity collapse,
+anti-corruption mapping, and domain model closeability, out of
+`higher-graphen-core`.
+
+The report result must preserve these sections as first-class JSON fields:
+`obstructions`, `completion_candidates`, `evidence_boundaries`,
+`projection_loss`, `review_gaps`, and `closeability`. Domain findings are
+successful report data; they are not runtime errors.
 
 ## Implementation Layout
 

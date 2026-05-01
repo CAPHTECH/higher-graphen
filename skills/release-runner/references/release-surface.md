@@ -5,14 +5,18 @@ Read this before selecting release scope, bumping versions, drafting release not
 ## Current Release Model
 
 - The repository uses a single Cargo workspace version in root `Cargo.toml`.
-- Current Cargo packages, including tools and examples, set `publish = false`; do not publish to crates.io unless release policy changes explicitly.
+- Reusable crates under `crates/` and CLI packages under `tools/` are
+  configured for crates.io packaging. Example packages under `examples/` remain
+  unpublished validation fixtures with `publish = false`.
 - Default release scope is the whole repository through a Git tag and optional GitHub Release.
 - Optional release artifacts can include CLI binaries, schema archives, and the CLI skill bundle.
 - `LICENSE`, `COMMERCIAL_BOUNDARY.md`, and public `.casegraphen/` traces are release-facing public artifacts.
 
 ## Rust Workspace Crates
 
-These are versioned library crates in `crates/`. They are part of the repository release and workspace API surface, but are not currently registry-published:
+These are versioned library crates in `crates/`. They are part of the repository
+release and workspace API surface, and may be published to crates.io when the
+release plan explicitly includes package publication:
 
 - `higher-graphen-core`
 - `higher-graphen-space`
@@ -31,6 +35,27 @@ These are versioned library crates in `crates/`. They are part of the repository
 - `higher-graphen-interpretation`
 - `higher-graphen-runtime`
 
+Publish lower-level reusable crates before dependent crates:
+
+```sh
+cargo publish -p higher-graphen-core
+cargo publish -p higher-graphen-space
+cargo publish -p higher-graphen-context
+cargo publish -p higher-graphen-morphism
+cargo publish -p higher-graphen-obstruction
+cargo publish -p higher-graphen-projection
+cargo publish -p higher-graphen-completion
+cargo publish -p higher-graphen-model-checking
+cargo publish -p higher-graphen-abstract-interpretation
+cargo publish -p higher-graphen-causal
+cargo publish -p higher-graphen-confidence-model
+cargo publish -p higher-graphen-topology
+cargo publish -p higher-graphen-prover
+cargo publish -p higher-graphen-interpretation
+cargo publish -p higher-graphen-invariant
+cargo publish -p higher-graphen-runtime
+```
+
 Before release, confirm the list with:
 
 ```sh
@@ -39,7 +64,10 @@ cargo metadata --locked --format-version 1 --no-deps
 
 ## CLI Tools
 
-These tool packages are part of the release surface. They are not currently registry-published, but their binaries may be attached to a GitHub Release if the release plan includes binary artifacts:
+These tool packages are part of the release surface. They may be published to
+crates.io after their reusable crate dependencies are available, and their
+binaries may also be attached to a GitHub Release if the release plan includes
+binary artifacts:
 
 - `tools/casegraphen` package `casegraphen`, binary `casegraphen`
 - `tools/highergraphen-cli` package `highergraphen-cli`, binary `highergraphen`
@@ -50,6 +78,13 @@ If publishing binaries, run a release build in addition to the mandatory gate:
 cargo build --workspace --release --locked
 ```
 
+If publishing CLI packages to crates.io, publish them after the reusable crates:
+
+```sh
+cargo publish -p casegraphen
+cargo publish -p highergraphen-cli
+```
+
 ## Skill and Integration Bundles
 
 These are releaseable agent integration surfaces:
@@ -58,11 +93,11 @@ These are releaseable agent integration surfaces:
 - `integrations/cli-skill-bundle/README.md`
 - `integrations/cli-skill-bundle/check-bundle.py`
 - `integrations/cli-skill-bundle/skills/highergraphen/SKILL.md`
+- `integrations/cli-skill-bundle/skills/highergraphen-ddd/SKILL.md`
 - `integrations/cli-skill-bundle/skills/casegraphen/SKILL.md`
-- `integrations/cli-skill-bundle/skills/casegraphen-ddd-diagnostics/SKILL.md`
 - `integrations/cli-skill-bundle/skills/architecture-review/SKILL.md`
 - `integrations/cli-skill-bundle/references/cli-contract.md`
-- repository source skills under `skills/highergraphen`, `skills/casegraphen`, `skills/casegraphen-ddd-diagnostics`, and `skills/release-runner`
+- repository source skills under `skills/highergraphen`, `skills/highergraphen-ddd`, `skills/casegraphen`, and `skills/release-runner`
 
 The CLI skill bundle has its own `version` in `bundle.json`. Decide explicitly whether a repository release also bumps the bundle version.
 

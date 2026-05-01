@@ -268,10 +268,13 @@ casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_
 | CaseGraphen native case schema | `schemas/casegraphen/native.case.space.schema.json` |
 | CaseGraphen native report schema | `schemas/casegraphen/native.case.report.schema.json` |
 | CaseGraphen source skill | `skills/casegraphen/SKILL.md` |
-| CaseGraphen DDD diagnostics skill | `skills/casegraphen-ddd-diagnostics/SKILL.md` |
+| HigherGraphen DDD review contract | `docs/specs/ddd-review-cli-contract.md` |
+| HigherGraphen DDD review input schema | `schemas/inputs/ddd-review.input.schema.json` |
+| HigherGraphen DDD review report schema | `schemas/reports/ddd-review.report.schema.json` |
+| HigherGraphen DDD review skill | `skills/highergraphen-ddd/SKILL.md` |
 | CaseGraphen reference workflow | `examples/casegraphen/reference/README.md` |
 | CaseGraphen native reference | `examples/casegraphen/native/README.md` |
-| CaseGraphen DDD diagnostic reference | `examples/casegraphen/ddd/domain-model-design/README.md` |
+| Legacy CaseGraphen DDD fixture | `examples/casegraphen/ddd/domain-model-design/README.md` |
 
 ## Required Semantics
 

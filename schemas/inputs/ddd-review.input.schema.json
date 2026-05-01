@@ -1,0 +1,414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.ddd_review.input.v1",
+  "title": "HigherGraphen DDD Review Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "review_subject",
+    "source_boundary",
+    "accepted_facts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.ddd_review.input.v1"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "review_subject": {
+      "$ref": "#/$defs/review_subject"
+    },
+    "source_boundary": {
+      "$ref": "#/$defs/source_boundary"
+    },
+    "accepted_facts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ddd_record"
+      },
+      "minItems": 1
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ddd_record"
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ddd_record"
+      }
+    },
+    "inferred_claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/inferred_claim"
+      }
+    },
+    "completion_hints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/completion_hint"
+      }
+    },
+    "projection_requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projection_request"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "accepted",
+        "unreviewed",
+        "reviewed",
+        "rejected"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "confidence",
+        "adapters"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "document",
+            "case_space",
+            "human",
+            "ai",
+            "code",
+            "external"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "captured_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "adapters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "review_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject_type",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "subject_type": {
+          "enum": [
+            "case_space",
+            "domain_model",
+            "bounded_context_map",
+            "design_decision"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_paths",
+        "accepted_fact_boundaries",
+        "inference_boundaries",
+        "omitted_material",
+        "information_loss"
+      ],
+      "properties": {
+        "input_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "accepted_fact_boundaries": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "source_backed",
+              "accepted_review",
+              "adapter_supplied"
+            ]
+          },
+          "minItems": 1
+        },
+        "inference_boundaries": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ai_inference",
+              "adapter_inference",
+              "unreviewed_note"
+            ]
+          }
+        },
+        "omitted_material": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "ddd_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "record_type",
+        "label",
+        "review_status",
+        "evidence_boundary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_type": {
+          "enum": [
+            "bounded_context",
+            "aggregate",
+            "entity",
+            "value_object",
+            "service",
+            "api",
+            "database",
+            "team",
+            "domain_event",
+            "command",
+            "external_message",
+            "relation",
+            "constraint",
+            "boundary",
+            "evidence",
+            "review",
+            "decision",
+            "projection"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "properties": {
+          "type": "object"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "accepted"
+        },
+        "evidence_boundary": {
+          "enum": [
+            "source_backed",
+            "accepted_review",
+            "adapter_supplied"
+          ]
+        }
+      }
+    },
+    "inferred_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "claim_type",
+        "label",
+        "source_ids",
+        "confidence",
+        "review_status",
+        "evidence_boundary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "claim_type": {
+          "enum": [
+            "equivalence_proof",
+            "boundary_risk",
+            "missing_mapping",
+            "contradiction",
+            "projection_loss",
+            "review_gap"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "review_status": {
+          "const": "unreviewed"
+        },
+        "evidence_boundary": {
+          "enum": [
+            "ai_inference",
+            "adapter_inference",
+            "unreviewed_note"
+          ]
+        }
+      }
+    },
+    "completion_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_type",
+        "target_ids",
+        "source_ids",
+        "review_status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_type": {
+          "enum": [
+            "boundary_mapping",
+            "domain_review",
+            "evidence_request",
+            "model_split",
+            "constraint_update"
+          ]
+        },
+        "target_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "suggested_change": {
+          "type": "object"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "review_status": {
+          "const": "unreviewed"
+        }
+      }
+    },
+    "projection_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "view"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "view": {
+          "enum": [
+            "human_review",
+            "ai_view",
+            "implementation_view",
+            "audit_trace"
+          ]
+        },
+        "focus_ids": {
+          "$ref": "#/$defs/id_array"
+        }
+      }
+    }
+  }
+}

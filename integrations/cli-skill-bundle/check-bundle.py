@@ -38,9 +38,14 @@ REQUIRED_METADATA_PATHS = [
     ("contract_references", "casegraphen_native_case_fixture"),
     ("contract_references", "casegraphen_native_report_fixture"),
     ("contract_references", "casegraphen_native_reference_readme"),
-    ("contract_references", "casegraphen_ddd_diagnostic_example"),
-    ("contract_references", "casegraphen_ddd_diagnostic_fixture"),
-    ("contract_references", "casegraphen_ddd_diagnostic_source_skill"),
+    ("contract_references", "ddd_review_contract"),
+    ("contract_references", "ddd_review_input_schema"),
+    ("contract_references", "ddd_review_input_fixture"),
+    ("contract_references", "ddd_review_report_schema"),
+    ("contract_references", "ddd_review_report_fixture"),
+    ("contract_references", "ddd_review_legacy_example"),
+    ("contract_references", "ddd_review_legacy_case_space_fixture"),
+    ("contract_references", "ddd_review_source_skill"),
     ("contract_references", "casegraphen_reference_readme"),
     ("contract_references", "casegraphen_source_skill"),
     ("contract_references", "contract_validator"),
@@ -192,21 +197,31 @@ CASEGRAPHEN_NATIVE_TERMS = [
     "metadata-only",
 ]
 
-CASEGRAPHEN_DDD_TERMS = [
-    "casegraphen-ddd-diagnostics",
+HIGHERGRAPHEN_DDD_SKILL_TERMS = [
+    "highergraphen-ddd",
+    "highergraphen ddd review",
+    "ddd input from-case-space",
     "bounded context",
     "domain model",
     "boundary",
-    "semantic_case",
-    "evidence_boundary",
-    "casegraphen case reason",
-    "casegraphen case obstructions",
-    "casegraphen case completions",
-    "casegraphen case evidence",
-    "casegraphen case project",
-    "casegraphen case close-check",
+    "evidence boundaries",
+    "projection loss",
+    "closeability",
     "sales-billing-customer.case.space.json",
-    "AI inference",
+    "AI-inferred",
+]
+
+HIGHERGRAPHEN_DDD_CONTRACT_TERMS = [
+    "highergraphen ddd review",
+    "ddd input from-case-space",
+    "bounded context",
+    "domain model",
+    "boundary",
+    "evidence boundaries",
+    "projection loss",
+    "closeability",
+    "sales-billing-customer.case.space.json",
+    "AI-inferred",
 ]
 
 FORBIDDEN_MANIFEST_NAMES = {
@@ -275,15 +290,15 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
     skills = metadata.get("skills")
     if not isinstance(skills, list) or len(skills) != 4:
         errors.append(
-            "skills: expected highergraphen, casegraphen, casegraphen-ddd-diagnostics, and architecture-review"
+            "skills: expected highergraphen, highergraphen-ddd, casegraphen, and architecture-review"
         )
         return errors
 
     skill_names = {skill.get("name") for skill in skills if isinstance(skill, dict)}
     if skill_names != {
         "highergraphen",
+        "highergraphen-ddd",
         "casegraphen",
-        "casegraphen-ddd-diagnostics",
         "architecture-review",
     }:
         errors.append(f"skills: unexpected names {sorted(skill_names)!r}")
@@ -322,8 +337,8 @@ def check_casegraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
     return check_byte_for_byte_skill_sync(metadata, "casegraphen")
 
 
-def check_casegraphen_ddd_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    return check_byte_for_byte_skill_sync(metadata, "casegraphen-ddd-diagnostics")
+def check_highergraphen_ddd_skill_sync(metadata: dict[str, Any]) -> list[str]:
+    return check_byte_for_byte_skill_sync(metadata, "highergraphen-ddd")
 
 
 def check_byte_for_byte_skill_sync(metadata: dict[str, Any], name: str) -> list[str]:
@@ -403,15 +418,15 @@ def check_casegraphen_operator_surface(metadata: dict[str, Any]) -> list[str]:
     return errors
 
 
-def check_casegraphen_ddd_surface(metadata: dict[str, Any]) -> list[str]:
+def check_highergraphen_ddd_surface(metadata: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
-    skill = find_skill(metadata, "casegraphen-ddd-diagnostics")
+    skill = find_skill(metadata, "highergraphen-ddd")
     if skill is None:
-        return ["casegraphen-ddd-diagnostics skill metadata is missing"]
+        return ["highergraphen-ddd skill metadata is missing"]
 
     skill_path = require_existing_path(skill, "source")
-    errors.extend(missing_terms(skill_path, CASEGRAPHEN_DDD_TERMS))
+    errors.extend(missing_terms(skill_path, HIGHERGRAPHEN_DDD_SKILL_TERMS))
 
     references = metadata.get("contract_references", {})
     if not isinstance(references, dict):
@@ -419,21 +434,30 @@ def check_casegraphen_ddd_surface(metadata: dict[str, Any]) -> list[str]:
 
     example_path = require_existing_path(
         {
-            "name": "casegraphen_ddd_diagnostic_example",
-            "source": references.get("casegraphen_ddd_diagnostic_example"),
+            "name": "ddd_review_legacy_example",
+            "source": references.get("ddd_review_legacy_example"),
         },
         "source",
     )
-    errors.extend(missing_terms(example_path, CASEGRAPHEN_DDD_TERMS))
+    errors.extend(missing_terms(example_path, ["Sales/Billing", "Customer"]))
 
     fixture_path = require_existing_path(
         {
-            "name": "casegraphen_ddd_diagnostic_fixture",
-            "source": references.get("casegraphen_ddd_diagnostic_fixture"),
+            "name": "ddd_review_legacy_case_space_fixture",
+            "source": references.get("ddd_review_legacy_case_space_fixture"),
         },
         "source",
     )
     errors.extend(missing_terms(fixture_path, ["case_space:ddd-sales-billing-demo"]))
+
+    contract_path = require_existing_path(
+        {
+            "name": "ddd_review_contract",
+            "source": references.get("ddd_review_contract"),
+        },
+        "source",
+    )
+    errors.extend(missing_terms(contract_path, HIGHERGRAPHEN_DDD_CONTRACT_TERMS))
 
     return errors
 
@@ -496,10 +520,10 @@ def main() -> int:
         errors.extend(check_casegraphen_entrypoints(metadata))
         errors.extend(check_highergraphen_skill_sync(metadata))
         errors.extend(check_casegraphen_skill_sync(metadata))
-        errors.extend(check_casegraphen_ddd_skill_sync(metadata))
+        errors.extend(check_highergraphen_ddd_skill_sync(metadata))
         errors.extend(check_architecture_review_skill(metadata))
         errors.extend(check_casegraphen_operator_surface(metadata))
-        errors.extend(check_casegraphen_ddd_surface(metadata))
+        errors.extend(check_highergraphen_ddd_surface(metadata))
         errors.extend(check_provider_specific_files())
     except BundleError as error:
         errors = [str(error)]
