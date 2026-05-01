@@ -57,11 +57,11 @@ pub(crate) fn detect(request: GapRequest) -> Result<Value, String> {
 
     let obstructions = missing_obligations
         .iter()
-        .map(|obligation| obstruction_for_obligation(obligation))
+        .map(obstruction_for_obligation)
         .collect::<Vec<_>>();
     let completion_candidates = missing_obligations
         .iter()
-        .map(|obligation| completion_candidate_for_obligation(obligation))
+        .map(completion_candidate_for_obligation)
         .collect::<Vec<_>>();
     let status = if missing_obligations.is_empty() {
         "no_gaps_detected"

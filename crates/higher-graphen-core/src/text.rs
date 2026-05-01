@@ -32,3 +32,10 @@ pub(crate) fn normalize_required_text(
 
     Ok(normalized)
 }
+
+pub(crate) fn normalize_required_text_vec(field: &'static str, values: &[String]) -> Result<()> {
+    for value in values {
+        normalize_required_text(field, value)?;
+    }
+    Ok(())
+}

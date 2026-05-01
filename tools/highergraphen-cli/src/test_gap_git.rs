@@ -1,5 +1,6 @@
 #[path = "pr_review_git_support.rs"]
 #[allow(dead_code)]
+#[allow(clippy::duplicate_mod)]
 mod pr_review_git_support;
 
 use self::pr_review_git_support::*;
@@ -2313,6 +2314,7 @@ fn string_array_field(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_rust_test_content_cells(
     content_model: &mut RustTestContentModel,
     target_model: &StructuralModel,
@@ -3014,6 +3016,7 @@ fn push_json_schema_semantic_cells(
     Ok(semantic_cells)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_json_schema_properties(
     model: &mut StructuralModel,
     change: &GitChange,
@@ -3488,6 +3491,7 @@ fn semantic_expr_mentions_error_path(expr: &syn::Expr) -> bool {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_higher_order_cell(
     model: &mut StructuralModel,
     cell_id: Id,
@@ -3548,6 +3552,7 @@ fn push_higher_order_incidence(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_structural_symbol(
     model: &mut StructuralModel,
     changes: &[GitChange],
