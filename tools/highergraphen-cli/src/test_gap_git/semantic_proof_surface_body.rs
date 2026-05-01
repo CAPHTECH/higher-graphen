@@ -1,0 +1,384 @@
+{
+    if let Some(schema_change) = changes
+        .iter()
+        .find(|change| change.path.ends_with(".schema.json"))
+    {
+        push_structural_symbol_unconditional(
+            model,
+            diff_evidence_id,
+            &schema_change.path,
+            "validator:test-gap:json-contracts",
+            "JSON contract validation command cell",
+            "scripts/validate-json-contracts.py",
+            TestGapSymbolKind::Unknown,
+        )?;
+    }
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/main.rs",
+        "command:highergraphen:semantic-proof:backend-run",
+        "highergraphen semantic-proof backend run command cell",
+        "highergraphen semantic-proof backend run",
+        TestGapSymbolKind::PublicApi,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/main.rs",
+        "command:highergraphen:semantic-proof:input-from-artifact",
+        "highergraphen semantic-proof input from-artifact command cell",
+        "highergraphen semantic-proof input from-artifact",
+        TestGapSymbolKind::PublicApi,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/main.rs",
+        "command:highergraphen:semantic-proof:verify",
+        "highergraphen semantic-proof verify command cell",
+        "highergraphen semantic-proof verify",
+        TestGapSymbolKind::PublicApi,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/main.rs",
+        "command:highergraphen:semantic-proof:input-from-report",
+        "highergraphen semantic-proof input from-report command cell",
+        "highergraphen semantic-proof input from-report",
+        TestGapSymbolKind::PublicApi,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_backend.rs",
+        "runner:semantic-proof:backend-run",
+        "semantic-proof local backend runner cell",
+        "semantic_proof_backend::run_backend",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+        "adapter:semantic-proof:artifact-input",
+        "semantic-proof artifact input adapter cell",
+        "semantic_proof_artifact::input_from_artifact",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_reinput.rs",
+        "adapter:semantic-proof:reinput-from-report",
+        "semantic-proof report reinput adapter cell",
+        "semantic_proof_reinput::input_from_report",
+        TestGapSymbolKind::Module,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/tests/command.rs",
+        "test:semantic-proof:artifact-roundtrip",
+        "semantic-proof artifact roundtrip CLI test cell",
+        "semantic_proof_input_from_artifact roundtrip tests",
+        TestGapSymbolKind::Function,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/tests/command.rs",
+        "test:semantic-proof:backend-and-reinput",
+        "semantic-proof backend runner and reinput CLI test cell",
+        "semantic_proof_backend_run and semantic_proof_input_from_report tests",
+        TestGapSymbolKind::Function,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+        "theorem:semantic-proof:artifact-adapter-correctness",
+        "semantic-proof artifact adapter correctness theorem",
+        "artifact adapter preserves semantic proof obligations",
+        TestGapSymbolKind::Unknown,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_backend.rs",
+        "theorem:semantic-proof:backend-run-trust-boundary",
+        "semantic-proof backend runner trust boundary theorem",
+        "backend runner records command output without accepting it beyond policy",
+        TestGapSymbolKind::Unknown,
+    )?;
+    push_structural_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        "tools/highergraphen-cli/src/semantic_proof_reinput.rs",
+        "theorem:semantic-proof:obligation-reinput-correctness",
+        "semantic-proof obligation reinput correctness theorem",
+        "insufficient proof reports requeue unproved laws and morphisms",
+        TestGapSymbolKind::Unknown,
+    )?;
+
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/semantic_proof_backend.rs"],
+        "law:semantic-proof:backend-run-records-trust-boundary",
+        "backend runs record command, hashes, exit status, and unreviewed failing outputs at the trust boundary",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:artifact-status-totality",
+        "artifact statuses are total over proved, counterexample, and counterexample_found",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:certificate-policy-preservation",
+        "proved artifacts preserve backend, hashes, witnesses, and accepted review policy",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/semantic_proof_artifact.rs"],
+        "law:semantic-proof:counterexample-refutation-preservation",
+        "counterexample artifacts preserve theorem, law, morphism, path, severity, and review state",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &[
+            "tools/highergraphen-cli/src/semantic_proof_artifact.rs",
+            "docs/cli/highergraphen.md",
+            "skills/highergraphen/SKILL.md",
+        ],
+        "law:semantic-proof:backend-boundary-is-explicit",
+        "artifact adapter normalizes already-produced backend artifacts without executing proof backends",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &[
+            "crates/higher-graphen-runtime/src/workflows/semantic_proof.rs",
+            "crates/higher-graphen-runtime/src/semantic_proof_reports.rs",
+            "schemas/inputs/semantic-proof.input.schema.json",
+        ],
+        "law:semantic-proof:counterexample-review-policy",
+        "counterexamples only refute automatically when the policy does not require accepted review or the counterexample is accepted",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/src/semantic_proof_reinput.rs"],
+        "law:semantic-proof:insufficient-proof-reinputs-open-obligations",
+        "insufficient proof reports generate new inputs containing the open law and morphism obligations",
+    )?;
+    push_law_symbol(
+        model,
+        changes,
+        diff_evidence_id,
+        &["tools/highergraphen-cli/tests/command.rs"],
+        "law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample",
+        "CLI roundtrip tests cover proved and counterexample artifact paths through verify",
+    )?;
+
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:backend-run-to-artifact-adapter",
+        "command:highergraphen:semantic-proof:backend-run",
+        "runner:semantic-proof:backend-run",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:backend-run-to-input-from-artifact",
+        "runner:semantic-proof:backend-run",
+        "adapter:semantic-proof:artifact-input",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:command-input-to-adapter",
+        "command:highergraphen:semantic-proof:input-from-artifact",
+        "adapter:semantic-proof:artifact-input",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:adapter-to-verify-command",
+        "adapter:semantic-proof:artifact-input",
+        "command:highergraphen:semantic-proof:verify",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:command-reinput-to-adapter",
+        "command:highergraphen:semantic-proof:input-from-report",
+        "adapter:semantic-proof:reinput-from-report",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:reinput-to-verify-command",
+        "adapter:semantic-proof:reinput-from-report",
+        "command:highergraphen:semantic-proof:verify",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:roundtrip-test-to-adapter",
+        "test:semantic-proof:artifact-roundtrip",
+        "adapter:semantic-proof:artifact-input",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:backend-test-to-runner",
+        "test:semantic-proof:backend-and-reinput",
+        "runner:semantic-proof:backend-run",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:reinput-test-to-adapter",
+        "test:semantic-proof:backend-and-reinput",
+        "adapter:semantic-proof:reinput-from-report",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+    push_structural_edge(
+        model,
+        "edge:semantic-proof:theorem-to-adapter",
+        "theorem:semantic-proof:artifact-adapter-correctness",
+        "adapter:semantic-proof:artifact-input",
+        TestGapDependencyRelationType::Supports,
+        diff_evidence_id,
+    )?;
+
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:backend-run-to-artifact",
+        "backend_execution_to_bounded_artifact",
+        &[
+            "command:highergraphen:semantic-proof:backend-run",
+            "runner:semantic-proof:backend-run",
+        ],
+        &[
+            "adapter:semantic-proof:artifact-input",
+            "theorem:semantic-proof:backend-run-trust-boundary",
+        ],
+        &[
+            "law:semantic-proof:backend-run-records-trust-boundary",
+            "law:semantic-proof:backend-boundary-is-explicit",
+        ],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:artifact-to-input-document",
+        "artifact_to_semantic_proof_input",
+        &[
+            "command:highergraphen:semantic-proof:input-from-artifact",
+            "adapter:semantic-proof:artifact-input",
+        ],
+        &["theorem:semantic-proof:artifact-adapter-correctness"],
+        &[
+            "law:semantic-proof:artifact-status-totality",
+            "law:semantic-proof:backend-boundary-is-explicit",
+        ],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:certificate-to-proof-object",
+        "certificate_artifact_to_proof_object",
+        &["adapter:semantic-proof:artifact-input"],
+        &["command:highergraphen:semantic-proof:verify"],
+        &["law:semantic-proof:certificate-policy-preservation"],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:counterexample-to-refutation",
+        "counterexample_artifact_to_refutation",
+        &["adapter:semantic-proof:artifact-input"],
+        &["command:highergraphen:semantic-proof:verify"],
+        &["law:semantic-proof:counterexample-refutation-preservation"],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:counterexample-review-to-obstruction",
+        "counterexample_review_policy_to_obstruction",
+        &[
+            "adapter:semantic-proof:artifact-input",
+            "law:semantic-proof:counterexample-review-policy",
+        ],
+        &["command:highergraphen:semantic-proof:verify"],
+        &["law:semantic-proof:counterexample-review-policy"],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:insufficient-report-to-reinput",
+        "insufficient_report_to_open_obligation_input",
+        &[
+            "command:highergraphen:semantic-proof:input-from-report",
+            "adapter:semantic-proof:reinput-from-report",
+        ],
+        &["theorem:semantic-proof:obligation-reinput-correctness"],
+        &["law:semantic-proof:insufficient-proof-reinputs-open-obligations"],
+        diff_evidence_id,
+    )?;
+    push_higher_order_morphism(
+        model,
+        "morphism:semantic-proof:roundtrip-tests-to-adapter-correctness",
+        "roundtrip_test_to_adapter_correctness",
+        &[
+            "test:semantic-proof:artifact-roundtrip",
+            "test:semantic-proof:backend-and-reinput",
+        ],
+        &[
+            "theorem:semantic-proof:artifact-adapter-correctness",
+            "theorem:semantic-proof:backend-run-trust-boundary",
+            "theorem:semantic-proof:obligation-reinput-correctness",
+        ],
+        &["law:semantic-proof:roundtrip-tests-cover-proof-and-counterexample"],
+        diff_evidence_id,
+    )?;
+
+    Ok(())
+}

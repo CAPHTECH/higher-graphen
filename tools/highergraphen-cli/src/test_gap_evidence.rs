@@ -14,7 +14,7 @@ pub(crate) struct TestRunEvidenceRequest {
     pub(crate) test_run: PathBuf,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TestRunStatus {
     Passed,
     Failed,
@@ -54,28 +54,9 @@ fn augment_with_test_run(
     let evidence_id = id(format!("evidence:test-run:{hash}"))?;
     let context_id = id("context:test-run")?;
     push_context(&mut input, context_id.clone(), &evidence_id);
-    input.evidence.push(TestGapInputEvidence {
-        id: evidence_id.clone(),
-        evidence_type: TestGapEvidenceType::TestResult,
-        summary: format!(
-            "Test run artifact {} contains {} passed, {} failed, and {} ignored tests.",
-            hash,
-            cases
-                .iter()
-                .filter(|case| case.status == TestRunStatus::Passed)
-                .count(),
-            cases
-                .iter()
-                .filter(|case| case.status == TestRunStatus::Failed)
-                .count(),
-            cases
-                .iter()
-                .filter(|case| case.status == TestRunStatus::Ignored)
-                .count()
-        ),
-        source_ids: Vec::new(),
-        confidence: Some(confidence(0.95)?),
-    });
+    input
+        .evidence
+        .push(test_run_evidence(evidence_id.clone(), &hash, cases)?);
 
     let run_cell_id = id(format!("semantic:test-run:artifact:{hash}"))?;
     push_cell(
@@ -89,73 +70,164 @@ fn augment_with_test_run(
     )?;
 
     for case in cases {
-        let case_slug = slug(&case.name);
-        let case_id = id(format!("semantic:test-run:case:{case_slug}"))?;
-        push_cell(
+        push_test_run_case(
             &mut input,
-            case_id.clone(),
-            match case.status {
-                TestRunStatus::Passed => "test_execution_passed",
-                TestRunStatus::Failed => "test_execution_failed",
-                TestRunStatus::Ignored => "test_execution_ignored",
-            },
-            format!(
-                "Executed test {} ({})",
-                case.name,
-                test_status_label(&case.status)
-            ),
-            vec![context_id.clone()],
-            vec![evidence_id.clone()],
-            0.9,
+            case,
+            &hash,
+            &run_cell_id,
+            &context_id,
+            &evidence_id,
         )?;
-        push_incidence(
-            &mut input,
-            format!("incidence:test-run:artifact-contains-case:{hash}:{case_slug}"),
-            run_cell_id.clone(),
-            case_id.clone(),
-            "contains_test_case",
-            vec![evidence_id.clone()],
-            0.9,
-        )?;
-
-        let function_ids = matching_test_function_ids(&input, &case.name);
-        for function_id in function_ids {
-            push_incidence(
-                &mut input,
-                format!(
-                    "incidence:test-run:case-executes-function:{case_slug}:{}",
-                    slug(function_id.as_str())
-                ),
-                case_id.clone(),
-                function_id.clone(),
-                "executes_test_function",
-                vec![evidence_id.clone()],
-                0.88,
-            )?;
-            if case.status == TestRunStatus::Passed {
-                push_executed_verification_cells(
-                    &mut input,
-                    &case_slug,
-                    &case_id,
-                    &function_id,
-                    &evidence_id,
-                )?;
-            }
-        }
-
-        if case.status == TestRunStatus::Failed {
-            input.signals.push(TestGapInputRiskSignal {
-                id: id(format!("signal:test-run:failed:{case_slug}"))?,
-                signal_type: TestGapRiskSignalType::TestGap,
-                summary: format!("Test run reports failed test {}.", case.name),
-                source_ids: vec![evidence_id.clone(), case_id],
-                severity: Severity::High,
-                confidence: confidence(0.92)?,
-            });
-        }
     }
 
     Ok(input)
+}
+
+fn test_run_evidence(
+    evidence_id: Id,
+    hash: &str,
+    cases: &[TestRunCase],
+) -> Result<TestGapInputEvidence, String> {
+    let passed = count_cases(cases, TestRunStatus::Passed);
+    let failed = count_cases(cases, TestRunStatus::Failed);
+    let ignored = count_cases(cases, TestRunStatus::Ignored);
+    Ok(TestGapInputEvidence {
+        id: evidence_id,
+        evidence_type: TestGapEvidenceType::TestResult,
+        summary: format!(
+            "Test run artifact {hash} contains {passed} passed, {failed} failed, and {ignored} ignored tests."
+        ),
+        source_ids: Vec::new(),
+        confidence: Some(confidence(0.95)?),
+    })
+}
+
+fn count_cases(cases: &[TestRunCase], status: TestRunStatus) -> usize {
+    cases.iter().filter(|case| case.status == status).count()
+}
+
+fn push_test_run_case(
+    input: &mut TestGapInputDocument,
+    case: &TestRunCase,
+    hash: &str,
+    run_cell_id: &Id,
+    context_id: &Id,
+    evidence_id: &Id,
+) -> Result<(), String> {
+    let case_slug = slug(&case.name);
+    let case_id = id(format!("semantic:test-run:case:{case_slug}"))?;
+    push_case_cell(input, case, &case_id, context_id, evidence_id)?;
+    push_case_containment(input, hash, &case_slug, run_cell_id, &case_id, evidence_id)?;
+    link_case_to_matching_functions(input, case, &case_slug, &case_id, evidence_id)?;
+    if case.status == TestRunStatus::Failed {
+        push_failed_case_signal(input, case, &case_slug, evidence_id, case_id)?;
+    }
+    Ok(())
+}
+
+fn push_case_cell(
+    input: &mut TestGapInputDocument,
+    case: &TestRunCase,
+    case_id: &Id,
+    context_id: &Id,
+    evidence_id: &Id,
+) -> Result<(), String> {
+    push_cell(
+        input,
+        case_id.clone(),
+        test_status_cell_type(&case.status),
+        format!(
+            "Executed test {} ({})",
+            case.name,
+            test_status_label(&case.status)
+        ),
+        vec![context_id.clone()],
+        vec![evidence_id.clone()],
+        0.9,
+    )
+}
+
+fn push_case_containment(
+    input: &mut TestGapInputDocument,
+    hash: &str,
+    case_slug: &str,
+    run_cell_id: &Id,
+    case_id: &Id,
+    evidence_id: &Id,
+) -> Result<(), String> {
+    push_incidence(
+        input,
+        format!("incidence:test-run:artifact-contains-case:{hash}:{case_slug}"),
+        run_cell_id.clone(),
+        case_id.clone(),
+        "contains_test_case",
+        vec![evidence_id.clone()],
+        0.9,
+    )
+}
+
+fn link_case_to_matching_functions(
+    input: &mut TestGapInputDocument,
+    case: &TestRunCase,
+    case_slug: &str,
+    case_id: &Id,
+    evidence_id: &Id,
+) -> Result<(), String> {
+    let function_ids = matching_test_function_ids(input, &case.name);
+    for function_id in function_ids {
+        push_case_function_incidence(input, case_slug, case_id, &function_id, evidence_id)?;
+        if case.status == TestRunStatus::Passed {
+            push_executed_verification_cells(input, case_slug, case_id, &function_id, evidence_id)?;
+        }
+    }
+    Ok(())
+}
+
+fn push_case_function_incidence(
+    input: &mut TestGapInputDocument,
+    case_slug: &str,
+    case_id: &Id,
+    function_id: &Id,
+    evidence_id: &Id,
+) -> Result<(), String> {
+    push_incidence(
+        input,
+        format!(
+            "incidence:test-run:case-executes-function:{case_slug}:{}",
+            slug(function_id.as_str())
+        ),
+        case_id.clone(),
+        function_id.clone(),
+        "executes_test_function",
+        vec![evidence_id.clone()],
+        0.88,
+    )
+}
+
+fn push_failed_case_signal(
+    input: &mut TestGapInputDocument,
+    case: &TestRunCase,
+    case_slug: &str,
+    evidence_id: &Id,
+    case_id: Id,
+) -> Result<(), String> {
+    input.signals.push(TestGapInputRiskSignal {
+        id: id(format!("signal:test-run:failed:{case_slug}"))?,
+        signal_type: TestGapRiskSignalType::TestGap,
+        summary: format!("Test run reports failed test {}.", case.name),
+        source_ids: vec![evidence_id.clone(), case_id],
+        severity: Severity::High,
+        confidence: confidence(0.92)?,
+    });
+    Ok(())
+}
+
+fn test_status_cell_type(status: &TestRunStatus) -> &'static str {
+    match status {
+        TestRunStatus::Passed => "test_execution_passed",
+        TestRunStatus::Failed => "test_execution_failed",
+        TestRunStatus::Ignored => "test_execution_ignored",
+    }
 }
 
 fn parse_test_run_cases(text: &str) -> Result<Vec<TestRunCase>, String> {

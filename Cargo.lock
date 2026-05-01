@@ -110,6 +110,7 @@ dependencies = [
  "higher-graphen-core",
  "higher-graphen-runtime",
  "higher-graphen-structure",
+ "serde",
  "serde_json",
  "syn",
 ]

@@ -20,22 +20,51 @@ pub(crate) struct AttachArtifactRequest {
 pub(crate) fn attach_artifact(
     request: AttachArtifactRequest,
 ) -> Result<SemanticProofInputDocument, String> {
-    let text = fs::read_to_string(&request.artifact).map_err(|error| {
-        format!(
-            "failed to read semantic proof artifact {}: {error}",
-            request.artifact.display()
-        )
-    })?;
-    let artifact: Value = serde_json::from_str(&text).map_err(|error| {
-        format!(
-            "failed to parse semantic proof artifact {}: {error}",
-            request.artifact.display()
-        )
-    })?;
-
+    let artifact = read_artifact(&request.artifact)?;
     let status = required_string(&artifact, "status")?;
     let confidence = confidence(optional_f64(&artifact, "confidence").unwrap_or(0.8))?;
+    let backend = request.backend;
+    let backend_version = request.backend_version;
     let mut input = request.input;
+    ensure_attach_metadata(&mut input, &backend);
+
+    match status.as_str() {
+        "proved" => attach_certificate(
+            &mut input,
+            &backend,
+            &backend_version,
+            &artifact,
+            confidence,
+        )?,
+        "counterexample" | "counterexample_found" => {
+            attach_counterexample(&mut input, &backend, &artifact, confidence)?;
+        }
+        _ => {
+            return Err(format!(
+                "unsupported semantic proof artifact status {status:?}; expected proved, counterexample, or counterexample_found"
+            ));
+        }
+    }
+
+    Ok(input)
+}
+
+fn read_artifact(path: &PathBuf) -> Result<Value, String> {
+    let text = fs::read_to_string(path).map_err(|error| {
+        format!(
+            "failed to read semantic proof artifact {}: {error}",
+            path.display()
+        )
+    })?;
+    serde_json::from_str(&text).map_err(|error| {
+        format!(
+            "failed to parse semantic proof artifact {}: {error}",
+            path.display()
+        )
+    })
+}
+
+fn ensure_attach_metadata(input: &mut SemanticProofInputDocument, backend: &str) {
     if !input
         .source
         .adapters
@@ -48,74 +77,78 @@ pub(crate) fn attach_artifact(
         .verification_policy
         .accepted_backends
         .iter()
-        .any(|backend| backend == &request.backend)
+        .any(|accepted| accepted == backend)
     {
         input
             .verification_policy
             .accepted_backends
-            .push(request.backend.clone());
+            .push(backend.to_owned());
     }
+}
 
-    match status.as_str() {
-        "proved" => input.proof_certificates.push(SemanticProofCertificate {
-            id: id(format!(
-                "certificate:semantic:{}:{}",
-                slug(&request.backend),
-                slug(input.theorem.id.as_str())
-            ))?,
-            certificate_type: optional_string(&artifact, "certificate_type")
-                .unwrap_or_else(|| "formal_proof".to_owned()),
-            backend: request.backend,
-            backend_version: request.backend_version,
-            theorem_id: input.theorem.id.clone(),
-            law_ids: input.theorem.law_ids.clone(),
-            morphism_ids: input.theorem.morphism_ids.clone(),
-            witness_ids: artifact_ids(&artifact, "witness_ids")?.unwrap_or_else(|| {
-                input
-                    .semantic_cells
-                    .iter()
-                    .map(|cell| cell.id.clone())
-                    .collect()
-            }),
-            input_hash: optional_string(&artifact, "input_hash"),
-            proof_hash: optional_string(&artifact, "proof_hash"),
-            confidence,
-            review_status: optional_review_status(&artifact)?.unwrap_or(ReviewStatus::Accepted),
-        }),
-        "counterexample" | "counterexample_found" => {
-            input.counterexamples.push(SemanticProofCounterexample {
-                id: id(format!(
-                    "counterexample:semantic:{}:{}",
-                    slug(&request.backend),
-                    slug(input.theorem.id.as_str())
-                ))?,
-                counterexample_type: optional_string(&artifact, "counterexample_type")
-                    .unwrap_or_else(|| "backend_counterexample".to_owned()),
-                theorem_id: input.theorem.id.clone(),
-                law_ids: input.theorem.law_ids.clone(),
-                morphism_ids: input.theorem.morphism_ids.clone(),
-                path_ids: artifact_ids(&artifact, "path_ids")?.unwrap_or_else(|| {
-                    input
-                        .semantic_cells
-                        .iter()
-                        .map(|cell| cell.id.clone())
-                        .collect()
-                }),
-                summary: optional_string(&artifact, "summary")
-                    .unwrap_or_else(|| "Backend artifact supplied a counterexample.".to_owned()),
-                severity: optional_severity(&artifact)?.unwrap_or(Severity::High),
-                confidence,
-                review_status: optional_review_status(&artifact)?.unwrap_or(ReviewStatus::Accepted),
-            })
-        }
-        _ => {
-            return Err(format!(
-                "unsupported semantic proof artifact status {status:?}; expected proved, counterexample, or counterexample_found"
-            ));
-        }
-    }
+fn attach_certificate(
+    input: &mut SemanticProofInputDocument,
+    backend: &str,
+    backend_version: &str,
+    artifact: &Value,
+    confidence: Confidence,
+) -> Result<(), String> {
+    input.proof_certificates.push(SemanticProofCertificate {
+        id: id(format!(
+            "certificate:semantic:{}:{}",
+            slug(backend),
+            slug(input.theorem.id.as_str())
+        ))?,
+        certificate_type: optional_string(artifact, "certificate_type")
+            .unwrap_or_else(|| "formal_proof".to_owned()),
+        backend: backend.to_owned(),
+        backend_version: backend_version.to_owned(),
+        theorem_id: input.theorem.id.clone(),
+        law_ids: input.theorem.law_ids.clone(),
+        morphism_ids: input.theorem.morphism_ids.clone(),
+        witness_ids: artifact_ids(artifact, "witness_ids")?
+            .unwrap_or_else(|| semantic_cell_ids(input)),
+        input_hash: optional_string(artifact, "input_hash"),
+        proof_hash: optional_string(artifact, "proof_hash"),
+        confidence,
+        review_status: optional_review_status(artifact)?.unwrap_or(ReviewStatus::Accepted),
+    });
+    Ok(())
+}
 
-    Ok(input)
+fn attach_counterexample(
+    input: &mut SemanticProofInputDocument,
+    backend: &str,
+    artifact: &Value,
+    confidence: Confidence,
+) -> Result<(), String> {
+    input.counterexamples.push(SemanticProofCounterexample {
+        id: id(format!(
+            "counterexample:semantic:{}:{}",
+            slug(backend),
+            slug(input.theorem.id.as_str())
+        ))?,
+        counterexample_type: optional_string(artifact, "counterexample_type")
+            .unwrap_or_else(|| "backend_counterexample".to_owned()),
+        theorem_id: input.theorem.id.clone(),
+        law_ids: input.theorem.law_ids.clone(),
+        morphism_ids: input.theorem.morphism_ids.clone(),
+        path_ids: artifact_ids(artifact, "path_ids")?.unwrap_or_else(|| semantic_cell_ids(input)),
+        summary: optional_string(artifact, "summary")
+            .unwrap_or_else(|| "Backend artifact supplied a counterexample.".to_owned()),
+        severity: optional_severity(artifact)?.unwrap_or(Severity::High),
+        confidence,
+        review_status: optional_review_status(artifact)?.unwrap_or(ReviewStatus::Accepted),
+    });
+    Ok(())
+}
+
+fn semantic_cell_ids(input: &SemanticProofInputDocument) -> Vec<Id> {
+    input
+        .semantic_cells
+        .iter()
+        .map(|cell| cell.id.clone())
+        .collect()
 }
 
 fn required_string(value: &Value, key: &'static str) -> Result<String, String> {

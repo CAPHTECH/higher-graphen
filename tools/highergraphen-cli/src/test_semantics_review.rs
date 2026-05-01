@@ -37,57 +37,16 @@ pub(crate) struct ReviewRequest {
 }
 
 pub(crate) fn review(request: ReviewRequest) -> Result<Value, String> {
-    let schema = request
-        .interpretation
-        .get("schema")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "interpretation document needs schema".to_owned())?;
-    if schema != TEST_SEMANTICS_INTERPRETATION_SCHEMA {
-        return Err(format!(
-            "unsupported test semantics interpretation schema {schema}; expected {TEST_SEMANTICS_INTERPRETATION_SCHEMA}"
-        ));
-    }
-
-    let source = request
-        .interpretation
-        .get("source")
-        .and_then(Value::as_object)
-        .ok_or_else(|| "interpretation document needs source object".to_owned())?;
-    let input_schema = source
-        .get("input_schema")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    let interpreter = source
-        .get("interpreter")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    let source_review_status = source
-        .get("review_status")
-        .and_then(Value::as_str)
-        .unwrap_or("unreviewed");
-
+    let source = review_source(&request.interpretation)?;
     let candidate = find_candidate(&request.interpretation, &request.candidate_id)?;
-    let mut reviewed_candidate = candidate.value.clone();
-    if let Some(object) = reviewed_candidate.as_object_mut() {
-        object.insert(
-            "review_status".to_owned(),
-            Value::String(request.decision.review_status().to_owned()),
-        );
-    }
-
-    let accepted_candidate_ids = match request.decision {
-        TestSemanticsReviewDecision::Accepted => vec![request.candidate_id.clone()],
-        TestSemanticsReviewDecision::Rejected => Vec::new(),
-    };
-    let rejected_candidate_ids = match request.decision {
-        TestSemanticsReviewDecision::Accepted => Vec::new(),
-        TestSemanticsReviewDecision::Rejected => vec![request.candidate_id.clone()],
-    };
-
+    let reviewed_candidate = reviewed_candidate(&candidate.value, request.decision);
+    let (accepted_candidate_ids, rejected_candidate_ids) =
+        candidate_outcome_ids(&request.candidate_id, request.decision);
     let command = format!(
         "highergraphen test-semantics review {}",
         request.decision.command_action()
     );
+    let projection = review_projection(request.decision, &request.candidate_id);
     Ok(json!({
         "schema": TEST_SEMANTICS_INTERPRETATION_REVIEW_SCHEMA,
         "report_type": "test_semantics_interpretation_review",
@@ -98,10 +57,10 @@ pub(crate) fn review(request: ReviewRequest) -> Result<Value, String> {
         },
         "scenario": {
             "source_interpretation": {
-                "schema": schema,
-                "input_schema": input_schema,
-                "interpreter": interpreter,
-                "review_status": source_review_status
+                "schema": source.schema,
+                "input_schema": source.input_schema,
+                "interpreter": source.interpreter,
+                "review_status": source.review_status
             },
             "candidate_kind": candidate.kind,
             "candidate": candidate.value
@@ -126,31 +85,94 @@ pub(crate) fn review(request: ReviewRequest) -> Result<Value, String> {
             "coverage_ids": [],
             "proof_object_ids": []
         },
-        "projection": {
-            "audience": "ai_agent",
-            "purpose": "test_semantics_interpretation_review",
-            "summary": format!(
-                "{} test semantics interpretation candidate {}.",
-                capitalize(request.decision.review_status()),
-                request.candidate_id
-            ),
-            "recommended_actions": [
-                "Keep the review report with the source interpretation for auditability.",
-                "Promote accepted candidates into coverage or proof only through a later verification workflow."
-            ],
-            "source_ids": [request.candidate_id],
-            "information_loss": [
-                {
-                    "description": "Review records an explicit decision but does not mutate the source interpretation.",
-                    "source_ids": [request.candidate_id]
-                },
-                {
-                    "description": "Accepted interpretation candidates are not accepted facts, coverage, or proof objects.",
-                    "source_ids": [request.candidate_id]
-                }
-            ]
-        }
+        "projection": projection
     }))
+}
+
+struct ReviewSource<'a> {
+    schema: &'a str,
+    input_schema: &'a str,
+    interpreter: &'a str,
+    review_status: &'a str,
+}
+
+fn review_source(interpretation: &Value) -> Result<ReviewSource<'_>, String> {
+    let schema = interpretation
+        .get("schema")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "interpretation document needs schema".to_owned())?;
+    if schema != TEST_SEMANTICS_INTERPRETATION_SCHEMA {
+        return Err(format!(
+            "unsupported test semantics interpretation schema {schema}; expected {TEST_SEMANTICS_INTERPRETATION_SCHEMA}"
+        ));
+    }
+    let source = interpretation
+        .get("source")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "interpretation document needs source object".to_owned())?;
+    Ok(ReviewSource {
+        schema,
+        input_schema: source
+            .get("input_schema")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        interpreter: source
+            .get("interpreter")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        review_status: source
+            .get("review_status")
+            .and_then(Value::as_str)
+            .unwrap_or("unreviewed"),
+    })
+}
+
+fn reviewed_candidate(candidate: &Value, decision: TestSemanticsReviewDecision) -> Value {
+    let mut reviewed = candidate.clone();
+    if let Some(object) = reviewed.as_object_mut() {
+        object.insert(
+            "review_status".to_owned(),
+            Value::String(decision.review_status().to_owned()),
+        );
+    }
+    reviewed
+}
+
+fn candidate_outcome_ids(
+    candidate_id: &str,
+    decision: TestSemanticsReviewDecision,
+) -> (Vec<String>, Vec<String>) {
+    match decision {
+        TestSemanticsReviewDecision::Accepted => (vec![candidate_id.to_owned()], Vec::new()),
+        TestSemanticsReviewDecision::Rejected => (Vec::new(), vec![candidate_id.to_owned()]),
+    }
+}
+
+fn review_projection(decision: TestSemanticsReviewDecision, candidate_id: &str) -> Value {
+    json!({
+        "audience": "ai_agent",
+        "purpose": "test_semantics_interpretation_review",
+        "summary": format!(
+            "{} test semantics interpretation candidate {}.",
+            capitalize(decision.review_status()),
+            candidate_id
+        ),
+        "recommended_actions": [
+            "Keep the review report with the source interpretation for auditability.",
+            "Promote accepted candidates into coverage or proof only through a later verification workflow."
+        ],
+        "source_ids": [candidate_id],
+        "information_loss": [
+            {
+                "description": "Review records an explicit decision but does not mutate the source interpretation.",
+                "source_ids": [candidate_id]
+            },
+            {
+                "description": "Accepted interpretation candidates are not accepted facts, coverage, or proof objects.",
+                "source_ids": [candidate_id]
+            }
+        ]
+    })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

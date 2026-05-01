@@ -315,19 +315,46 @@ fn issues(
     accepted: &[&SemanticProofCertificate],
     accepted_counterexamples: &[SemanticProofCounterexample],
 ) -> RuntimeResult<Vec<SemanticProofIssue>> {
-    let proved_laws = accepted
+    let mut issues = Vec::new();
+    let proved_laws = proved_laws(accepted);
+    let proved_morphisms = proved_morphisms(accepted);
+
+    issues.extend(missing_law_proof_issues(input, &proved_laws)?);
+    issues.extend(missing_morphism_proof_issues(input, &proved_morphisms)?);
+    issues.extend(rejected_certificate_issues(input)?);
+    issues.extend(unaccepted_counterexample_issues(
+        input,
+        accepted_counterexamples,
+    )?);
+
+    Ok(issues)
+}
+
+fn proved_laws(accepted: &[&SemanticProofCertificate]) -> BTreeSet<Id> {
+    accepted
         .iter()
         .flat_map(|certificate| certificate.law_ids.iter().cloned())
-        .collect::<BTreeSet<_>>();
-    let proved_morphisms = accepted
+        .collect()
+}
+
+fn proved_morphisms(accepted: &[&SemanticProofCertificate]) -> BTreeSet<Id> {
+    accepted
         .iter()
         .flat_map(|certificate| certificate.morphism_ids.iter().cloned())
-        .collect::<BTreeSet<_>>();
-    let mut issues = Vec::new();
+        .collect()
+}
 
-    for law_id in &input.theorem.law_ids {
-        if !proved_laws.contains(law_id) {
-            issues.push(issue(
+fn missing_law_proof_issues(
+    input: &SemanticProofInputDocument,
+    proved_laws: &BTreeSet<Id>,
+) -> RuntimeResult<Vec<SemanticProofIssue>> {
+    input
+        .theorem
+        .law_ids
+        .iter()
+        .filter(|law_id| !proved_laws.contains(*law_id))
+        .map(|law_id| {
+            issue(
                 format!(
                     "issue:semantic-proof:missing-law-proof:{}",
                     slug(law_id.as_str())
@@ -336,12 +363,22 @@ fn issues(
                 vec![law_id.clone()],
                 format!("No accepted proof certificate covers law {law_id}."),
                 Severity::High,
-            )?);
-        }
-    }
-    for morphism_id in &input.theorem.morphism_ids {
-        if !proved_morphisms.contains(morphism_id) {
-            issues.push(issue(
+            )
+        })
+        .collect()
+}
+
+fn missing_morphism_proof_issues(
+    input: &SemanticProofInputDocument,
+    proved_morphisms: &BTreeSet<Id>,
+) -> RuntimeResult<Vec<SemanticProofIssue>> {
+    input
+        .theorem
+        .morphism_ids
+        .iter()
+        .filter(|morphism_id| !proved_morphisms.contains(*morphism_id))
+        .map(|morphism_id| {
+            issue(
                 format!(
                     "issue:semantic-proof:missing-morphism-proof:{}",
                     slug(morphism_id.as_str())
@@ -350,9 +387,15 @@ fn issues(
                 vec![morphism_id.clone()],
                 format!("No accepted proof certificate covers morphism {morphism_id}."),
                 Severity::High,
-            )?);
-        }
-    }
+            )
+        })
+        .collect()
+}
+
+fn rejected_certificate_issues(
+    input: &SemanticProofInputDocument,
+) -> RuntimeResult<Vec<SemanticProofIssue>> {
+    let mut issues = Vec::new();
     for certificate in &input.proof_certificates {
         if !certificate_is_accepted(input, certificate) {
             issues.push(issue(
@@ -370,6 +413,14 @@ fn issues(
             )?);
         }
     }
+    Ok(issues)
+}
+
+fn unaccepted_counterexample_issues(
+    input: &SemanticProofInputDocument,
+    accepted_counterexamples: &[SemanticProofCounterexample],
+) -> RuntimeResult<Vec<SemanticProofIssue>> {
+    let mut issues = Vec::new();
     for counterexample in &input.counterexamples {
         if !accepted_counterexamples
             .iter()

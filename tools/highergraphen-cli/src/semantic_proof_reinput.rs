@@ -174,85 +174,136 @@ fn input_from_test_semantics_verification_report(
     let confidence = Confidence::new(0.74).map_err(|error| error.to_string())?;
     let source_ids = string_array(candidate.get("source_ids"))?;
     let theorem_id = id(format!("theorem:test-semantics:{}", slug(candidate_id)))?;
-
-    let mut semantic_cells = Vec::new();
-    let candidate_cell_id = id(format!(
-        "cell:test-semantics:candidate:{}",
-        slug(candidate_id)
-    ))?;
-    semantic_cells.push(SemanticProofCell {
-        id: candidate_cell_id.clone(),
-        cell_type: "verified_test_semantics_candidate".to_owned(),
-        label: format!("Verified test semantics candidate {candidate_id}"),
-        source_ids: ids(source_ids.iter().cloned())?,
-        confidence: Some(confidence),
-    });
-
-    let mut morphisms = Vec::new();
-    let mut laws = Vec::new();
-    let mut theorem_law_ids = Vec::new();
-    let mut theorem_morphism_ids = Vec::new();
-    for (index, law_id_text) in law_ids.iter().enumerate() {
-        let law_id = id(law_id_text.clone())?;
-        let morphism_id = id(morphism_ids[index].clone())?;
-        let law_cell_id = id(format!("cell:test-semantics:law:{}", slug(law_id.as_str())))?;
-        semantic_cells.push(SemanticProofCell {
-            id: law_cell_id.clone(),
-            cell_type: "semantic_law_target".to_owned(),
-            label: format!("Semantic law target {law_id}"),
-            source_ids: vec![law_id.clone()],
-            confidence: Some(confidence),
-        });
-        morphisms.push(SemanticProofMorphism {
-            id: morphism_id.clone(),
-            morphism_type: "verified_test_semantics_candidate_to_law".to_owned(),
-            source_ids: vec![candidate_cell_id.clone()],
-            target_ids: vec![law_cell_id],
-            law_ids: vec![law_id.clone()],
-            confidence: Some(confidence),
-        });
-        laws.push(SemanticProofLaw {
-            id: law_id.clone(),
-            summary: format!(
-                "Verified test semantics candidate {candidate_id} must preserve {law_id}."
-            ),
-            applies_to_ids: vec![morphism_id.clone()],
-            confidence: Some(confidence),
-        });
-        theorem_law_ids.push(law_id);
-        theorem_morphism_ids.push(morphism_id);
-    }
+    let proof_parts = test_semantics_proof_parts(
+        candidate_id,
+        &source_ids,
+        &law_ids,
+        &morphism_ids,
+        confidence,
+    )?;
 
     Ok(SemanticProofInputDocument {
         schema: "highergraphen.semantic_proof.input.v1".to_owned(),
-        source: SemanticProofSource {
-            kind: SourceKind::Code,
-            uri: Some(format!("test-semantics-verification:{candidate_id}")),
-            title: Some("Test semantics verification proof obligations".to_owned()),
-            confidence,
-            adapters: vec![TEST_SEMANTICS_VERIFICATION_ADAPTER_NAME.to_owned()],
-        },
+        source: test_semantics_source(candidate_id, confidence),
         theorem: SemanticProofTheorem {
             id: theorem_id,
             summary: format!(
                 "Reviewed test semantics candidate {candidate_id} has formal proof obligations."
             ),
-            law_ids: theorem_law_ids,
-            morphism_ids: theorem_morphism_ids,
+            law_ids: proof_parts.theorem_law_ids,
+            morphism_ids: proof_parts.theorem_morphism_ids,
         },
-        semantic_cells,
-        morphisms,
-        laws,
+        semantic_cells: proof_parts.semantic_cells,
+        morphisms: proof_parts.morphisms,
+        laws: proof_parts.laws,
         proof_certificates: Vec::new(),
         counterexamples: Vec::new(),
-        verification_policy: SemanticProofVerificationPolicy {
-            accepted_backends: Vec::new(),
-            require_input_hash: true,
-            require_proof_hash: true,
-            require_accepted_review: true,
-            require_accepted_counterexample_review: true,
-        },
+        verification_policy: test_semantics_policy(),
     })
+}
+
+struct TestSemanticsProofParts {
+    semantic_cells: Vec<SemanticProofCell>,
+    morphisms: Vec<SemanticProofMorphism>,
+    laws: Vec<SemanticProofLaw>,
+    theorem_law_ids: Vec<Id>,
+    theorem_morphism_ids: Vec<Id>,
+}
+
+fn test_semantics_proof_parts(
+    candidate_id: &str,
+    source_ids: &[String],
+    law_ids: &[String],
+    morphism_ids: &[String],
+    confidence: Confidence,
+) -> Result<TestSemanticsProofParts, String> {
+    let candidate_cell_id = id(format!(
+        "cell:test-semantics:candidate:{}",
+        slug(candidate_id)
+    ))?;
+    let mut parts = TestSemanticsProofParts {
+        semantic_cells: vec![SemanticProofCell {
+            id: candidate_cell_id.clone(),
+            cell_type: "verified_test_semantics_candidate".to_owned(),
+            label: format!("Verified test semantics candidate {candidate_id}"),
+            source_ids: ids(source_ids.iter().cloned())?,
+            confidence: Some(confidence),
+        }],
+        morphisms: Vec::new(),
+        laws: Vec::new(),
+        theorem_law_ids: Vec::new(),
+        theorem_morphism_ids: Vec::new(),
+    };
+    for (index, law_id_text) in law_ids.iter().enumerate() {
+        push_test_semantics_law_part(
+            &mut parts,
+            candidate_id,
+            &candidate_cell_id,
+            law_id_text,
+            &morphism_ids[index],
+            confidence,
+        )?;
+    }
+    Ok(parts)
+}
+
+fn push_test_semantics_law_part(
+    parts: &mut TestSemanticsProofParts,
+    candidate_id: &str,
+    candidate_cell_id: &Id,
+    law_id_text: &str,
+    morphism_id_text: &str,
+    confidence: Confidence,
+) -> Result<(), String> {
+    let law_id = id(law_id_text.to_owned())?;
+    let morphism_id = id(morphism_id_text.to_owned())?;
+    let law_cell_id = id(format!("cell:test-semantics:law:{}", slug(law_id.as_str())))?;
+    parts.semantic_cells.push(SemanticProofCell {
+        id: law_cell_id.clone(),
+        cell_type: "semantic_law_target".to_owned(),
+        label: format!("Semantic law target {law_id}"),
+        source_ids: vec![law_id.clone()],
+        confidence: Some(confidence),
+    });
+    parts.morphisms.push(SemanticProofMorphism {
+        id: morphism_id.clone(),
+        morphism_type: "verified_test_semantics_candidate_to_law".to_owned(),
+        source_ids: vec![candidate_cell_id.clone()],
+        target_ids: vec![law_cell_id],
+        law_ids: vec![law_id.clone()],
+        confidence: Some(confidence),
+    });
+    parts.laws.push(SemanticProofLaw {
+        id: law_id.clone(),
+        summary: format!(
+            "Verified test semantics candidate {candidate_id} must preserve {law_id}."
+        ),
+        applies_to_ids: vec![morphism_id.clone()],
+        confidence: Some(confidence),
+    });
+    parts.theorem_law_ids.push(law_id);
+    parts.theorem_morphism_ids.push(morphism_id);
+    Ok(())
+}
+
+fn test_semantics_source(candidate_id: &str, confidence: Confidence) -> SemanticProofSource {
+    SemanticProofSource {
+        kind: SourceKind::Code,
+        uri: Some(format!("test-semantics-verification:{candidate_id}")),
+        title: Some("Test semantics verification proof obligations".to_owned()),
+        confidence,
+        adapters: vec![TEST_SEMANTICS_VERIFICATION_ADAPTER_NAME.to_owned()],
+    }
+}
+
+fn test_semantics_policy() -> SemanticProofVerificationPolicy {
+    SemanticProofVerificationPolicy {
+        accepted_backends: Vec::new(),
+        require_input_hash: true,
+        require_proof_hash: true,
+        require_accepted_review: true,
+        require_accepted_counterexample_review: true,
+    }
 }
 
 fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str, String> {

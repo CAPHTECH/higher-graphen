@@ -84,88 +84,61 @@ fn interpret_rust_semantics(
         .and_then(Value::as_array)
         .ok_or_else(|| "rust semantics input needs files array".to_owned())?;
     for file in files {
-        let path = file
-            .get("path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "rust semantics file needs path".to_owned())?;
+        let path = required_str(file, "path", "rust semantics file")?;
         let functions = file
             .get("functions")
             .and_then(Value::as_array)
             .ok_or_else(|| format!("rust semantics file {path} needs functions array"))?;
         for function in functions {
-            let name = function
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("rust semantics file {path} has function without name"))?;
-            let source_id = rust_function_source_id(path, name);
-            push_test_obligation_cell(interpreted_cells, &source_id, path, name);
-
-            for observation in array_field(function, "cli_observations") {
-                let label = observation
-                    .get("label")
-                    .and_then(Value::as_str)
-                    .unwrap_or("CLI observation");
-                let tokens = observation
-                    .get("tokens")
-                    .and_then(Value::as_array)
-                    .map(|values| string_array(values))
-                    .unwrap_or_default();
-                push_command_contract_candidate(
-                    interpreted_morphisms,
-                    candidate_laws,
-                    binding_candidates,
-                    &source_id,
-                    label,
-                    tokens,
-                );
-            }
-
-            for observation in array_field(function, "json_observations") {
-                let label = observation
-                    .get("label")
-                    .and_then(Value::as_str)
-                    .unwrap_or("JSON observation");
-                let observation_type = observation
-                    .get("observation_type")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown");
-                push_data_contract_candidate(
-                    interpreted_morphisms,
-                    candidate_laws,
-                    binding_candidates,
-                    &source_id,
-                    label,
-                    observation_type,
-                );
-            }
+            interpret_rust_function(
+                path,
+                function,
+                interpreted_cells,
+                interpreted_morphisms,
+                candidate_laws,
+                binding_candidates,
+            )?;
         }
     }
+    push_execution_links(
+        input,
+        "matched_functions",
+        "rust-test:function-ref",
+        "execution_case_matches_test_function",
+        evidence_links,
+    );
+    Ok(())
+}
 
-    for case in array_field(input, "execution_cases") {
-        let name = case
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or("unnamed execution case");
-        let status = case
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("unknown");
-        let case_id = format!("execution-case:{}", slug(name));
-        for matched in array_field(case, "matched_functions") {
-            let matched_name = matched.as_str().unwrap_or_default();
-            if matched_name.is_empty() {
-                continue;
-            }
-            evidence_links.push(json!({
-                "id": format!("evidence-link:{}:{}", slug(&case_id), slug(matched_name)),
-                "source_id": case_id,
-                "target_id": format!("rust-test:function-ref:{}", slug(matched_name)),
-                "relation_type": "execution_case_matches_test_function",
-                "status": status,
-                "confidence": 0.62
-            }));
-        }
-    }
+fn interpret_rust_function(
+    path: &str,
+    function: &Value,
+    interpreted_cells: &mut Vec<Value>,
+    interpreted_morphisms: &mut Vec<Value>,
+    candidate_laws: &mut Vec<Value>,
+    binding_candidates: &mut Vec<Value>,
+) -> Result<(), String> {
+    let name = required_str(function, "name", &format!("rust semantics file {path}"))?;
+    let source_id = rust_function_source_id(path, name);
+    push_test_obligation_cell(interpreted_cells, &source_id, path, name);
+    push_command_observations(
+        function,
+        "cli_observations",
+        "CLI observation",
+        interpreted_morphisms,
+        candidate_laws,
+        binding_candidates,
+        &source_id,
+    );
+    push_data_observations(
+        function,
+        "json_observations",
+        "JSON observation",
+        interpreted_morphisms,
+        candidate_laws,
+        binding_candidates,
+        &source_id,
+    );
     Ok(())
 }
 
@@ -182,61 +155,130 @@ fn interpret_generic_semantics(
         .and_then(Value::as_array)
         .ok_or_else(|| "test semantics input needs files array".to_owned())?;
     for file in files {
-        let path = file
-            .get("path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "test semantics file needs path".to_owned())?;
+        let path = required_str(file, "path", "test semantics file")?;
         let tests = file
             .get("tests")
             .and_then(Value::as_array)
             .ok_or_else(|| format!("test semantics file {path} needs tests array"))?;
         for test in tests {
-            let name = test
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("test semantics file {path} has test without name"))?;
-            let source_id = rust_function_source_id(path, name);
-            push_test_obligation_cell(interpreted_cells, &source_id, path, name);
-            for observation in array_field(test, "command_observations") {
-                let label = observation
-                    .get("label")
-                    .and_then(Value::as_str)
-                    .unwrap_or("command observation");
-                let tokens = observation
-                    .get("tokens")
-                    .and_then(Value::as_array)
-                    .map(|values| string_array(values))
-                    .unwrap_or_default();
-                push_command_contract_candidate(
-                    interpreted_morphisms,
-                    candidate_laws,
-                    binding_candidates,
-                    &source_id,
-                    label,
-                    tokens,
-                );
-            }
-            for observation in array_field(test, "data_observations") {
-                let label = observation
-                    .get("label")
-                    .and_then(Value::as_str)
-                    .unwrap_or("data observation");
-                let observation_type = observation
-                    .get("observation_type")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown");
-                push_data_contract_candidate(
-                    interpreted_morphisms,
-                    candidate_laws,
-                    binding_candidates,
-                    &source_id,
-                    label,
-                    observation_type,
-                );
-            }
+            interpret_generic_test(
+                path,
+                test,
+                interpreted_cells,
+                interpreted_morphisms,
+                candidate_laws,
+                binding_candidates,
+            )?;
         }
     }
+    push_execution_links(
+        input,
+        "matched_tests",
+        "test:function-ref",
+        "execution_case_matches_test",
+        evidence_links,
+    );
+    Ok(())
+}
 
+fn interpret_generic_test(
+    path: &str,
+    test: &Value,
+    interpreted_cells: &mut Vec<Value>,
+    interpreted_morphisms: &mut Vec<Value>,
+    candidate_laws: &mut Vec<Value>,
+    binding_candidates: &mut Vec<Value>,
+) -> Result<(), String> {
+    let name = required_str(test, "name", &format!("test semantics file {path}"))?;
+    let source_id = rust_function_source_id(path, name);
+    push_test_obligation_cell(interpreted_cells, &source_id, path, name);
+    push_command_observations(
+        test,
+        "command_observations",
+        "command observation",
+        interpreted_morphisms,
+        candidate_laws,
+        binding_candidates,
+        &source_id,
+    );
+    push_data_observations(
+        test,
+        "data_observations",
+        "data observation",
+        interpreted_morphisms,
+        candidate_laws,
+        binding_candidates,
+        &source_id,
+    );
+    Ok(())
+}
+
+fn push_command_observations(
+    value: &Value,
+    field: &str,
+    fallback_label: &'static str,
+    interpreted_morphisms: &mut Vec<Value>,
+    candidate_laws: &mut Vec<Value>,
+    binding_candidates: &mut Vec<Value>,
+    source_id: &str,
+) {
+    for observation in array_field(value, field) {
+        let label = observation
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or(fallback_label);
+        let tokens = observation
+            .get("tokens")
+            .and_then(Value::as_array)
+            .map(|values| string_array(values))
+            .unwrap_or_default();
+        push_command_contract_candidate(
+            interpreted_morphisms,
+            candidate_laws,
+            binding_candidates,
+            source_id,
+            label,
+            tokens,
+        );
+    }
+}
+
+fn push_data_observations(
+    value: &Value,
+    field: &str,
+    fallback_label: &'static str,
+    interpreted_morphisms: &mut Vec<Value>,
+    candidate_laws: &mut Vec<Value>,
+    binding_candidates: &mut Vec<Value>,
+    source_id: &str,
+) {
+    for observation in array_field(value, field) {
+        let label = observation
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or(fallback_label);
+        let observation_type = observation
+            .get("observation_type")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        push_data_contract_candidate(
+            interpreted_morphisms,
+            candidate_laws,
+            binding_candidates,
+            source_id,
+            label,
+            observation_type,
+        );
+    }
+}
+
+fn push_execution_links(
+    input: &Value,
+    matched_field: &str,
+    target_prefix: &str,
+    relation_type: &str,
+    evidence_links: &mut Vec<Value>,
+) {
     for case in array_field(input, "execution_cases") {
         let name = case
             .get("name")
@@ -247,22 +289,46 @@ fn interpret_generic_semantics(
             .and_then(Value::as_str)
             .unwrap_or("unknown");
         let case_id = format!("execution-case:{}", slug(name));
-        for matched in array_field(case, "matched_tests") {
-            let matched_name = matched.as_str().unwrap_or_default();
-            if matched_name.is_empty() {
-                continue;
-            }
-            evidence_links.push(json!({
-                "id": format!("evidence-link:{}:{}", slug(&case_id), slug(matched_name)),
-                "source_id": case_id,
-                "target_id": format!("test:function-ref:{}", slug(matched_name)),
-                "relation_type": "execution_case_matches_test",
-                "status": status,
-                "confidence": 0.62
-            }));
+        for matched in array_field(case, matched_field) {
+            push_execution_link(
+                evidence_links,
+                &case_id,
+                matched,
+                target_prefix,
+                relation_type,
+                status,
+            );
         }
     }
-    Ok(())
+}
+
+fn push_execution_link(
+    evidence_links: &mut Vec<Value>,
+    case_id: &str,
+    matched: &Value,
+    target_prefix: &str,
+    relation_type: &str,
+    status: &str,
+) {
+    let matched_name = matched.as_str().unwrap_or_default();
+    if matched_name.is_empty() {
+        return;
+    }
+    evidence_links.push(json!({
+        "id": format!("evidence-link:{}:{}", slug(case_id), slug(matched_name)),
+        "source_id": case_id,
+        "target_id": format!("{target_prefix}:{}", slug(matched_name)),
+        "relation_type": relation_type,
+        "status": status,
+        "confidence": 0.62
+    }));
+}
+
+fn required_str<'a>(value: &'a Value, field: &str, label: &str) -> Result<&'a str, String> {
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("{label} needs {field}"))
 }
 
 fn push_test_obligation_cell(cells: &mut Vec<Value>, source_id: &str, path: &str, name: &str) {

@@ -16,6 +16,48 @@ pub(crate) struct GapRequest {
 }
 
 pub(crate) fn detect(request: GapRequest) -> Result<Value, String> {
+    validate_gap_request(&request)?;
+    let expected_obligations = expected_obligations(&request.expected)?;
+    let verified = verified_coverage(&request.verified_reports)?;
+    let partition = partition_obligations(expected_obligations, &verified.covered_ids);
+    let obstructions = partition
+        .missing
+        .iter()
+        .map(obstruction_for_obligation)
+        .collect::<Vec<_>>();
+    let completion_candidates = partition
+        .missing
+        .iter()
+        .map(completion_candidate_for_obligation)
+        .collect::<Vec<_>>();
+    let status = gap_status(&partition.missing);
+    let projection = gap_projection(
+        status,
+        &partition.missing,
+        &verified.report_ids,
+        &completion_candidates,
+    );
+    Ok(gap_report(
+        status,
+        verified.report_ids,
+        partition,
+        obstructions,
+        completion_candidates,
+        projection,
+    ))
+}
+
+struct VerifiedCoverage {
+    covered_ids: BTreeSet<String>,
+    report_ids: Vec<String>,
+}
+
+struct ObligationPartition {
+    covered: Vec<Value>,
+    missing: Vec<Value>,
+}
+
+fn validate_gap_request(request: &GapRequest) -> Result<(), String> {
     validate_schema(
         &request.expected,
         TEST_SEMANTICS_EXPECTED_OBLIGATIONS_SCHEMA,
@@ -24,52 +66,69 @@ pub(crate) fn detect(request: GapRequest) -> Result<Value, String> {
     if request.verified_reports.is_empty() {
         return Err("at least one verified report is required".to_owned());
     }
+    Ok(())
+}
 
-    let expected_obligations = expected_obligations(&request.expected)?;
+fn verified_coverage(reports: &[Value]) -> Result<VerifiedCoverage, String> {
     let mut covered_ids = BTreeSet::new();
-    let mut verified_report_ids = Vec::new();
-    for report in &request.verified_reports {
+    let mut report_ids = Vec::new();
+    for report in reports {
         validate_schema(
             report,
             TEST_SEMANTICS_VERIFICATION_REPORT_SCHEMA,
             "verified report",
         )?;
-        let report_covered_ids = covered_ids_from_verified_report(report);
-        covered_ids.extend(report_covered_ids);
-        if let Some(candidate_id) = report
-            .get("scenario")
-            .and_then(|scenario| scenario.get("candidate_id"))
-            .and_then(Value::as_str)
-        {
-            verified_report_ids.push(candidate_id.to_owned());
+        covered_ids.extend(covered_ids_from_verified_report(report));
+        if let Some(candidate_id) = verified_candidate_id(report) {
+            report_ids.push(candidate_id.to_owned());
         }
     }
+    Ok(VerifiedCoverage {
+        covered_ids,
+        report_ids,
+    })
+}
 
-    let mut covered_obligations = Vec::new();
-    let mut missing_obligations = Vec::new();
-    for obligation in expected_obligations {
-        if obligation.is_covered_by(&covered_ids) {
-            covered_obligations.push(obligation.to_value("covered"));
+fn verified_candidate_id(report: &Value) -> Option<&str> {
+    report
+        .get("scenario")
+        .and_then(|scenario| scenario.get("candidate_id"))
+        .and_then(Value::as_str)
+}
+
+fn partition_obligations(
+    obligations: Vec<ExpectedObligation>,
+    covered_ids: &BTreeSet<String>,
+) -> ObligationPartition {
+    let mut covered = Vec::new();
+    let mut missing = Vec::new();
+    for obligation in obligations {
+        if obligation.is_covered_by(covered_ids) {
+            covered.push(obligation.to_value("covered"));
         } else {
-            missing_obligations.push(obligation.to_value("missing"));
+            missing.push(obligation.to_value("missing"));
         }
     }
+    ObligationPartition { covered, missing }
+}
 
-    let obstructions = missing_obligations
-        .iter()
-        .map(obstruction_for_obligation)
-        .collect::<Vec<_>>();
-    let completion_candidates = missing_obligations
-        .iter()
-        .map(completion_candidate_for_obligation)
-        .collect::<Vec<_>>();
-    let status = if missing_obligations.is_empty() {
+fn gap_status(missing_obligations: &[Value]) -> &'static str {
+    if missing_obligations.is_empty() {
         "no_gaps_detected"
     } else {
         "gaps_detected"
-    };
+    }
+}
 
-    Ok(json!({
+fn gap_report(
+    status: &str,
+    verified_report_ids: Vec<String>,
+    partition: ObligationPartition,
+    obstructions: Vec<Value>,
+    completion_candidates: Vec<Value>,
+    projection: Value,
+) -> Value {
+    json!({
         "schema": TEST_SEMANTICS_GAP_REPORT_SCHEMA,
         "report_type": "test_semantics_gap",
         "report_version": 1,
@@ -84,51 +143,67 @@ pub(crate) fn detect(request: GapRequest) -> Result<Value, String> {
         },
         "result": {
             "status": status,
-            "total_expected": covered_obligations.len() + missing_obligations.len(),
-            "covered_count": covered_obligations.len(),
-            "missing_count": missing_obligations.len(),
-            "covered_obligations": covered_obligations,
-            "missing_obligations": missing_obligations,
+            "total_expected": partition.covered.len() + partition.missing.len(),
+            "covered_count": partition.covered.len(),
+            "missing_count": partition.missing.len(),
+            "covered_obligations": partition.covered,
+            "missing_obligations": partition.missing,
             "obstructions": obstructions,
             "completion_candidates": completion_candidates
         },
-        "projection": {
-            "audience": "ai_agent",
-            "purpose": "test_semantics_gap_detection",
-            "summary": if status == "gaps_detected" {
-                format!("Detected {} missing test semantics obligations.", missing_obligations.len())
-            } else {
-                "No missing test semantics obligations detected.".to_owned()
+        "projection": projection
+    })
+}
+
+fn gap_projection(
+    status: &str,
+    missing_obligations: &[Value],
+    verified_report_ids: &[String],
+    completion_candidates: &[Value],
+) -> Value {
+    json!({
+        "audience": "ai_agent",
+        "purpose": "test_semantics_gap_detection",
+        "summary": gap_summary(status, missing_obligations.len()),
+        "recommended_actions": gap_recommended_actions(status),
+        "source_ids": ids_from_values(missing_obligations),
+        "information_loss": [
+            {
+                "description": "Gap detection compares expected obligation IDs and target IDs against verified semantic coverage; it does not inspect full source bodies.",
+                "source_ids": verified_report_ids
             },
-            "recommended_actions": if status == "gaps_detected" {
-                vec![
-                    "Add tests that cover each missing obligation target ID.",
-                    "Run test-semantics interpret, review, and verify again after adding tests."
-                ]
-            } else {
-                vec![
-                    "Keep verified reports with the expected obligations for auditability."
-                ]
-            },
-            "source_ids": missing_obligations
-                .iter()
-                .filter_map(|obligation| obligation.get("id").and_then(Value::as_str))
-                .collect::<Vec<_>>(),
-            "information_loss": [
-                {
-                    "description": "Gap detection compares expected obligation IDs and target IDs against verified semantic coverage; it does not inspect full source bodies.",
-                    "source_ids": verified_report_ids
-                },
-                {
-                    "description": "Missing-test completion candidates are unreviewed suggestions until a later review workflow accepts or rejects them.",
-                    "source_ids": completion_candidates
-                        .iter()
-                        .filter_map(|candidate| candidate.get("id").and_then(Value::as_str))
-                        .collect::<Vec<_>>()
-                }
-            ]
-        }
-    }))
+            {
+                "description": "Missing-test completion candidates are unreviewed suggestions until a later review workflow accepts or rejects them.",
+                "source_ids": ids_from_values(completion_candidates)
+            }
+        ]
+    })
+}
+
+fn gap_summary(status: &str, missing_count: usize) -> String {
+    if status == "gaps_detected" {
+        format!("Detected {missing_count} missing test semantics obligations.")
+    } else {
+        "No missing test semantics obligations detected.".to_owned()
+    }
+}
+
+fn gap_recommended_actions(status: &str) -> Vec<&'static str> {
+    if status == "gaps_detected" {
+        vec![
+            "Add tests that cover each missing obligation target ID.",
+            "Run test-semantics interpret, review, and verify again after adding tests.",
+        ]
+    } else {
+        vec!["Keep verified reports with the expected obligations for auditability."]
+    }
+}
+
+fn ids_from_values(values: &[Value]) -> Vec<&str> {
+    values
+        .iter()
+        .filter_map(|value| value.get("id").and_then(Value::as_str))
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq)]
