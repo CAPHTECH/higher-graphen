@@ -1,4 +1,502 @@
 {
+  "core_extensions": {
+    "derivations": [
+      {
+        "conclusion": "task:define-workflow-reasoning-contract",
+        "failure_mode": "none",
+        "id": "readiness_result:task-define-workflow-reasoning-contract:readiness-state-allows-work",
+        "inference_rule": {
+          "id": "readiness:state-allows-work",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "readiness:state-allows-work"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      },
+      {
+        "conclusion": "proof:workflow-schema-parse-check",
+        "failure_mode": "missing_premise",
+        "id": "readiness_result:proof-workflow-schema-parse-check:readiness-dependencies-done",
+        "inference_rule": {
+          "id": "readiness:dependencies-done",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+          "readiness:dependencies-done"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      },
+      {
+        "conclusion": "proof:workflow-schema-parse-check",
+        "failure_mode": "missing_premise",
+        "id": "readiness_result:proof-workflow-schema-parse-check:readiness-evidence-available",
+        "inference_rule": {
+          "id": "readiness:evidence-available",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+          "readiness:evidence-available"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      },
+      {
+        "conclusion": "task:implement-workflow-engine",
+        "failure_mode": "missing_premise",
+        "id": "readiness_result:task-implement-workflow-engine:readiness-dependencies-done",
+        "inference_rule": {
+          "id": "readiness:dependencies-done",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract",
+          "readiness:dependencies-done"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      },
+      {
+        "conclusion": "task:implement-workflow-engine",
+        "failure_mode": "missing_premise",
+        "id": "readiness_result:task-implement-workflow-engine:readiness-required-proof-attached",
+        "inference_rule": {
+          "id": "readiness:required-proof-attached",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+          "readiness:required-proof-attached"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      },
+      {
+        "conclusion": "task:implement-workflow-engine",
+        "failure_mode": "missing_premise",
+        "id": "readiness_result:task-implement-workflow-engine:readiness-state-allows-work",
+        "inference_rule": {
+          "id": "readiness:state-allows-work",
+          "name": "Workflow readiness rule evaluation",
+          "rule_scope_contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ]
+        },
+        "premises": [
+          "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+          "readiness:state-allows-work"
+        ],
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "verification_status": "machine_checked",
+        "verifier": {
+          "kind": "custom_engine",
+          "reference": "casegraphen workflow reason"
+        },
+        "warrants": [
+          "evidence:workflow-target-doc"
+        ]
+      }
+    ],
+    "equivalence_claims": [
+      {
+        "confidence": 0.78,
+        "criterion": {
+          "description": "Workflow correspondence result projects compatible structures into the reasoning report."
+        },
+        "equivalence_kind": "contextual_equivalence",
+        "id": "equivalence:correspondence:baseline-casegraphen-to-workflow-contract",
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "scope": {
+          "contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ],
+          "valid_under_morphisms": [
+            "morphism:add-workflow-reasoning-contract"
+          ]
+        },
+        "status": "candidate",
+        "subjects": [
+          {
+            "ref": "highergraphen.case.graph.v1"
+          },
+          {
+            "ref": "highergraphen.case.missing.report.v1"
+          },
+          {
+            "ref": "highergraphen.case.workflow.graph.v1"
+          },
+          {
+            "ref": "highergraphen.case.workflow.report.v1"
+          }
+        ],
+        "witnesses": [
+          "evidence:workflow-gap-inference"
+        ]
+      }
+    ],
+    "policies": [
+      {
+        "applies_to": {
+          "contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ],
+          "operations": [
+            "workflow_reason",
+            "DependencyClosure"
+          ],
+          "target_types": [
+            "workflow_work_item"
+          ]
+        },
+        "id": "policy:readiness:dependencies-done",
+        "policy_kind": "obligation",
+        "provenance": {
+          "confidence": 1.0,
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "document",
+            "title": "Workflow readiness rule",
+            "uri": "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          }
+        },
+        "required_witnesses": [
+          "constraint:workflow-readiness"
+        ],
+        "review_status": "unreviewed",
+        "rule": {
+          "description": "A work item is ready only when hard dependencies are done or accepted."
+        },
+        "status": "draft",
+        "violation_obstruction_template": "obstruction_template:unresolved_dependency"
+      },
+      {
+        "applies_to": {
+          "contexts": [
+            "workflow_graph:casegraphen-rewrite-contract"
+          ],
+          "operations": [
+            "workflow_reason",
+            "ProofAvailable"
+          ],
+          "target_types": [
+            "workflow_work_item"
+          ]
+        },
+        "id": "policy:readiness:required-proof-attached",
+        "policy_kind": "obligation",
+        "provenance": {
+          "confidence": 1.0,
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "document",
+            "title": "Workflow readiness rule"
+          }
+        },
+        "required_witnesses": [
+          "constraint:evidence-boundary"
+        ],
+        "review_status": "unreviewed",
+        "rule": {
+          "description": "A contract task is not complete until required proof records are present."
+        },
+        "status": "draft",
+        "violation_obstruction_template": "obstruction_template:missing_proof"
+      }
+    ],
+    "scenarios": [
+      {
+        "affected_invariants": [
+          "readiness:state-allows-work",
+          "readiness:dependencies-done",
+          "readiness:evidence-available",
+          "readiness:dependencies-done",
+          "readiness:required-proof-attached",
+          "readiness:state-allows-work"
+        ],
+        "assumptions": [
+          "task:define-workflow-reasoning-contract",
+          "proof:workflow-schema-parse-check",
+          "task:implement-workflow-engine"
+        ],
+        "base_space": "space:casegraphen-workflow-reasoning",
+        "changed_structures": {},
+        "expected_obstructions": [
+          "obstruction:missing-evidence:proof-workflow-schema-parse-check:evidence-json-parse-check-output",
+          "obstruction:missing-proof:task-implement-workflow-engine:proof-workflow-schema-parse-check",
+          "obstruction:review-required:task-implement-workflow-engine:task-implement-workflow-engine",
+          "obstruction:unresolved-dependency:proof-workflow-schema-parse-check:task-define-workflow-reasoning-contract",
+          "obstruction:unresolved-dependency:task-implement-workflow-engine:task-define-workflow-reasoning-contract"
+        ],
+        "id": "scenario:workflow_graph:casegraphen-rewrite-contract:reasoning",
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "reachable_from": {
+          "ref": "space:casegraphen-workflow-reasoning",
+          "via_morphisms": [
+            "transition:foundation-docs-to-workflow-contract"
+          ]
+        },
+        "required_witnesses": [
+          "evidence:workflow-target-doc"
+        ],
+        "review_status": "candidate",
+        "scenario_kind": "blocked",
+        "status": "blocked",
+        "valuations": [
+          "valuation:workflow_graph:casegraphen-rewrite-contract:readiness"
+        ]
+      }
+    ],
+    "validation": {
+      "accepted_ready_count": 2,
+      "blocked_count": 0,
+      "generated_count": 13
+    },
+    "valuations": [
+      {
+        "confidence": 0.84,
+        "criteria": [
+          {
+            "criterion_id": "ready_items",
+            "direction": "maximize",
+            "name": "Ready work items",
+            "required": true,
+            "weight": 0.6
+          },
+          {
+            "criterion_id": "blocking_obstructions",
+            "direction": "avoid",
+            "name": "Blocking obstructions",
+            "required": true,
+            "weight": 0.4
+          }
+        ],
+        "id": "valuation:workflow_graph:casegraphen-rewrite-contract:readiness",
+        "order_type": "threshold_acceptance",
+        "provenance": {
+          "confidence": 0.89,
+          "extraction_method": "casegraphen-core-extension-bridge",
+          "review_status": "reviewed",
+          "source": {
+            "kind": "code",
+            "title": "CaseGraphen workflow reason",
+            "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/reason/revision/workflow-contract-schema"
+          }
+        },
+        "review_status": "candidate",
+        "target": {
+          "ref": "workflow_graph:casegraphen-rewrite-contract"
+        },
+        "valuation_context": "workflow_graph:casegraphen-rewrite-contract",
+        "values": [
+          {
+            "criterion_id": "ready_items",
+            "evidence": "witness:evidence:workflow-target-doc",
+            "value": 1.0
+          },
+          {
+            "criterion_id": "blocking_obstructions",
+            "evidence": "witness:evidence:workflow-target-doc",
+            "value": 5.0
+          }
+        ]
+      }
+    ],
+    "witnesses": [
+      {
+        "confidence": 1.0,
+        "id": "witness:evidence:workflow-target-doc",
+        "observed_at": "unrecorded",
+        "payload_ref": {
+          "kind": "workflow_sourcebackedevidence",
+          "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/evidence/evidence/workflow-target-doc"
+        },
+        "provenance": {
+          "confidence": 1.0,
+          "review_status": "accepted",
+          "source": {
+            "kind": "document",
+            "title": "Workflow target document defines readiness, obstruction, completion, evidence, projection, correspondence, and evolution requirements.",
+            "uri": "docs/specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md"
+          }
+        },
+        "review_status": "accepted",
+        "supports": [
+          {
+            "ref": "task:define-workflow-reasoning-contract"
+          },
+          {
+            "ref": "relation:engine-depends-on-contract"
+          }
+        ],
+        "validity_contexts": [
+          "workflow_graph:casegraphen-rewrite-contract"
+        ],
+        "witness_type": "document_excerpt"
+      },
+      {
+        "confidence": 0.78,
+        "id": "witness:evidence:workflow-gap-inference",
+        "observed_at": "unrecorded",
+        "payload_ref": {
+          "kind": "workflow_aiinference",
+          "uri": "casegraphen://workflow/workflow_graph/casegraphen-rewrite-contract/evidence/evidence/workflow-gap-inference"
+        },
+        "provenance": {
+          "confidence": 0.78,
+          "review_status": "unreviewed",
+          "source": {
+            "kind": "custom:agent_inference",
+            "title": "The current baseline has no first-class workflow item, readiness, or evolution model."
+          }
+        },
+        "review_status": "candidate",
+        "supports": [
+          {
+            "ref": "correspondence:baseline-casegraphen-to-workflow-contract"
+          },
+          {
+            "ref": "candidate:missing-task-readiness-engine"
+          }
+        ],
+        "validity_contexts": [
+          "workflow_graph:casegraphen-rewrite-contract"
+        ],
+        "witness_type": "machine_check_result"
+      }
+    ]
+  },
   "input": {
     "case_graph_id": "case_graph:casegraphen-highergraphen-rewrite",
     "projection_profile_ids": [

@@ -70,8 +70,29 @@ cargo run -q -p casegraphen -- <args>
 ```
 
 Repo-owned `casegraphen` reports use `schema`, `metadata`, `input`, `result`,
-and `projection` fields. They are not native installed-`cg` events and do not
-replace `cg frontier`, `cg blockers`, or `cg validate --case`.
+`projection`, and, for reasoning reports that can project HigherGraphen core
+extension structure, `core_extensions` fields. They are not native installed-`cg`
+events and do not replace `cg frontier`, `cg blockers`, or `cg validate --case`.
+
+`core_extensions` is an explicit bridge to HigherGraphen core extension objects
+such as `Witness`, `Derivation`, `Policy`, `Capability`, `Scenario`,
+`SchemaMorphism`, `EquivalenceClaim`, and `Valuation`. Generated extensions are
+report evidence, but supplied extensions can also gate decisions. If a workflow
+graph, native case space, or native morphism has
+`metadata.higher_graphen_extensions`, repo-owned `casegraphen` deserializes that
+payload, validates the relevant core extension acceptance/decision contracts,
+and reports failures in `core_extensions.validation`.
+
+Decision-gate effects:
+
+- `casegraphen workflow reason` sets `result.status` to `review_required` when
+  supplied core extensions are blocked.
+- `casegraphen case close-check` emits `result.core_extension_blocked`; when it
+  is true, `result.close_check.closeable` is false.
+- `casegraphen morphism check` keeps malformed-shape validation separate from
+  policy/valuation gating: a structurally valid morphism can report
+  `valid: true` and `applicable: false` when supplied core extensions are
+  blocked.
 
 ### Native CaseGraphen
 
@@ -122,6 +143,15 @@ rewriting a case space. There is `case close-check`, but no native `case close`
 command yet. Document residual limitations when publishing examples or
 operator reports.
 
+Native case spaces and morphism proposal metadata can carry
+`metadata.higher_graphen_extensions`. `case close-check` merges supplied
+extensions from the case-space metadata with generated close-check extensions.
+`morphism check` merges supplied extensions from the case-space metadata and the
+candidate morphism metadata with generated scenario/schema/equivalence/valuation
+extensions. Blocked supplied extensions are reported in
+`core_extensions.validation`; they make close-check not closeable or morphism
+check not applicable without treating the JSON shape itself as invalid.
+
 ## Native Case Workflow
 
 For a native `.casegraphen` case:
@@ -159,7 +189,11 @@ For a native `.casegraphen` case:
 ## Workflow Reasoning Commands
 
 Run `casegraphen workflow reason` for the aggregate machine-readable workflow
-reasoning report:
+reasoning report. The report includes top-level `core_extensions` when the
+workflow can be projected into HigherGraphen core extension objects. Supplying
+`metadata.higher_graphen_extensions` in the workflow graph makes those
+extensions part of the decision gate; blocked supplied extensions force
+`result.status` to `review_required`.
 
 ```sh
 casegraphen workflow reason --input workflow.graph.json --format json

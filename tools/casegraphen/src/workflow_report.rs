@@ -1,6 +1,8 @@
+use crate::core_extension_bridge::{workflow_reason_extensions, CaseGraphenCoreExtensions};
 use crate::workflow_eval::{
     evaluate_workflow, projection_profile_for, CompletionCandidate, CorrespondenceResult,
     EvidenceFinding, ObstructionRecord, ProjectionResult, ReadinessRuleResult, WorkflowEvaluation,
+    WorkflowReasoningStatus,
 };
 use crate::workflow_model::{
     InformationLoss, ProjectionAudience, ProjectionProfile, WorkItem, WorkflowCaseGraph,
@@ -24,6 +26,8 @@ pub struct WorkflowReasoningReport {
     pub metadata: WorkflowReportMetadata,
     pub input: WorkflowReportInput,
     pub result: WorkflowEvaluation,
+    #[serde(skip_serializing_if = "CaseGraphenCoreExtensions::is_empty")]
+    pub core_extensions: CaseGraphenCoreExtensions,
     pub projection: ProjectionBundle,
 }
 
@@ -116,8 +120,12 @@ pub fn reason_workflow(graph: &WorkflowCaseGraph) -> WorkflowReasoningReport {
 pub fn workflow_reasoning_report(
     command: &str,
     graph: &WorkflowCaseGraph,
-    result: WorkflowEvaluation,
+    mut result: WorkflowEvaluation,
 ) -> WorkflowReasoningReport {
+    let core_extensions = workflow_reason_extensions(graph, &result);
+    if core_extensions.is_blocked() && result.status != WorkflowReasoningStatus::InvalidWorkflow {
+        result.status = WorkflowReasoningStatus::ReviewRequired;
+    }
     let projection = projection_bundle(graph, &result);
     WorkflowReasoningReport {
         schema: WORKFLOW_REASONING_REPORT_SCHEMA.to_owned(),
@@ -126,6 +134,7 @@ pub fn workflow_reasoning_report(
         metadata: workflow_metadata(command),
         input: workflow_report_input(graph),
         result,
+        core_extensions,
         projection,
     }
 }
@@ -613,6 +622,10 @@ mod tests {
         assert!(value["result"]["projection"]["information_loss"].is_array());
         assert!(value["result"]["correspondence"].is_array());
         assert!(value["result"]["evolution"]["transition_ids"].is_array());
+        assert!(value["core_extensions"]["witnesses"].is_array());
+        assert!(value["core_extensions"]["derivations"].is_array());
+        assert!(value["core_extensions"]["policies"].is_array());
+        assert!(value["core_extensions"]["valuations"].is_array());
     }
 
     #[test]

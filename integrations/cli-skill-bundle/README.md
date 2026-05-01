@@ -102,6 +102,12 @@ The stable CaseGraphen workflow reasoning command is:
 casegraphen workflow reason --input workflow.graph.json --format json
 ```
 
+Workflow reasoning reports include `core_extensions` when CaseGraphen can
+project the graph into HigherGraphen core extension objects. A workflow graph
+can also supply `metadata.higher_graphen_extensions`; blocked supplied
+extensions are reflected in `core_extensions.validation` and force
+`result.status` to `review_required`.
+
 Focused CaseGraphen workflow report commands are:
 
 ```sh
@@ -146,12 +152,18 @@ casegraphen case history topology --store casegraphen-native-store --case-space-
 casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
 casegraphen case close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
 casegraphen morphism propose --store casegraphen-native-store --case-space-id <id> --input case_morphism.json --format json
+casegraphen morphism check --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --format json
 casegraphen morphism apply --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --base-revision-id <revision-id> --reviewer-id <reviewer-id> --reason "<reason>" --format json
 ```
 
 The native reference examples live at `examples/casegraphen/native/README.md`.
 They document the current residual limitations: metadata-only morphism
 application and close-check without a native close command.
+Native case-space and morphism metadata can supply
+`metadata.higher_graphen_extensions`. Blocked supplied extensions make
+`casegraphen case close-check` emit `core_extension_blocked: true` with
+`closeable: false`, and make `casegraphen morphism check` report `valid: true`
+with `applicable: false`.
 
 The DDD diagnostic reference example lives at
 `examples/casegraphen/ddd/domain-model-design/README.md`. It uses

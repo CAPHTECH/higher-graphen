@@ -4,6 +4,10 @@ use super::{
     NativeCliError, NativeReasonSection,
 };
 use crate::{
+    core_extension_bridge::{
+        native_close_check_extensions, native_close_check_result, native_morphism_check_extensions,
+        native_morphism_check_result,
+    },
     native_eval::evaluate_native_case,
     native_model::{
         CaseCell, CaseCellLifecycle, CaseCellType, CaseMorphism, CaseMorphismType, CaseSpace,
@@ -112,9 +116,10 @@ pub(super) fn case_close_check(
             source_ids: validation_evidence_ids.to_vec(),
         },
     )?;
+    let core_extensions = native_close_check_extensions(&replay.case_space, &check);
     Ok(report(
         "casegraphen case close-check",
-        json!({ "close_check": check }),
+        native_close_check_result(check, core_extensions),
     ))
 }
 
@@ -199,9 +204,10 @@ pub(super) fn morphism_check(
         NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
     let morphism = read_proposal(store, case_space_id, morphism_id)?;
     validate_candidate_morphism(&replay.case_space, &morphism)?;
+    let core_extensions = native_morphism_check_extensions(&replay.case_space, &morphism);
     Ok(report(
         "casegraphen morphism check",
-        json!({ "valid": true, "applicable": true, "morphism": morphism }),
+        native_morphism_check_result(morphism, core_extensions),
     ))
 }
 

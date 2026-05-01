@@ -227,6 +227,20 @@ casegraphen morphism apply --store casegraphen-native-store --case-space-id <id>
 casegraphen morphism reject --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --reviewer-id <reviewer-id> --reason <text> --revision-id <revision-id> --format json
 ```
 
+Core extension bridge:
+
+- `casegraphen workflow reason` emits top-level `core_extensions` when workflow
+  reasoning can be projected into HigherGraphen core extension objects.
+- Workflow graph, native case-space, and native morphism metadata may include
+  `metadata.higher_graphen_extensions`.
+- Supplied core extensions are merged with generated `Witness`, `Derivation`,
+  `Policy`, `Capability`, `Scenario`, `SchemaMorphism`, `EquivalenceClaim`, and
+  `Valuation` projections, then validated into `core_extensions.validation`.
+- Blocked supplied extensions gate decisions: workflow reason becomes
+  `review_required`, native close-check emits `core_extension_blocked: true` and
+  `closeable: false`, and native morphism check can report `valid: true` with
+  `applicable: false`.
+
 DDD domain model diagnostics are a skill-layer interpretation of the same
 native CaseGraphen report surface. The reference fixture is:
 

@@ -319,6 +319,52 @@ fn workflow_reason_emits_reasoning_report_for_workflow_fixture() {
         value["projection"]["ai_view"]["audience"],
         json!("ai_agent")
     );
+    assert!(value["core_extensions"]["witnesses"]
+        .as_array()
+        .expect("workflow core witnesses")
+        .iter()
+        .any(|witness| witness["id"] == json!("witness:evidence:workflow-target-doc")));
+    assert!(value["core_extensions"]["policies"]
+        .as_array()
+        .expect("workflow core policies")
+        .iter()
+        .any(|policy| policy["policy_kind"] == json!("obligation")));
+}
+
+#[test]
+fn workflow_reason_uses_metadata_core_extensions_as_review_gate() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let input_path = directory.join("workflow.with-core-extension.json");
+    let mut workflow = json_file(workflow_fixture());
+    workflow["metadata"]["higher_graphen_extensions"] =
+        invalid_core_extensions("task:define-workflow-reasoning-contract");
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&workflow).expect("serialize workflow"),
+    )
+    .expect("write workflow");
+
+    let output = run_cli(&[
+        "workflow",
+        "reason",
+        "--input",
+        input_path.to_str().expect("workflow path"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let value = stdout_json(&output);
+    assert_eq!(value["result"]["status"], json!("review_required"));
+    assert_eq!(
+        value["core_extensions"]["validation"]["blocked_count"],
+        json!(1)
+    );
+    assert_eq!(
+        value["core_extensions"]["validation"]["findings"][0]["object_id"],
+        json!("valuation:metadata-core-extension-block")
+    );
 }
 
 #[test]
@@ -1704,6 +1750,18 @@ fn native_reasoning_commands_emit_domain_reports_and_output_file() {
                 == json!("close:native-projection-loss-declared")
                 && invariant["passed"] == json!(false))
     );
+    assert!(
+        stdout_json(&close_check)["result"]["core_extensions"]["derivations"]
+            .as_array()
+            .expect("close-check core derivations")
+            .iter()
+            .any(|derivation| derivation["conclusion"]
+                == stdout_json(&close_check)["result"]["close_check"]["check_id"])
+    );
+    assert_eq!(
+        stdout_json(&close_check)["result"]["core_extension_blocked"],
+        json!(false)
+    );
 
     for command in ["obstructions", "completions", "evidence", "project"] {
         let output = run_native_case_store_command(&directory, command);
@@ -1847,6 +1905,50 @@ fn native_case_topology_diff_compares_store_replays() {
 }
 
 #[test]
+fn native_close_check_uses_metadata_core_extensions_as_close_gate() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    let native_path = directory.join("native.with-core-extension.json");
+    let mut native_case = json_file(native_case_fixture());
+    native_case["metadata"]["higher_graphen_extensions"] =
+        invalid_core_extensions(native_case_space_id());
+    fs::write(
+        &native_path,
+        serde_json::to_string_pretty(&native_case).expect("serialize native case"),
+    )
+    .expect("write native case");
+    import_native_case_space_from_input(&directory, &native_path, "revision:native-cli-imported");
+
+    let close_check = run_cli(&[
+        "case",
+        "close-check",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--base-revision-id",
+        "revision:native-cli-imported",
+        "--validation-evidence-id",
+        "evidence:native-schema-json-valid",
+        "--format",
+        "json",
+    ]);
+
+    assert!(
+        close_check.status.success(),
+        "stderr: {}",
+        stderr(&close_check)
+    );
+    let value = stdout_json(&close_check);
+    assert_eq!(value["result"]["core_extension_blocked"], json!(true));
+    assert_eq!(value["result"]["close_check"]["closeable"], json!(false));
+    assert_eq!(
+        value["result"]["core_extensions"]["validation"]["blocked_count"],
+        json!(1)
+    );
+}
+
+#[test]
 fn native_morphism_propose_check_apply_and_reject_flow() {
     let directory = unique_temp_dir();
     fs::create_dir_all(&directory).expect("create temp directory");
@@ -1899,6 +2001,20 @@ fn native_morphism_propose_check_apply_and_reject_flow() {
     assert_eq!(
         stdout_json(&check)["result"]["morphism"]["review_status"],
         json!("unreviewed")
+    );
+    assert_eq!(
+        stdout_json(&check)["result"]["core_extensions"]["scenarios"][0]["scenario_kind"],
+        json!("planned")
+    );
+    assert!(
+        stdout_json(&check)["result"]["core_extensions"]["schema_morphisms"]
+            .as_array()
+            .expect("morphism core schema morphisms")
+            .iter()
+            .any(|schema_morphism| schema_morphism["verification"]["checks"]
+                .as_array()
+                .expect("schema morphism checks")
+                .contains(&json!("morphism:native-cli-apply")))
     );
 
     let apply = run_cli(&[
@@ -1980,6 +2096,59 @@ fn native_morphism_propose_check_apply_and_reject_flow() {
     );
 
     fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn native_morphism_check_uses_metadata_core_extensions_as_applicability_gate() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+    import_native_case_space(&directory, "revision:native-cli-imported");
+
+    let morphism_path = directory.join("blocked.case_morphism.json");
+    write_native_metadata_morphism_with_metadata(
+        &morphism_path,
+        "morphism:native-cli-coreext-blocked",
+        "revision:native-cli-imported",
+        "revision:native-cli-coreext-blocked",
+        json!({
+            "higher_graphen_extensions": invalid_core_extensions("morphism:native-cli-coreext-blocked")
+        }),
+    );
+
+    let propose = run_cli(&[
+        "morphism",
+        "propose",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--input",
+        morphism_path.to_str().expect("morphism path"),
+        "--format",
+        "json",
+    ]);
+    assert!(propose.status.success(), "stderr: {}", stderr(&propose));
+
+    let check = run_cli(&[
+        "morphism",
+        "check",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--morphism-id",
+        "morphism:native-cli-coreext-blocked",
+        "--format",
+        "json",
+    ]);
+    assert!(check.status.success(), "stderr: {}", stderr(&check));
+    let value = stdout_json(&check);
+    assert_eq!(value["result"]["valid"], json!(true));
+    assert_eq!(value["result"]["applicable"], json!(false));
+    assert_eq!(
+        value["result"]["core_extensions"]["validation"]["blocked_count"],
+        json!(1)
+    );
 }
 
 #[test]
@@ -2513,13 +2682,21 @@ fn run_bridge_store_command(directory: &Path, command: &str) -> Output {
 }
 
 fn import_native_case_space(directory: &Path, revision_id: &str) -> Output {
+    import_native_case_space_from_input(directory, &native_case_fixture(), revision_id)
+}
+
+fn import_native_case_space_from_input(
+    directory: &Path,
+    input: &Path,
+    revision_id: &str,
+) -> Output {
     let output = run_cli(&[
         "case",
         "import",
         "--store",
         directory.to_str().expect("temp path"),
         "--input",
-        native_case_fixture().to_str().expect("native fixture path"),
+        input.to_str().expect("native fixture path"),
         "--revision-id",
         revision_id,
         "--format",
@@ -2550,6 +2727,22 @@ fn write_native_metadata_morphism(
     source_revision_id: &str,
     target_revision_id: &str,
 ) {
+    write_native_metadata_morphism_with_metadata(
+        path,
+        morphism_id,
+        source_revision_id,
+        target_revision_id,
+        json!({}),
+    );
+}
+
+fn write_native_metadata_morphism_with_metadata(
+    path: &Path,
+    morphism_id: &str,
+    source_revision_id: &str,
+    target_revision_id: &str,
+    metadata: Value,
+) {
     let morphism = json!({
         "morphism_id": morphism_id,
         "morphism_type": "review",
@@ -2563,13 +2756,37 @@ fn write_native_metadata_morphism(
         "review_status": "unreviewed",
         "evidence_ids": [],
         "source_ids": ["source:native-cli-test"],
-        "metadata": {}
+        "metadata": metadata
     });
     fs::write(
         path,
         serde_json::to_string_pretty(&morphism).expect("serialize morphism"),
     )
     .expect("write native morphism");
+}
+
+fn invalid_core_extensions(target_id: &str) -> Value {
+    json!({
+        "valuations": [
+            {
+                "id": "valuation:metadata-core-extension-block",
+                "target": {
+                    "ref": target_id
+                },
+                "order_type": "threshold_acceptance",
+                "confidence": 0.5,
+                "provenance": {
+                    "source": {
+                        "kind": "ai",
+                        "title": "Metadata supplied core extension"
+                    },
+                    "confidence": 0.5,
+                    "review_status": "unreviewed"
+                },
+                "review_status": "candidate"
+            }
+        ]
+    })
 }
 
 fn stdout_json(output: &Output) -> Value {

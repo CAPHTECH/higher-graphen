@@ -2,6 +2,7 @@
 //! File-based structured case graph tooling for HigherGraphen.
 
 pub mod cli;
+pub mod core_extension_bridge;
 pub mod eval;
 pub mod model;
 pub mod native_cli;

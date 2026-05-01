@@ -32,6 +32,10 @@
     "result": {
       "$ref": "#/$defs/result"
     },
+    "core_extensions": {
+      "type": "object",
+      "description": "Optional HigherGraphen core extension projection emitted by CaseGraphen workflow reasoning."
+    },
     "projection": {
       "$ref": "#/$defs/projection_bundle"
     }
