@@ -1,5 +1,7 @@
 use higher_graphen_core::Id;
-use higher_graphen_space::{StructuralBoundaryAnalyzer, StructuralObservation, StructuralRole};
+use higher_graphen_structure::space::{
+    StructuralBoundaryAnalyzer, StructuralObservation, StructuralRole,
+};
 
 pub(crate) fn changed_structural_boundary(
     path: &str,

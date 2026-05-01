@@ -20,7 +20,7 @@ pub use feed_reports::{
     FeedSourceFeed, FeedSourceFeedKind, FeedSuggestedStructure, FeedTimeAxis, FeedTopicCell,
     FeedTrustLevel,
 };
-pub use higher_graphen_completion::{
+pub use higher_graphen_reasoning::completion::{
     CompletionReviewDecision, CompletionReviewRecord, CompletionReviewRequest,
 };
 pub use pr_review_reports::{

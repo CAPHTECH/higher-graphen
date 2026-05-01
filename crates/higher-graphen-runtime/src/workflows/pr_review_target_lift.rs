@@ -6,7 +6,7 @@ use crate::pr_review_reports::{
     PrReviewTargetLiftedIncidence, PrReviewTargetLiftedSpace, PrReviewTargetLiftedStructure,
 };
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, SourceRef};
-use higher_graphen_space::IncidenceOrientation;
+use higher_graphen_structure::space::IncidenceOrientation;
 
 pub(super) struct LiftedPrReviewTarget {
     pub(super) structure: PrReviewTargetLiftedStructure,

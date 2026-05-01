@@ -1,11 +1,13 @@
 //! Stable report shapes returned by runtime workflows.
 
-use higher_graphen_completion::{CompletionCandidate, CompletionReviewRecord, MissingType};
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceKind};
-use higher_graphen_invariant::CheckResult;
-use higher_graphen_obstruction::Obstruction;
 use higher_graphen_projection::InformationLoss;
-use higher_graphen_space::{Cell, Incidence, IncidenceOrientation, Space};
+use higher_graphen_reasoning::completion::{
+    CompletionCandidate, CompletionReviewRecord, MissingType,
+};
+use higher_graphen_reasoning::invariant::CheckResult;
+use higher_graphen_reasoning::obstruction::Obstruction;
+use higher_graphen_structure::space::{Cell, Incidence, IncidenceOrientation, Space};
 use serde::{Deserialize, Serialize};
 
 /// Reusable runtime report envelope.

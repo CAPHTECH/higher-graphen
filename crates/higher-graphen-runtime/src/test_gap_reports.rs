@@ -3,7 +3,7 @@
 
 use crate::reports::{ProjectionViewSet, ReportEnvelope};
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceKind};
-use higher_graphen_space::IncidenceOrientation;
+use higher_graphen_structure::space::IncidenceOrientation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

@@ -90,7 +90,7 @@ regions, and unacceptable projection loss.
 | Tool package | `tools/obstructiongraphen/` |
 | Installed command | `obstructiongraphen` |
 | Agent skill | `obstructiongraphen` |
-| Primary core crate | `higher-graphen-obstruction` |
+| Primary core package/module | `higher-graphen-reasoning` module `obstruction` |
 | Report schema prefix | `highergraphen.obstruction.*.report.v1` |
 
 Minimum CLI commands:
@@ -111,19 +111,19 @@ Required lower crates:
 
 - `higher-graphen-core` for `Id`, `SourceRef`, `Provenance`, `Confidence`,
   `Severity`, `ReviewStatus`, structured errors, and serde contracts.
-- `higher-graphen-space` for space, cell, incidence, context ID, and location
+- `higher-graphen-structure::space` for space, cell, incidence, context ID, and location
   references.
-- `higher-graphen-obstruction` for `Obstruction`, `ObstructionType`,
+- `higher-graphen-reasoning::obstruction` for `Obstruction`, `ObstructionType`,
   `ObstructionExplanation`, `Counterexample`, `RequiredResolution`, and
   related morphism references.
 
 Conditional lower crates:
 
-- `higher-graphen-invariant` when the input is an invariant or constraint
+- `higher-graphen-reasoning::invariant` when the input is an invariant or constraint
   check result.
-- `higher-graphen-morphism` when the input is a failed composition,
+- `higher-graphen-structure::morphism` when the input is a failed composition,
   preservation failure, or lost-structure report.
-- `higher-graphen-context` when the input is a failed gluing or context
+- `higher-graphen-structure::context` when the input is a failed gluing or context
   mismatch.
 - `higher-graphen-projection` only in the tool layer when rendering a report
   projection. The core obstruction crate must remain projection-neutral.
@@ -163,7 +163,7 @@ and projection source IDs.
 | Field | Contract |
 | --- | --- |
 | `result.status` | `obstruction_detected`, `no_obstruction`, or `unsupported_input`. |
-| `result.obstructions` | Zero or more `higher_graphen_obstruction::Obstruction` records. |
+| `result.obstructions` | Zero or more `higher_graphen_reasoning::obstruction::Obstruction` records. |
 | `result.source_ids` | IDs represented by the result. Must not be empty when obstructions are present. |
 | `projection.human_review` | Human explanation and recommended resolution actions. |
 | `projection.ai_view` | Source-stable obstruction records with IDs, severity, provenance, and review status. |
@@ -246,7 +246,7 @@ Review is auditable and does not mutate the source candidate report.
 | Tool package | `tools/completiongraphen/` |
 | Installed command | `completiongraphen` |
 | Agent skill | `completiongraphen` |
-| Primary core crate | `higher-graphen-completion` |
+| Primary core package/module | `higher-graphen-reasoning` module `completion` |
 | Report schema prefix | `highergraphen.completion.*.report.v1` |
 
 Minimum CLI commands:
@@ -268,18 +268,18 @@ Required lower crates:
 
 - `higher-graphen-core` for IDs, confidence, review status, provenance,
   structured errors, and serde contracts.
-- `higher-graphen-space` for source space and created-structure references.
-- `higher-graphen-completion` for `CompletionRule`,
+- `higher-graphen-structure::space` for source space and created-structure references.
+- `higher-graphen-reasoning::completion` for `CompletionRule`,
   `CompletionDetectionInput`, `CompletionCandidate`, review requests, review
   records, accepted completions, and rejected completions.
 
 Conditional lower crates:
 
-- `higher-graphen-obstruction` when candidates are inferred from obstructions
+- `higher-graphen-reasoning::obstruction` when candidates are inferred from obstructions
   or required resolutions.
-- `higher-graphen-invariant` when missing constraints or invariant templates
+- `higher-graphen-reasoning::invariant` when missing constraints or invariant templates
   are inferred from check results.
-- `higher-graphen-morphism` when missing morphisms or preservation links are
+- `higher-graphen-structure::morphism` when missing morphisms or preservation links are
   inferred.
 - `higher-graphen-projection` only in the tool layer for human, AI-agent, and
   audit report views.
@@ -296,7 +296,7 @@ Conditional lower crates:
 | `rules` | Explicit completion rules or a reference to a rule bundle. |
 | `provenance` | Source and confidence for detection inputs when available. |
 
-Rule payloads must map to `higher_graphen_completion::CompletionRule`:
+Rule payloads must map to `higher_graphen_reasoning::completion::CompletionRule`:
 
 - `id`;
 - `candidate_id`;
@@ -446,7 +446,7 @@ Required lower crates:
 
 - `higher-graphen-core` for IDs, severity, provenance, structured errors, and
   serde contracts.
-- `higher-graphen-space` for selected cells, incidences, spaces, and context
+- `higher-graphen-structure::space` for selected cells, incidences, spaces, and context
   IDs.
 - `higher-graphen-projection` for `Projection`, `ProjectionSelector`,
   `ProjectionAudience`, `ProjectionPurpose`, `OutputSchema`,
@@ -455,10 +455,10 @@ Required lower crates:
 
 Conditional lower crates:
 
-- `higher-graphen-obstruction` when rendering obstruction reports.
-- `higher-graphen-completion` when rendering completion candidates or review
+- `higher-graphen-reasoning::obstruction` when rendering obstruction reports.
+- `higher-graphen-reasoning::completion` when rendering completion candidates or review
   reports.
-- `higher-graphen-invariant` and `higher-graphen-morphism` when check results,
+- `higher-graphen-reasoning::invariant` and `higher-graphen-structure::morphism` when check results,
   preservation reports, or lost-structure records must be represented.
 
 The projection core crate must remain free of runtime, CLI, UI, provider SDK,

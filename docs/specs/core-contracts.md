@@ -227,10 +227,10 @@ Contract:
 
 - Every HigherGraphen model or engine crate may depend on
   `higher-graphen-core`.
-- `higher-graphen-core` must not depend on `higher-graphen-space`,
-  `higher-graphen-morphism`, `higher-graphen-context`,
-  `higher-graphen-invariant`, `higher-graphen-obstruction`,
-  `higher-graphen-completion`, `higher-graphen-projection`,
+- `higher-graphen-core` must not depend on `higher-graphen-structure::space`,
+  `higher-graphen-structure::morphism`, `higher-graphen-structure::context`,
+  `higher-graphen-reasoning::invariant`, `higher-graphen-reasoning::obstruction`,
+  `higher-graphen-reasoning::completion`, `higher-graphen-projection`,
   `higher-graphen-interpretation`, or `higher-graphen-runtime`.
 - `higher-graphen-core` must not depend on bindings, tools, apps, product
   packages, UI frameworks, provider SDKs, or AI-agent runtimes.

@@ -1,7 +1,7 @@
 use super::util::dedupe_ids;
 use crate::native_model::{CaseRelationType, CaseSpace, RelationStrength};
 use higher_graphen_core::Id;
-use higher_graphen_space::{
+use higher_graphen_structure::space::{
     Cell, CellPattern, InMemorySpaceStore, Incidence, IncidenceOrientation, PathPattern,
     PathPatternSegment, Space,
 };

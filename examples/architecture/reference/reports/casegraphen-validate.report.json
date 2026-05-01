@@ -6,7 +6,7 @@
     "command": "casegraphen validate",
     "core_packages": [
       "higher-graphen-core",
-      "higher-graphen-space"
+      "higher-graphen-structure"
     ],
     "tool_package": "tools/casegraphen"
   },

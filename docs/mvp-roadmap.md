@@ -27,13 +27,12 @@ The MVP should implement:
 The MVP package set is:
 
 - `higher-graphen-core`
-- `higher-graphen-space`
-- `higher-graphen-morphism`
-- `higher-graphen-invariant`
-- `higher-graphen-obstruction`
-- `higher-graphen-completion`
+- `higher-graphen-structure`
 - `higher-graphen-projection`
+- `higher-graphen-evidence`
+- `higher-graphen-reasoning`
 - `higher-graphen-interpretation`
+- `higher-graphen-runtime`
 
 ## Reference Product
 
@@ -67,10 +66,9 @@ Target duration: 1 to 2 months.
 Implementation:
 
 - `higher-graphen-core`
-- `higher-graphen-space`
-- `higher-graphen-morphism`
-- `higher-graphen-invariant`
-- `higher-graphen-obstruction`
+- `higher-graphen-structure`
+- `higher-graphen-projection`
+- `higher-graphen-reasoning`
 
 Deliverables:
 
@@ -101,7 +99,7 @@ Target duration: 1 to 2 months.
 
 Implementation:
 
-- `higher-graphen-completion`
+- `higher-graphen-reasoning::completion`
 - Completion rule engine.
 - Accept and reject workflow.
 

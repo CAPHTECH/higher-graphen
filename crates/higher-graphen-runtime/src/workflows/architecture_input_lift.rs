@@ -9,10 +9,6 @@ use crate::reports::{
     HumanReviewProjectionView, ProjectionAudience, ProjectionPurpose, ProjectionTrace,
     ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
-use higher_graphen_completion::{
-    detect_completion_candidates, CompletionCandidate, CompletionDetectionInput, CompletionRule,
-    SuggestedStructure,
-};
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, SourceRef};
 use higher_graphen_interpretation::architecture::{
     architecture_input_lift_adapter, architecture_input_lift_component_type_mapping,
@@ -21,7 +17,11 @@ use higher_graphen_interpretation::architecture::{
 };
 use higher_graphen_interpretation::{InterpretationPackage, ProjectionTemplate};
 use higher_graphen_projection::InformationLoss;
-use higher_graphen_space::{Cell, ComplexType, InMemorySpaceStore, Incidence, Space};
+use higher_graphen_reasoning::completion::{
+    detect_completion_candidates, CompletionCandidate, CompletionDetectionInput, CompletionRule,
+    SuggestedStructure,
+};
+use higher_graphen_structure::space::{Cell, ComplexType, InMemorySpaceStore, Incidence, Space};
 
 const WORKFLOW_NAME: &str = "architecture_input_lift";
 const INPUT_SCHEMA: &str = "highergraphen.architecture.input.v1";

@@ -24,20 +24,11 @@ MAX_DECISION_POINTS = 12
 
 PACKAGE_ORDER = [
     "higher-graphen-core",
-    "higher-graphen-space",
-    "higher-graphen-context",
-    "higher-graphen-morphism",
-    "higher-graphen-obstruction",
+    "higher-graphen-structure",
     "higher-graphen-projection",
-    "higher-graphen-completion",
-    "higher-graphen-model-checking",
-    "higher-graphen-abstract-interpretation",
-    "higher-graphen-causal",
-    "higher-graphen-confidence-model",
-    "higher-graphen-topology",
-    "higher-graphen-prover",
+    "higher-graphen-evidence",
+    "higher-graphen-reasoning",
     "higher-graphen-interpretation",
-    "higher-graphen-invariant",
     "higher-graphen-runtime",
 ]
 

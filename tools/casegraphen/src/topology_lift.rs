@@ -1,7 +1,7 @@
 use crate::{native_model, topology::TopologyReportOptions, workflow_model::WorkflowCaseGraph};
 use higher_graphen_core::{CoreError, Id};
-use higher_graphen_space::{Cell, ComplexType, InMemorySpaceStore, Space};
-use higher_graphen_topology::summarize_complex;
+use higher_graphen_structure::space::{Cell, ComplexType, InMemorySpaceStore, Space};
+use higher_graphen_structure::topology::summarize_complex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -215,7 +215,7 @@ impl LiftBuilder {
         self.cell_ids.sort();
     }
 
-    fn complex(&self) -> Result<&higher_graphen_space::Complex, CoreError> {
+    fn complex(&self) -> Result<&higher_graphen_structure::space::Complex, CoreError> {
         self.store
             .complex(&self.complex_id)
             .ok_or_else(|| CoreError::MalformedField {

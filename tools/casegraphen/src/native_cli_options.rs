@@ -1,7 +1,7 @@
 use super::NativeCliError;
 use crate::topology::TopologyReportOptions;
 use higher_graphen_core::Id;
-use higher_graphen_space::Dimension;
+use higher_graphen_structure::space::Dimension;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},

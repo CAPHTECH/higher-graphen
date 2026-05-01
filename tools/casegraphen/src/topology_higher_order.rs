@@ -2,8 +2,8 @@ use crate::{
     native_model, topology::TopologyReportOptions, workflow_workspace::WorkflowHistoryEntry,
 };
 use higher_graphen_core::{CoreError, Id};
-use higher_graphen_space::{Dimension, InMemorySpaceStore};
-use higher_graphen_topology::{
+use higher_graphen_structure::space::{Dimension, InMemorySpaceStore};
+use higher_graphen_structure::topology::{
     summarize_filtration_with_options, FiltrationStage, PersistenceOptions, PersistenceSummary,
 };
 use serde::{Deserialize, Serialize};
@@ -93,7 +93,7 @@ pub(crate) struct HigherOrderFiltrationPlan {
 
 pub(crate) fn higher_order_topology(
     store: &InMemorySpaceStore,
-    complex: &higher_graphen_space::Complex,
+    complex: &higher_graphen_structure::space::Complex,
     options: TopologyReportOptions,
     filtration_plan: Option<HigherOrderFiltrationPlan>,
 ) -> Result<HigherOrderTopologyReport, TopologyReportError> {
@@ -146,7 +146,7 @@ pub(crate) fn higher_order_topology(
 pub(crate) fn filtration_plan_from_input(
     input: HigherOrderFiltrationInput<'_>,
     store: &InMemorySpaceStore,
-    complex: &higher_graphen_space::Complex,
+    complex: &higher_graphen_structure::space::Complex,
     source_mapping: &TopologyLiftSummary,
     max_dimension: Option<Dimension>,
 ) -> Result<Option<HigherOrderFiltrationPlan>, TopologyReportError> {
@@ -306,7 +306,7 @@ fn history_filtration_plan(
     source: HigherOrderFiltrationSource,
     entries: impl Iterator<Item = (&'static str, Id, Vec<Id>)>,
     store: &InMemorySpaceStore,
-    complex: &higher_graphen_space::Complex,
+    complex: &higher_graphen_structure::space::Complex,
     source_mapping: &TopologyLiftSummary,
     max_dimension: Option<Dimension>,
 ) -> Result<Option<HigherOrderFiltrationPlan>, TopologyReportError> {
@@ -451,7 +451,7 @@ fn filtration_plan(
 
 fn filtration_cell_ids(
     store: &InMemorySpaceStore,
-    complex: &higher_graphen_space::Complex,
+    complex: &higher_graphen_structure::space::Complex,
     max_dimension: Option<Dimension>,
 ) -> Result<Vec<Id>, TopologyReportError> {
     let mut cells = complex

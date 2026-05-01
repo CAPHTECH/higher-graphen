@@ -2,7 +2,7 @@
 
 This document defines the implementable contract for `casegraphen`, the case
 and scenario centered intermediate tool in the primary HigherGraphen tool
-family. It refines the `higher-graphen-space` row in
+family. It refines the `higher-graphen-structure::space` row in
 [`../intermediate-tools-map.md`](../intermediate-tools-map.md) without changing
 core package responsibilities.
 
@@ -72,8 +72,8 @@ The intended package split is:
 
 | Surface | Contract |
 | --- | --- |
-| Primary lower crate | `crates/higher-graphen-space/` |
-| Rust crate name | `higher_graphen_space` |
+| Primary lower crate | `crates/higher-graphen-structure/` module `space` |
+| Rust crate name | `higher_graphen_structure` module `space` |
 | Intermediate tool package | `tools/casegraphen/` |
 | CLI binary | `casegraphen` |
 | Tool skill name | `casegraphen` |
@@ -152,18 +152,18 @@ Required lower crates:
 
 - `higher-graphen-core` for shared primitives, provenance, review status,
   confidence, severity, and structured errors.
-- `higher-graphen-space` for spaces, cells, incidences, complexes, contexts,
+- `higher-graphen-structure::space` for spaces, cells, incidences, complexes, contexts,
   boundaries, and structural locations.
 
 Conditional lower crates:
 
-- `higher-graphen-invariant` when coverage goals reference invariants or
+- `higher-graphen-reasoning::invariant` when coverage goals reference invariants or
   constraints.
-- `higher-graphen-morphism` when cases exercise transformations, migrations,
+- `higher-graphen-structure::morphism` when cases exercise transformations, migrations,
   projections, or preservation checks.
-- `higher-graphen-completion` when missing cases are emitted as reviewable
+- `higher-graphen-reasoning::completion` when missing cases are emitted as reviewable
   completion candidates.
-- `higher-graphen-obstruction` when conflicts need to be rendered as
+- `higher-graphen-reasoning::obstruction` when conflicts need to be rendered as
   obstruction-like failure records.
 - `higher-graphen-evidence` when case claims need explicit supporting or
   contradicting evidence.
@@ -362,7 +362,7 @@ All report-producing commands should emit this envelope:
   "metadata": {
     "command": "casegraphen <operation> ...",
     "tool_package": "tools/casegraphen",
-    "core_packages": ["higher-graphen-core", "higher-graphen-space"]
+    "core_packages": ["higher-graphen-core", "higher-graphen-structure::space"]
   },
   "input": {},
   "result": {},

@@ -189,20 +189,11 @@ Publish reusable crates before dependent crates and CLI tools:
 
 ```sh
 cargo publish -p higher-graphen-core
-cargo publish -p higher-graphen-space
-cargo publish -p higher-graphen-context
-cargo publish -p higher-graphen-morphism
-cargo publish -p higher-graphen-obstruction
+cargo publish -p higher-graphen-structure
 cargo publish -p higher-graphen-projection
-cargo publish -p higher-graphen-completion
-cargo publish -p higher-graphen-model-checking
-cargo publish -p higher-graphen-abstract-interpretation
-cargo publish -p higher-graphen-causal
-cargo publish -p higher-graphen-confidence-model
-cargo publish -p higher-graphen-topology
-cargo publish -p higher-graphen-prover
+cargo publish -p higher-graphen-evidence
+cargo publish -p higher-graphen-reasoning
 cargo publish -p higher-graphen-interpretation
-cargo publish -p higher-graphen-invariant
 cargo publish -p higher-graphen-runtime
 cargo publish -p casegraphen
 cargo publish -p highergraphen-cli

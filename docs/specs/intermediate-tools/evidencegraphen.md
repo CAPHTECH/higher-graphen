@@ -119,7 +119,7 @@ or output failures are tool failures.
 - `ReviewStatus`
 - core-owned structured errors where primitive construction fails
 
-The evidence crate may depend on `higher-graphen-space` only if the graph is
+The evidence crate may depend on `higher-graphen-structure::space` only if the graph is
 implemented as cells and incidences. It must not depend on runtime packages,
 CLI packages, tools, apps, provider SDKs, or MCP packages.
 
@@ -127,7 +127,7 @@ The `evidencegraphen` tool may use:
 
 - `higher-graphen-evidence` for graph validation and evaluation.
 - `higher-graphen-projection` for human, AI-agent, and audit views.
-- `higher-graphen-obstruction` when unresolved contradictions need to be
+- `higher-graphen-reasoning::obstruction` when unresolved contradictions need to be
   exposed as obstruction-like failure objects.
 - Runtime report envelope helpers only if the runtime package intentionally
   owns the shared report shape for this workflow.

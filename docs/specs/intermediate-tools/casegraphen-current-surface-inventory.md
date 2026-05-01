@@ -30,7 +30,7 @@ does not change Rust code, schemas, or the external
 | Evaluation module | `tools/casegraphen/src/eval.rs` validates graph structure, evaluates coverage, detects missing cases, detects conflicts, compares graphs, and builds a projection result. |
 | Report module | `tools/casegraphen/src/report.rs` emits `highergraphen.case.<operation>.report.v1` envelopes with `human_review`, `ai_view`, and `audit_trace` projections. |
 | Store module | `tools/casegraphen/src/store.rs` reads strict JSON inputs, enforces schema identifiers, writes reports, creates graph files, and lists local graph files. |
-| Lower dependencies | `higher-graphen-core`, `higher-graphen-space`, and `higher-graphen-projection` are declared; the current code directly relies on core IDs, provenance, confidence, review status, and severity. |
+| Lower dependencies | `higher-graphen-core`, `higher-graphen-structure::space`, and `higher-graphen-projection` are declared; the current code directly relies on core IDs, provenance, confidence, review status, and severity. |
 
 The current CLI is file based. It does not use MCP, provider SDKs, runtime
 services, or the external CaseGraphen repository.

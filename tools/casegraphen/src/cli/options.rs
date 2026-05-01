@@ -1,6 +1,6 @@
 use super::CliError;
 use crate::topology::TopologyReportOptions;
-use higher_graphen_space::Dimension;
+use higher_graphen_structure::space::Dimension;
 use std::{ffi::OsString, path::PathBuf};
 
 #[derive(Default)]

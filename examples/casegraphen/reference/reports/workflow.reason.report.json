@@ -511,7 +511,7 @@
     "command": "casegraphen workflow reason",
     "core_packages": [
       "higher-graphen-core",
-      "higher-graphen-space",
+      "higher-graphen-structure",
       "higher-graphen-projection"
     ],
     "tool_package": "tools/casegraphen"

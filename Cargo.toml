@@ -1,19 +1,10 @@
 [workspace]
 members = [
     "crates/higher-graphen-core",
-    "crates/higher-graphen-space",
-    "crates/higher-graphen-context",
-    "crates/higher-graphen-morphism",
-    "crates/higher-graphen-invariant",
-    "crates/higher-graphen-obstruction",
-    "crates/higher-graphen-completion",
-    "crates/higher-graphen-model-checking",
-    "crates/higher-graphen-abstract-interpretation",
-    "crates/higher-graphen-causal",
-    "crates/higher-graphen-confidence-model",
-    "crates/higher-graphen-topology",
-    "crates/higher-graphen-prover",
+    "crates/higher-graphen-structure",
     "crates/higher-graphen-projection",
+    "crates/higher-graphen-evidence",
+    "crates/higher-graphen-reasoning",
     "crates/higher-graphen-interpretation",
     "crates/higher-graphen-runtime",
     "examples/architecture",
@@ -36,19 +27,10 @@ categories = ["development-tools", "data-structures", "command-line-utilities"]
 
 [workspace.dependencies]
 higher-graphen-core = { version = "0.2.1", path = "crates/higher-graphen-core" }
-higher-graphen-space = { version = "0.2.1", path = "crates/higher-graphen-space" }
-higher-graphen-context = { version = "0.2.1", path = "crates/higher-graphen-context" }
-higher-graphen-morphism = { version = "0.2.1", path = "crates/higher-graphen-morphism" }
-higher-graphen-invariant = { version = "0.2.1", path = "crates/higher-graphen-invariant" }
-higher-graphen-obstruction = { version = "0.2.1", path = "crates/higher-graphen-obstruction" }
-higher-graphen-completion = { version = "0.2.1", path = "crates/higher-graphen-completion" }
-higher-graphen-model-checking = { version = "0.2.1", path = "crates/higher-graphen-model-checking" }
-higher-graphen-abstract-interpretation = { version = "0.2.1", path = "crates/higher-graphen-abstract-interpretation" }
-higher-graphen-causal = { version = "0.2.1", path = "crates/higher-graphen-causal" }
-higher-graphen-confidence-model = { version = "0.2.1", path = "crates/higher-graphen-confidence-model" }
-higher-graphen-topology = { version = "0.2.1", path = "crates/higher-graphen-topology" }
-higher-graphen-prover = { version = "0.2.1", path = "crates/higher-graphen-prover" }
+higher-graphen-structure = { version = "0.2.1", path = "crates/higher-graphen-structure" }
 higher-graphen-projection = { version = "0.2.1", path = "crates/higher-graphen-projection" }
+higher-graphen-evidence = { version = "0.2.1", path = "crates/higher-graphen-evidence" }
+higher-graphen-reasoning = { version = "0.2.1", path = "crates/higher-graphen-reasoning" }
 higher-graphen-interpretation = { version = "0.2.1", path = "crates/higher-graphen-interpretation" }
 higher-graphen-runtime = { version = "0.2.1", path = "crates/higher-graphen-runtime" }
 serde = { version = "1", features = ["derive"] }

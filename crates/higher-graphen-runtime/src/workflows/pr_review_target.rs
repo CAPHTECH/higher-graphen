@@ -19,9 +19,9 @@ use crate::reports::{
     HumanReviewProjectionView, ProjectionAudience, ProjectionPurpose, ProjectionTrace,
     ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
-use higher_graphen_completion::{CompletionCandidate, MissingType, SuggestedStructure};
 use higher_graphen_core::{Confidence, Id, ReviewStatus};
 use higher_graphen_projection::InformationLoss;
+use higher_graphen_reasoning::completion::{CompletionCandidate, MissingType, SuggestedStructure};
 
 use self::pr_review_target_lift::lift_input;
 use self::pr_review_target_recommend::{recommend_review_targets, review_obstructions};

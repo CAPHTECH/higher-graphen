@@ -13,7 +13,7 @@ validated `Id`, `SourceRef`, `Provenance`, `Confidence`, `Severity`,
 should keep product, tool, binding, app, UI, provider SDK, and AI-runtime
 concepts outside the reusable model crate.
 
-## `higher-graphen-space`
+## `higher-graphen-structure::space`
 
 - Purpose: Own structural storage primitives: `Space`, `Cell`, `Incidence`,
   `Complex`, and the MVP Space Kernel for creation and query.
@@ -23,17 +23,17 @@ concepts outside the reusable model crate.
   result sets with structured errors for invalid input.
 - Core dependencies: `Id`, `Provenance`, `SourceRef`, shared result/error
   types, and serde contracts from `higher-graphen-core`.
-- Forbidden dependencies: `higher-graphen-morphism`,
-  `higher-graphen-invariant`, `higher-graphen-obstruction`,
-  `higher-graphen-completion`, `higher-graphen-projection`,
+- Forbidden dependencies: `higher-graphen-structure::morphism`,
+  `higher-graphen-reasoning::invariant`, `higher-graphen-reasoning::obstruction`,
+  `higher-graphen-reasoning::completion`, `higher-graphen-projection`,
   `higher-graphen-interpretation`, runtime, tools, bindings, apps, and product
   packages.
-- Smallest verification command: `cargo test -p higher-graphen-space --lib`.
+- Smallest verification command: `cargo test -p higher-graphen-structure::space --lib`.
 - Split criteria: Split only when durable storage backends, indexing/query
   planning, or complex-specific algorithms make the crate hard to test as a
   kernel. Keep the MVP in-memory store inside this package.
 
-## `higher-graphen-morphism`
+## `higher-graphen-structure::morphism`
 
 - Purpose: Own `Morphism`, structure mappings, explicit composition,
   preservation checks, lost structure, and distortion reports.
@@ -43,18 +43,18 @@ concepts outside the reusable model crate.
   summaries, lost-structure reports, and distortion records.
 - Core dependencies: `Id`, `Provenance`, shared result/error types, and serde
   contracts from `higher-graphen-core`; structural IDs and lookup traits from
-  `higher-graphen-space` when checks need concrete cells or relations.
-- Forbidden dependencies: `higher-graphen-obstruction`,
-  `higher-graphen-completion`, `higher-graphen-projection`,
+  `higher-graphen-structure::space` when checks need concrete cells or relations.
+- Forbidden dependencies: `higher-graphen-reasoning::obstruction`,
+  `higher-graphen-reasoning::completion`, `higher-graphen-projection`,
   `higher-graphen-interpretation`, runtime, tools, bindings, apps, and product
   packages. Do not assume a morphism chain is valid without explicit
   compatibility checks.
-- Smallest verification command: `cargo test -p higher-graphen-morphism --lib`.
+- Smallest verification command: `cargo test -p higher-graphen-structure::morphism --lib`.
 - Split criteria: Split when mapping storage, composition search, or
   preservation evaluation become independently testable subsystems. Keep basic
   model types and deterministic composition checks together for MVP.
 
-## `higher-graphen-invariant`
+## `higher-graphen-reasoning::invariant`
 
 - Purpose: Own `Invariant`, `Constraint`, invariant checks, constraint checks,
   and structured check results.
@@ -65,20 +65,20 @@ concepts outside the reusable model crate.
   construction.
 - Core dependencies: `Id`, `Provenance`, `Severity`, shared result/error types,
   and serde contracts from `higher-graphen-core`; structure access from
-  `higher-graphen-space`; morphism summaries from `higher-graphen-morphism`
+  `higher-graphen-structure::space`; morphism summaries from `higher-graphen-structure::morphism`
   when preservation checks are part of the rule.
-- Forbidden dependencies: `higher-graphen-obstruction`,
-  `higher-graphen-completion`, `higher-graphen-projection`,
+- Forbidden dependencies: `higher-graphen-reasoning::obstruction`,
+  `higher-graphen-reasoning::completion`, `higher-graphen-projection`,
   `higher-graphen-interpretation`, runtime, tools, bindings, apps, and product
   packages. If a public API must return `Obstruction`, place that integration in
   the obstruction package to avoid an invariant-obstruction cycle.
-- Smallest verification command: `cargo test -p higher-graphen-invariant --lib`.
+- Smallest verification command: `cargo test -p higher-graphen-reasoning::invariant --lib`.
 - Split criteria: Split when invariant language/parsing, check execution, or
   incremental changed-cell evaluation grows beyond simple rule evaluation.
   Keep constraint result types with the invariant crate until there is a second
   consumer.
 
-## `higher-graphen-obstruction`
+## `higher-graphen-reasoning::obstruction`
 
 - Purpose: Own `Obstruction`, counterexamples, obstruction engines, and direct
   human-readable explanations for structured failure.
@@ -89,19 +89,19 @@ concepts outside the reusable model crate.
   resolution hints.
 - Core dependencies: `Id`, `Provenance`, `Severity`, `SourceRef`, shared
   result/error types, and serde contracts from `higher-graphen-core`; structure
-  access from `higher-graphen-space`; violation summaries from
-  `higher-graphen-invariant`; morphism summaries from
-  `higher-graphen-morphism`.
-- Forbidden dependencies: `higher-graphen-completion`,
+  access from `higher-graphen-structure::space`; violation summaries from
+  `higher-graphen-reasoning::invariant`; morphism summaries from
+  `higher-graphen-structure::morphism`.
+- Forbidden dependencies: `higher-graphen-reasoning::completion`,
   `higher-graphen-projection`, `higher-graphen-interpretation`, runtime, tools,
   bindings, apps, and product packages. Projection-specific explanation formats
   belong in the projection package.
-- Smallest verification command: `cargo test -p higher-graphen-obstruction --lib`.
+- Smallest verification command: `cargo test -p higher-graphen-reasoning::obstruction --lib`.
 - Split criteria: Split when counterexample generation, explanation templates,
   or obstruction aggregation become separately reusable. Keep the obstruction
   record and simple constructors together for MVP.
 
-## `higher-graphen-completion`
+## `higher-graphen-reasoning::completion`
 
 - Purpose: Own reviewable completion proposals: `CompletionCandidate`,
   completion rules, candidate detection, accept workflow, and reject workflow.
@@ -111,13 +111,13 @@ concepts outside the reusable model crate.
   rejection records, rationale, confidence, and review status.
 - Core dependencies: `Id`, `Confidence`, `ReviewStatus`, `Provenance`, shared
   result/error types, and serde contracts from `higher-graphen-core`; structure
-  creation/query access from `higher-graphen-space`; optional violation or
+  creation/query access from `higher-graphen-structure::space`; optional violation or
   obstruction summaries from invariant and obstruction packages.
 - Forbidden dependencies: `higher-graphen-projection`,
   `higher-graphen-interpretation`, runtime, tools, bindings, apps, and product
   packages. The engine must not silently promote inferred structure to accepted
   fact; acceptance requires an explicit review action.
-- Smallest verification command: `cargo test -p higher-graphen-completion --lib`.
+- Smallest verification command: `cargo test -p higher-graphen-reasoning::completion --lib`.
 - Split criteria: Split when rule evaluation, candidate storage, or review
   workflow require independent adapters. Keep candidate data and in-memory
   accept/reject behavior together for MVP.
@@ -133,8 +133,8 @@ concepts outside the reusable model crate.
   source identifiers, and structured renderer result data.
 - Core dependencies: `Id`, `Severity`, `Provenance`, shared result/error types,
   and serde contracts from `higher-graphen-core`; selected structure from
-  `higher-graphen-space`; obstruction records from
-  `higher-graphen-obstruction`.
+  `higher-graphen-structure::space`; obstruction records from
+  `higher-graphen-reasoning::obstruction`.
 - Forbidden dependencies: `higher-graphen-interpretation`, runtime, UI
   frameworks, tools, bindings, apps, product packages, and provider SDKs. Keep
   UI presentation and API transport outside projection.
@@ -155,8 +155,8 @@ concepts outside the reusable model crate.
   diagnostics.
 - Core dependencies: `Id`, `SourceRef`, `Provenance`, `Confidence`,
   `ReviewStatus`, shared result/error types, and serde contracts from
-  `higher-graphen-core`; construction targets from `higher-graphen-space`;
-  mapping support from `higher-graphen-morphism`; templates from invariant and
+  `higher-graphen-core`; construction targets from `higher-graphen-structure::space`;
+  mapping support from `higher-graphen-structure::morphism`; templates from invariant and
   projection packages when needed.
 - Forbidden dependencies: runtime, tools, bindings, apps, provider SDKs, UI
   frameworks, and product-package code. Product packages may depend on

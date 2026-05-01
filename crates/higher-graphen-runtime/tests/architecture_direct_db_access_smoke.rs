@@ -1,7 +1,7 @@
 //! Contract tests for the architecture direct DB access smoke runtime workflow.
 
 use higher_graphen_core::{Id, ReviewStatus, Severity};
-use higher_graphen_obstruction::ObstructionType;
+use higher_graphen_reasoning::obstruction::ObstructionType;
 use higher_graphen_runtime::{
     run_architecture_direct_db_access_smoke, AiProjectionRecordType, ArchitectureSmokeStatus,
     ProjectionAudience, ProjectionPurpose,

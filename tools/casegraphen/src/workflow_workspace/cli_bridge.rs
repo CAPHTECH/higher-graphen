@@ -7,7 +7,7 @@ use crate::{
     workflow_model::CompletionReviewAction,
 };
 use higher_graphen_core::Id;
-use higher_graphen_space::Dimension;
+use higher_graphen_structure::space::Dimension;
 use reports::{
     completion_patch_json, completion_review_json, history_json, import_json, inspect_json,
     list_json, patch_check_json, patch_review_json, readiness_json, replay_json, topology_json,

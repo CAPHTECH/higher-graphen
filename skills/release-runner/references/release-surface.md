@@ -19,19 +19,10 @@ release and workspace API surface, and may be published to crates.io when the
 release plan explicitly includes package publication:
 
 - `higher-graphen-core`
-- `higher-graphen-space`
-- `higher-graphen-context`
-- `higher-graphen-morphism`
-- `higher-graphen-invariant`
-- `higher-graphen-obstruction`
-- `higher-graphen-completion`
-- `higher-graphen-model-checking`
-- `higher-graphen-abstract-interpretation`
-- `higher-graphen-causal`
-- `higher-graphen-confidence-model`
-- `higher-graphen-topology`
-- `higher-graphen-prover`
+- `higher-graphen-structure`
 - `higher-graphen-projection`
+- `higher-graphen-evidence`
+- `higher-graphen-reasoning`
 - `higher-graphen-interpretation`
 - `higher-graphen-runtime`
 
@@ -39,20 +30,11 @@ Publish lower-level reusable crates before dependent crates:
 
 ```sh
 cargo publish -p higher-graphen-core
-cargo publish -p higher-graphen-space
-cargo publish -p higher-graphen-context
-cargo publish -p higher-graphen-morphism
-cargo publish -p higher-graphen-obstruction
+cargo publish -p higher-graphen-structure
 cargo publish -p higher-graphen-projection
-cargo publish -p higher-graphen-completion
-cargo publish -p higher-graphen-model-checking
-cargo publish -p higher-graphen-abstract-interpretation
-cargo publish -p higher-graphen-causal
-cargo publish -p higher-graphen-confidence-model
-cargo publish -p higher-graphen-topology
-cargo publish -p higher-graphen-prover
+cargo publish -p higher-graphen-evidence
+cargo publish -p higher-graphen-reasoning
 cargo publish -p higher-graphen-interpretation
-cargo publish -p higher-graphen-invariant
 cargo publish -p higher-graphen-runtime
 ```
 

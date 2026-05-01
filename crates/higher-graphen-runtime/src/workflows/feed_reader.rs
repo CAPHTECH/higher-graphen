@@ -11,10 +11,10 @@ use crate::feed_reports::{
 use crate::reports::{ReportEnvelope, ReportMetadata};
 use crate::workflows::feed_reader_projection::report_projection;
 use crate::workflows::feed_reader_validation::validate_input;
-use higher_graphen_completion::{CompletionCandidate, MissingType, SuggestedStructure};
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceRef};
-use higher_graphen_obstruction::{Obstruction, ObstructionExplanation, ObstructionType};
-use higher_graphen_space::{
+use higher_graphen_reasoning::completion::{CompletionCandidate, MissingType, SuggestedStructure};
+use higher_graphen_reasoning::obstruction::{Obstruction, ObstructionExplanation, ObstructionType};
+use higher_graphen_structure::space::{
     Cell, ComplexType, InMemorySpaceStore, Incidence, IncidenceOrientation, Space,
 };
 use std::collections::BTreeMap;

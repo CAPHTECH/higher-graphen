@@ -213,7 +213,7 @@ fn workflow_metadata(command: &str) -> WorkflowReportMetadata {
         tool_package: "tools/casegraphen".to_owned(),
         core_packages: vec![
             "higher-graphen-core".to_owned(),
-            "higher-graphen-space".to_owned(),
+            "higher-graphen-structure".to_owned(),
             "higher-graphen-projection".to_owned(),
         ],
     }

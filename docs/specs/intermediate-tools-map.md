@@ -9,13 +9,12 @@ Core packages provide structural primitives and engines:
 
 ```text
 higher-graphen-core
-higher-graphen-space
-higher-graphen-morphism
-higher-graphen-context
-higher-graphen-invariant
-higher-graphen-obstruction
-higher-graphen-completion
+higher-graphen-structure
 higher-graphen-projection
+higher-graphen-evidence
+higher-graphen-reasoning
+higher-graphen-interpretation
+higher-graphen-runtime
 ```
 
 Intermediate tools are centered on one abstract object and provide vocabulary,
@@ -36,8 +35,9 @@ projectiongraphen
 The relationship is:
 
 ```text
-higher-graphen-morphism
-  = Core package for representing and checking morphisms.
+higher-graphen-structure::morphism
+  = Historical package name for the morphism module now exposed as
+    higher-graphen-structure::morphism.
 
 morphographen
   = Morphism-centered intermediate tool built on HigherGraphen.
@@ -62,18 +62,16 @@ toolkits that can be interpreted into domain products.
 
 ## Core Package to Tool Map
 
-| Core package | Intermediate tool | Central object | Primary concepts | Main outputs |
+| Core package/module | Intermediate tool | Central object | Primary concepts | Main outputs |
 | --- | --- | --- | --- | --- |
-| `higher-graphen-space` | `casegraphen` | Case, scenario, situation | Typed graph, cell complex, coverage, boundary | Case map, missing case, conflicting case, case projection |
-| `higher-graphen-morphism` | `morphographen` | Morphism, transformation, mapping | Category theory, composition, commutative diagram, preservation, information loss | Preservation report, lost structure report, transformation chain |
-| `higher-graphen-context` | `contextgraphen` | Context, local model, global consistency | Sheaf-inspired modeling, cover, section, restriction, gluing | Context map, context mismatch, gluing failure |
-| `higher-graphen-invariant` | `invariantgraphen` | Invariant, conserved property | Topological invariant, type invariant, equivalence class, design by contract, abstract interpretation | Invariant catalog, preservation check, violated invariant |
-| `higher-graphen-obstruction` | `obstructiongraphen` | Obstruction, contradiction, impossibility | Unsatisfiability, counterexample, non-commutative diagram, local/global inconsistency | Obstruction report, counterexample, required resolution |
-| `higher-graphen-completion` | `completiongraphen` | Missing structure, completion candidate | Graph completion, constrained completion, free construction, structural analogy, holes in complexes | Completion candidate, missing test, missing API, missing constraint |
+| `higher-graphen-structure::space` | `casegraphen` | Case, scenario, situation | Typed graph, cell complex, coverage, boundary | Case map, missing case, conflicting case, case projection |
+| `higher-graphen-structure::morphism` | `morphographen` | Morphism, transformation, mapping | Category theory, composition, commutative diagram, preservation, information loss | Preservation report, lost structure report, transformation chain |
+| `higher-graphen-structure::context` | `contextgraphen` | Context, local model, global consistency | Sheaf-inspired modeling, cover, section, restriction, gluing | Context map, context mismatch, gluing failure |
+| `higher-graphen-reasoning::invariant` | `invariantgraphen` | Invariant, conserved property | Topological invariant, type invariant, equivalence class, design by contract, abstract interpretation | Invariant catalog, preservation check, violated invariant |
+| `higher-graphen-reasoning::obstruction` | `obstructiongraphen` | Obstruction, contradiction, impossibility | Unsatisfiability, counterexample, non-commutative diagram, local/global inconsistency | Obstruction report, counterexample, required resolution |
+| `higher-graphen-reasoning::completion` | `completiongraphen` | Missing structure, completion candidate | Graph completion, constrained completion, free construction, structural analogy, holes in complexes | Completion candidate, missing test, missing API, missing constraint |
 | `higher-graphen-evidence` | `evidencegraphen` | Claim, evidence, counter-evidence | Argumentation graph, provenance graph, Bayesian update, defeasible reasoning, proof object | Evidence report, unsupported claim, contradiction report |
 | `higher-graphen-projection` | `projectiongraphen` | Projection, view, audience | Projection map, quotient structure, lens, abstraction, information loss, observer model | Human report, AI view, audit view, loss declaration |
-| `higher-graphen-correspondence` | `correspondencegraphen` | Correspondence, analogy, transfer | Graph isomorphism, graph homomorphism, structural analogy, duality, pattern matching | Similar structure report, transferable pattern, failed correspondence |
-| `higher-graphen-evolution` | `evolutiongraphen` | Evolution, version, drift | Temporal graph, filtration, persistence, diff structure, drift detection | Evolution trace, drift report, broken-invariant timeline |
 
 ## Primary Initial Set
 
@@ -90,8 +88,9 @@ The first intermediate tools should be:
 | `evidencegraphen` | Separates claims, evidence, observations, and AI inference. |
 | `projectiongraphen` | Makes higher structure usable for humans, AI agents, and systems. |
 
-These tools map directly onto the core packages and should shape early examples,
-tests, and documentation.
+These tools map onto conceptual modules, not one package per tool. The module
+boundaries should shape early examples, tests, and documentation without
+forcing a matching crate boundary.
 
 ## Extended Candidate Tools
 
@@ -154,9 +153,9 @@ Use `higher-graphen-*` for core packages and `*graphen` for intermediate tools.
 Examples:
 
 ```text
-higher-graphen-context  -> contextgraphen
-higher-graphen-evidence -> evidencegraphen
-higher-graphen-runtime  -> no direct intermediate tool; it hosts tool workflows.
+higher-graphen-structure::context -> contextgraphen
+higher-graphen-evidence           -> evidencegraphen
+higher-graphen-runtime            -> no direct intermediate tool; it hosts tool workflows.
 ```
 
 Do not name a business product directly as `*graphen` unless it is intended to
@@ -192,4 +191,3 @@ implementation:
 
 This prevents a `*graphen` tool from becoming only a naming wrapper around a
 core package.
-

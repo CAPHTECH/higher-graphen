@@ -8,11 +8,11 @@ use crate::reports::{
     CompletionReviewStatus, HumanReviewProjectionView, ProjectionAudience, ProjectionPurpose,
     ProjectionTrace, ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
-use higher_graphen_completion::{
-    review_completion, CompletionCandidate, CompletionReviewDecision, CompletionReviewRequest,
-};
 use higher_graphen_core::{Id, ReviewStatus};
 use higher_graphen_projection::InformationLoss;
+use higher_graphen_reasoning::completion::{
+    review_completion, CompletionCandidate, CompletionReviewDecision, CompletionReviewRequest,
+};
 
 const WORKFLOW_NAME: &str = "completion_review";
 const REPORT_SCHEMA: &str = "highergraphen.completion.review.report.v1";

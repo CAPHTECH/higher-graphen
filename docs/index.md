@@ -62,7 +62,7 @@ The original proposal remains available as source material:
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
-| [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md) | Defines reusable reachability, path walking, and layer-pattern matching over `higher-graphen-space`. |
+| [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md) | Defines reusable reachability, path walking, and layer-pattern matching over `higher-graphen-structure::space`. |
 | [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md) | Defines package-level implementation plans for non-core MVP crates. |
 | [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md) | Locks the immediate `higher-graphen-runtime` and `highergraphen` CLI scope, first command, and JSON report contract. |
 | [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md) | Defines the reusable runtime workflow contract for the Architecture Product direct database access smoke report. |

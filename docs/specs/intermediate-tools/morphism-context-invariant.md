@@ -37,9 +37,9 @@ diagnostics.
 
 Initial packages should be independently usable crates and CLI command groups:
 
-- `higher-graphen-morphographen`
-- `higher-graphen-contextgraphen`
-- `higher-graphen-invariantgraphen`
+- `morphographen`
+- `contextgraphen`
+- `invariantgraphen`
 
 Suggested CLI groups:
 
@@ -60,11 +60,11 @@ These tools depend on existing lower packages:
 
 - `higher-graphen-core` for identifiers, provenance, confidence, review status,
   severity, and structured errors.
-- `higher-graphen-space` for spaces, cells, incidences, and complexes.
-- `higher-graphen-morphism` for mappings, composition, and preservation checks.
-- `higher-graphen-invariant` for invariant definitions, check inputs, and
+- `higher-graphen-structure::space` for spaces, cells, incidences, and complexes.
+- `higher-graphen-structure::morphism` for mappings, composition, and preservation checks.
+- `higher-graphen-reasoning::invariant` for invariant definitions, check inputs, and
   violations.
-- `higher-graphen-obstruction` for non-composability, non-gluability, and
+- `higher-graphen-reasoning::obstruction` for non-composability, non-gluability, and
   invariant violation explanations.
 - `higher-graphen-projection` for audience-specific views with declared
   information loss.

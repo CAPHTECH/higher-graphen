@@ -12,13 +12,11 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-higher-graphen-completion.workspace = true
 higher-graphen-core.workspace = true
-higher-graphen-invariant.workspace = true
 higher-graphen-interpretation.workspace = true
-higher-graphen-obstruction.workspace = true
 higher-graphen-projection.workspace = true
-higher-graphen-space.workspace = true
+higher-graphen-reasoning.workspace = true
+higher-graphen-structure.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

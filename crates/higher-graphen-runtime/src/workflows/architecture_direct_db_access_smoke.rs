@@ -8,21 +8,21 @@ use crate::reports::{
     ArchitectureSmokeStatus, AuditProjectionView, HumanReviewProjectionView, ProjectionAudience,
     ProjectionPurpose, ProjectionTrace, ProjectionViewSet, ReportEnvelope, ReportMetadata,
 };
-use higher_graphen_completion::{
-    detect_completion_candidates, CompletionCandidate, CompletionDetectionInput, CompletionRule,
-    MissingType, SuggestedStructure,
-};
 use higher_graphen_core::{
     Confidence, Id, Provenance, ReviewStatus, Severity, SourceKind, SourceRef,
 };
-use higher_graphen_invariant::{
+use higher_graphen_projection::InformationLoss;
+use higher_graphen_reasoning::completion::{
+    detect_completion_candidates, CompletionCandidate, CompletionDetectionInput, CompletionRule,
+    MissingType, SuggestedStructure,
+};
+use higher_graphen_reasoning::invariant::{
     CheckResult, CheckTargetKind, Invariant, InvariantScope, Violation,
 };
-use higher_graphen_obstruction::{
+use higher_graphen_reasoning::obstruction::{
     Counterexample, Obstruction, ObstructionExplanation, ObstructionType, RequiredResolution,
 };
-use higher_graphen_projection::InformationLoss;
-use higher_graphen_space::{
+use higher_graphen_structure::space::{
     Cell, ComplexType, InMemorySpaceStore, Incidence, IncidenceOrientation, Space,
 };
 

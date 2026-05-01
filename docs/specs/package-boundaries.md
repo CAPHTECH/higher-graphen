@@ -13,16 +13,10 @@ higher-graphen/
 
   crates/
     higher-graphen-core/
-    higher-graphen-space/
-    higher-graphen-morphism/
-    higher-graphen-context/
-    higher-graphen-obstruction/
-    higher-graphen-completion/
-    higher-graphen-invariant/
-    higher-graphen-evidence/
+    higher-graphen-structure/
     higher-graphen-projection/
-    higher-graphen-correspondence/
-    higher-graphen-evolution/
+    higher-graphen-evidence/
+    higher-graphen-reasoning/
     higher-graphen-interpretation/
     higher-graphen-runtime/
 
@@ -53,16 +47,10 @@ higher-graphen/
 | Crate | Responsibility |
 | --- | --- |
 | `higher-graphen-core` | Shared IDs, labels, source references, provenance, confidence, severity, review status, errors, and serialization primitives. |
-| `higher-graphen-space` | Space, cell, incidence, complex, boundary, and storage abstractions. |
-| `higher-graphen-morphism` | Structure mappings, composition, preservation checks, lost structure, and distortion. |
-| `higher-graphen-context` | Contexts, sections, restrictions, covers, and gluing checks. |
-| `higher-graphen-invariant` | Invariants, constraints, invariant checks, and constraint check results. |
-| `higher-graphen-obstruction` | Obstructions, counterexamples, obstruction engines, and explanations. |
-| `higher-graphen-completion` | Completion candidates, completion rules, completion engine, accept and reject workflow. |
-| `higher-graphen-evidence` | Claims, evidence, support relations, contradiction relations, and evidence graphs. |
+| `higher-graphen-structure` | Structural primitives under modules such as `space`, `context`, `morphism`, and `topology`. |
 | `higher-graphen-projection` | Projection definitions, selectors, projection results, and renderers. |
-| `higher-graphen-correspondence` | Structural correspondence and analogy support. |
-| `higher-graphen-evolution` | Time evolution, versions, migrations, and change tracking. |
+| `higher-graphen-evidence` | Evidence, confidence, causal, and prover bridge records under separate conceptual modules. |
+| `higher-graphen-reasoning` | Reasoning primitives and engines under modules such as `invariant`, `obstruction`, `completion`, `model_checking`, and `abstract_interpretation`. |
 | `higher-graphen-interpretation` | Domain interpretation packages, type mappings, invariant templates, projection templates, and lift adapters. |
 | `higher-graphen-runtime` | Runtime APIs for AI agents and humans to query, transform, project, and review structures. |
 
@@ -91,20 +79,19 @@ The implementation naming contract is:
 | Agent plugin bundle name | Use `highergraphen` for the umbrella bundle; tool skills sit inside it. | `highergraphen` |
 
 Core packages and intermediate tools intentionally use different naming
-families. A core package is a reusable library such as `higher-graphen-morphism`;
-an intermediate tool is an operational interpretation such as `morphographen`.
-Bindings may expose both, but they must preserve this distinction.
+families. A core package is a reusable library such as
+`higher-graphen-structure`; an intermediate tool is an operational
+interpretation such as `casegraphen`. Bindings may expose both, but they must
+preserve this distinction.
 
 Recommended external naming:
 
 ```text
 HigherGraphen Core
-HigherGraphen Space
-HigherGraphen Morphism
-HigherGraphen Context
-HigherGraphen Obstruction
-HigherGraphen Completion
+HigherGraphen Structure
+HigherGraphen Reasoning
 HigherGraphen Projection
+HigherGraphen Evidence
 HigherGraphen Interpretation
 ```
 
@@ -114,13 +101,10 @@ The intended dependency direction is:
 
 ```text
 core
-  -> space
-  -> context
-  -> morphism
-  -> invariant
-  -> obstruction
-  -> completion
+  -> structure
   -> projection
+  -> evidence
+  -> reasoning
   -> interpretation
   -> runtime
 ```
@@ -157,17 +141,16 @@ mutation should move to private fields with accessor and mutation methods.
 
 ## MVP Package Set
 
-The MVP should implement:
+The MVP public package set is:
 
 - `higher-graphen-core`
-- `higher-graphen-space`
-- `higher-graphen-morphism`
-- `higher-graphen-invariant`
-- `higher-graphen-obstruction`
-- `higher-graphen-completion`
+- `higher-graphen-structure`
 - `higher-graphen-projection`
+- `higher-graphen-evidence`
+- `higher-graphen-reasoning`
 - `higher-graphen-interpretation`
+- `higher-graphen-runtime`
 
-Context, evidence, correspondence, evolution, and runtime can be introduced
-incrementally if they are not required for the first Architecture Product
-scenario.
+Conceptual primitives such as space, context, morphism, topology, invariant,
+obstruction, completion, confidence, causal claims, and prover bridge records
+remain first-class modules. They are not required to be one package each.

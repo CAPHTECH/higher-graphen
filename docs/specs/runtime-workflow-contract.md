@@ -109,10 +109,10 @@ Stable scenario IDs:
 | Billing owns Billing DB incidence | `incidence:billing-service-owns-billing-db` |
 | Invariant | `invariant:no-cross-context-direct-database-access` |
 
-The runtime may build the scenario using `higher-graphen-space` types such as
-`Space`, `Cell`, `Incidence`, `Complex`, and `InMemorySpaceStore`, then map it
-into the report view. The invariant name must be `No cross-context direct
-database access`.
+The runtime may build the scenario using `higher-graphen-structure::space`
+types such as `Space`, `Cell`, `Incidence`, `Complex`, and
+`InMemorySpaceStore`, then map it into the report view. The invariant name must
+be `No cross-context direct database access`.
 
 ## Result
 
@@ -126,7 +126,7 @@ Required serialized fields:
 | --- | --- |
 | `status` | `violation_detected` for the first deterministic scenario. |
 | `violated_invariant_id` | `invariant:no-cross-context-direct-database-access`. |
-| `check_result` | The violated `higher_graphen_invariant::CheckResult` or a stable report view of it. |
+| `check_result` | The violated `higher_graphen_reasoning::invariant::CheckResult` or a stable report view of it. |
 | `obstructions` | Exactly one invariant-violation obstruction. |
 | `completion_candidates` | Exactly one unreviewed billing API candidate. |
 
@@ -230,8 +230,8 @@ formatter.
 ## Dependency Direction
 
 `higher-graphen-runtime` may depend on `higher-graphen-core`,
-`higher-graphen-space`, `higher-graphen-invariant`,
-`higher-graphen-obstruction`, `higher-graphen-completion`,
+`higher-graphen-structure::space`, `higher-graphen-reasoning::invariant`,
+`higher-graphen-reasoning::obstruction`, `higher-graphen-reasoning::completion`,
 `higher-graphen-projection`, `higher-graphen-interpretation` only when
 interpretation templates or lift adapters are needed, and workspace-approved
 serialization dependencies.

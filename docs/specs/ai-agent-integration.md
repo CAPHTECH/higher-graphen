@@ -80,7 +80,7 @@ The repository should keep agent integrations separate from core crates:
 higher-graphen/
   crates/
     higher-graphen-core/
-    higher-graphen-space/
+    higher-graphen-structure/
     ...
 
   tools/

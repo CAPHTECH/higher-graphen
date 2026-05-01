@@ -22,7 +22,7 @@ use crate::test_gap_reports::{
 };
 use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, Severity, SourceRef};
 use higher_graphen_projection::InformationLoss;
-use higher_graphen_space::IncidenceOrientation;
+use higher_graphen_structure::space::IncidenceOrientation;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 

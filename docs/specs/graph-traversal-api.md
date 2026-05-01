@@ -1,7 +1,7 @@
 # Graph Traversal API
 
 This document defines the reusable graph traversal surface for
-`higher-graphen-space`.
+`higher-graphen-structure::space`.
 
 ## Purpose
 
@@ -15,20 +15,20 @@ HigherGraphen packages often need to ask structural questions such as:
 
 Before this API, those questions were implemented directly inside
 product-specific reasoners. Native `casegraphen` now projects `CaseSpace` into a
-`higher-graphen-space` graph view and uses the traversal API for hard relation
-targets and frontier exclusion. The same operation is reusable for case, state,
+`higher-graphen-structure::space` graph view and uses the traversal API for
+hard relation targets and frontier exclusion. The same operation is reusable for case, state,
 morphism, obstruction, completion, projection, and correspondence tools.
 
 ## Package Boundary
 
-The API lives in `higher-graphen-space`.
+The API lives in `higher-graphen-structure::space`.
 
 This is intentional:
 
 - `higher-graphen-core` owns primitive identifiers and errors, but not graph
   storage.
-- `higher-graphen-space` owns `Space`, `Cell`, and `Incidence`, so it is the
-  correct layer for graph reachability over stored structure.
+- `higher-graphen-structure::space` owns `Space`, `Cell`, and `Incidence`, so
+  it is the correct layer for graph reachability over stored structure.
 - Product packages and tools should consume this API rather than duplicating
   bespoke graph scans.
 

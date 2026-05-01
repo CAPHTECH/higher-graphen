@@ -1,0 +1,24 @@
+[package]
+name = "higher-graphen-reasoning"
+description = "Reasoning primitives and engines for HigherGraphen invariants, obstructions, completion, model checking, and abstract interpretation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+higher-graphen-core.workspace = true
+higher-graphen-projection.workspace = true
+higher-graphen-structure.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

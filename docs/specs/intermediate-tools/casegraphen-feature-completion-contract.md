@@ -299,7 +299,7 @@ operator command terms remain present.
 Dependency direction expectations:
 
 - Lower model/evaluator code may use `higher-graphen-core`,
-  `higher-graphen-space`, and projection primitives where needed.
+  `higher-graphen-structure::space`, and projection primitives where needed.
 - Workflow-specific code must not depend on `higher-graphen-runtime`, product
   examples, skills, provider packages, MCP packages, or the external
   CaseGraphen repository.

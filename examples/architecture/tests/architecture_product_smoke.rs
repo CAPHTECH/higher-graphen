@@ -1,19 +1,19 @@
 //! Smoke scenario for the Architecture Product MVP example.
 
-use higher_graphen_completion::{
-    detect_completion_candidates, CompletionDetectionInput, CompletionRule, MissingType,
-    SuggestedStructure,
-};
 use higher_graphen_core::{
     Confidence, Id, Provenance, Result, ReviewStatus, Severity, SourceKind, SourceRef,
 };
-use higher_graphen_invariant::{
+use higher_graphen_reasoning::completion::{
+    detect_completion_candidates, CompletionDetectionInput, CompletionRule, MissingType,
+    SuggestedStructure,
+};
+use higher_graphen_reasoning::invariant::{
     CheckResult, CheckTargetKind, Invariant, InvariantScope, Violation,
 };
-use higher_graphen_obstruction::{
+use higher_graphen_reasoning::obstruction::{
     Counterexample, Obstruction, ObstructionExplanation, ObstructionType, RequiredResolution,
 };
-use higher_graphen_space::{
+use higher_graphen_structure::space::{
     Cell, Complex, ComplexType, InMemorySpaceStore, Incidence, IncidenceOrientation, Space,
 };
 
@@ -94,7 +94,7 @@ struct ArchitectureSmokeScenario {
     invariant: Invariant,
     check_result: CheckResult,
     obstruction: Obstruction,
-    completion_result: higher_graphen_completion::CompletionDetectionResult,
+    completion_result: higher_graphen_reasoning::completion::CompletionDetectionResult,
 }
 
 fn build_architecture_smoke_scenario() -> Result<ArchitectureSmokeScenario> {
@@ -240,7 +240,7 @@ fn obstruction_for_violation(check_result: &CheckResult) -> Result<Obstruction> 
 
 fn propose_billing_status_api(
     obstruction: &Obstruction,
-) -> Result<higher_graphen_completion::CompletionDetectionResult> {
+) -> Result<higher_graphen_reasoning::completion::CompletionDetectionResult> {
     let suggested_api = SuggestedStructure::new(
         "api",
         "Billing Service should expose a billing status query API.",

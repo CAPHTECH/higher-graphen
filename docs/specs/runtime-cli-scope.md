@@ -85,10 +85,10 @@ Runtime responsibilities in this first scope:
 Allowed runtime dependencies:
 
 - `higher-graphen-core`
-- `higher-graphen-space`
-- `higher-graphen-invariant`
-- `higher-graphen-obstruction`
-- `higher-graphen-completion`
+- `higher-graphen-structure::space`
+- `higher-graphen-reasoning::invariant`
+- `higher-graphen-reasoning::obstruction`
+- `higher-graphen-reasoning::completion`
 - `higher-graphen-projection`
 - `higher-graphen-interpretation` only when interpretation templates or lift
   adapters are needed
@@ -338,8 +338,8 @@ This scope must not require changes to existing lower-level package boundaries.
 - Do not add Architecture Product concepts to `higher-graphen-core`.
 - Do not add CLI, MCP, plugin, marketplace, provider, or UI concepts to any core
   package.
-- Do not make `higher-graphen-space`, `higher-graphen-invariant`,
-  `higher-graphen-obstruction`, `higher-graphen-completion`,
+- Do not make `higher-graphen-structure::space`, `higher-graphen-reasoning::invariant`,
+  `higher-graphen-reasoning::obstruction`, `higher-graphen-reasoning::completion`,
   `higher-graphen-projection`, or `higher-graphen-interpretation` depend on
   runtime or tools.
 - Do not move review workflow acceptance into the CLI. The CLI may display and

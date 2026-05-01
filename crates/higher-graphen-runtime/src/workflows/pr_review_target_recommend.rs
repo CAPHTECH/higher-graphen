@@ -7,7 +7,7 @@ use crate::pr_review_reports::{
     PrReviewTargetObstructionType, PrReviewTargetType,
 };
 use higher_graphen_core::{Id, ReviewStatus, Severity};
-use higher_graphen_space::{
+use higher_graphen_structure::space::{
     CoverageCandidate, DominanceAnalysis, WeightedCoverageSelector, WeightedUniverseElement,
 };
 

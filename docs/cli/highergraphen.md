@@ -81,9 +81,9 @@ This command deterministically converts a local git commit range into a bounded
 for changed files, numstat, and commit summaries, then applies fixed path rules
 for owners, contexts, tests, dependency edges, evidence, and risk signals. It
 also maps Rust boundary, incidence, and composition diff observations through
-`higher-graphen-space` structural analysis so parent-module wiring changes can
-be reviewed as deterministic dependency risks. It does not use LLM inference,
-GitHub API payloads, or working-tree heuristics. Use the generated input with
+`higher-graphen-structure::space` structural analysis so parent-module wiring
+changes can be reviewed as deterministic dependency risks. It does not use LLM
+inference, GitHub API payloads, or working-tree heuristics. Use the generated input with
 `highergraphen pr-review targets recommend`.
 
 ```sh

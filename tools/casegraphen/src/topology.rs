@@ -5,8 +5,8 @@ use crate::{
     workflow_workspace::WorkflowHistoryEntry,
 };
 use higher_graphen_core::{CoreError, Id};
-use higher_graphen_space::Dimension;
-use higher_graphen_topology::TopologySummary;
+use higher_graphen_structure::space::Dimension;
+use higher_graphen_structure::topology::TopologySummary;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -472,7 +472,7 @@ fn optional_dimension_delta(
 mod tests {
     use super::*;
     use crate::model::CaseGraph;
-    use higher_graphen_topology::PersistenceInterval;
+    use higher_graphen_structure::topology::PersistenceInterval;
     use std::collections::BTreeMap;
 
     const WORKFLOW_EXAMPLE: &str =
