@@ -23,8 +23,9 @@ The public `CAPHTECH/higher-graphen` repository may include:
   evidence, and verification for this repository.
 - Synthetic fixtures and reference scenarios that contain no customer data.
 
-Public materials in this repository are licensed under the Apache License 2.0
-unless a file or subdirectory explicitly states otherwise.
+Public materials in this repository are copyright 2026 CAPH TECH Inc. and
+licensed under the Apache License 2.0 unless a file or subdirectory explicitly
+states otherwise.
 
 ## Commercial Or Private Boundary
 

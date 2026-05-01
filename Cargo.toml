@@ -27,10 +27,12 @@ resolver = "2"
 version = "0.2.1"
 edition = "2021"
 rust-version = "1.80"
-authors = ["HigherGraphen Contributors"]
+authors = ["CAPH TECH Inc."]
 readme = "README.md"
 repository = "https://github.com/CAPHTECH/higher-graphen"
 license = "Apache-2.0"
+keywords = ["ai", "graph", "workflow", "reasoning", "cli"]
+categories = ["development-tools", "data-structures", "command-line-utilities"]
 
 [workspace.dependencies]
 higher-graphen-core = { version = "0.2.1", path = "crates/higher-graphen-core" }
