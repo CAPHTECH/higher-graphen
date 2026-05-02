@@ -318,10 +318,17 @@ document into a bounded `highergraphen.ddd_review.input.v1` snapshot. It is the
 adapter path for fixtures such as
 `examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json`.
 The adapter copies source-backed CaseSpace records as accepted input
-observations and preserves AI-inferred or unreviewed records as unreviewed
-claims or completion hints. It does not import a CaseGraphen store, replay
-history, call `cg`, fetch network data, read unrelated repository files, or use
-LLM inference.
+observations, lifts source-backed CaseSpace relations as DDD relation records,
+and preserves AI-inferred or unreviewed records as unreviewed claims or
+completion hints. It does not import a CaseGraphen store, replay history, call
+`cg`, fetch network data, read unrelated repository files, or use LLM
+inference.
+
+The bounded input preserves product-integration objects from
+`docs/guides/product-integration-for-ai-agents.md`: `source_boundary.id`,
+`lift_morphism`, and `operation_gate`. These fields make the DDD review
+snapshot auditable as a lift from source material into a DDD review space,
+rather than treating the report as the model.
 
 ```sh
 highergraphen ddd review --input <path> --format json [--output <path>]
@@ -330,11 +337,16 @@ highergraphen ddd review --input <path> --format json [--output <path>]
 This command reads a bounded `highergraphen.ddd_review.input.v1` snapshot and
 emits a DDD review report. The workflow evaluates deterministic bounded-context
 and domain-model review invariants, then reports obstructions, completion
-candidates, evidence boundaries, projection loss, review gaps, and closeability.
+candidates, completion morphism skeletons, evidence boundaries, projection
+loss, review gaps, and closeability. Current DDD heuristics cover
+cross-context language conflicts, unaccepted inferred boundary risks, missing
+boundary/ACL mappings, explicit review gates, unaccepted AI evidence, and
+missing context ownership for key DDD structural records.
 DDD-specific interpretation stays in this runtime/CLI workflow and its schemas;
 it is not `higher-graphen-core` behavior. Accepted source facts remain separate
 from AI-inferred or unreviewed claims, and no inferred claim is silently
-promoted.
+promoted. The report scenario preserves the lift morphism, operation gate, and
+DDD-to-HigherGraphen interpretation mappings used by the review.
 
 ```sh
 highergraphen semantic-proof backend run \

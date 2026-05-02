@@ -318,7 +318,35 @@
         "review_status": "accepted",
         "evidence_ids": ["evidence:workshop-notes"],
         "source_ids": ["source:domain-workshop", "source:architecture-sketch"],
-        "metadata": {"demo": true}
+        "metadata": {
+          "demo": true,
+          "lift_semantics": "domain_workshop_snapshot_to_ddd_case_space",
+          "source_boundary_id": "source_boundary:ddd-sales-billing-demo",
+          "source_boundary": {
+            "id": "source_boundary:ddd-sales-billing-demo",
+            "included_sources": [
+              "source:domain-workshop",
+              "source:architecture-sketch",
+              "evidence:workshop-notes"
+            ],
+            "excluded_sources": [
+              "CaseGraphen store replay",
+              "full MorphismLog history",
+              "source code",
+              "ADRs",
+              "tickets",
+              "tests"
+            ],
+            "adapters": [
+              "casegraphen.ddd.fixture.v1"
+            ],
+            "accepted_fact_policy": "Only source-backed workshop and architecture sketch records are accepted input facts.",
+            "inference_policy": "AI DDD diagnostics and equivalence claims remain unreviewed until explicit review accepts them.",
+            "information_loss": [
+              "Fixture summarizes workshop and architecture material instead of embedding full notes, code, ADRs, tickets, or tests."
+            ]
+          }
+        }
       },
       "actor_id": "actor:casegraphen-ddd-diagnostic-demo",
       "recorded_at": "2026-04-26T03:10:00Z",
@@ -400,6 +428,30 @@
   "close_policy_id": "close_policy:ddd-model-review",
   "metadata": {
     "diagnostic_method": "casegraphen-ddd-diagnostics",
-    "demo": true
+    "demo": true,
+    "source_boundary": {
+      "id": "source_boundary:ddd-sales-billing-demo",
+      "included_sources": [
+        "source:domain-workshop",
+        "source:architecture-sketch",
+        "evidence:workshop-notes"
+      ],
+      "excluded_sources": [
+        "CaseGraphen store replay",
+        "full MorphismLog history",
+        "source code",
+        "ADRs",
+        "tickets",
+        "tests"
+      ],
+      "adapters": [
+        "casegraphen.ddd.fixture.v1"
+      ],
+      "accepted_fact_policy": "Only source-backed workshop and architecture sketch records are accepted input facts.",
+      "inference_policy": "AI DDD diagnostics and equivalence claims remain unreviewed until explicit review accepts them.",
+      "information_loss": [
+        "Fixture summarizes workshop and architecture material instead of embedding full notes, code, ADRs, tickets, or tests."
+      ]
+    }
   }
 }

@@ -1,9 +1,13 @@
 # DDD Review CLI Contract
 
-This document defines the pre-implementation contract for promoting the
-CaseGraphen DDD diagnostic prototype into a stable `highergraphen` CLI
-workflow. It is documentation and schema contract work only; it does not require
-Rust implementation changes.
+This document defines the product contract for promoting the CaseGraphen DDD
+diagnostic prototype into a stable `highergraphen` CLI workflow. It follows the
+agent integration pipeline in
+[`../guides/product-integration-for-ai-agents.md`](../guides/product-integration-for-ai-agents.md):
+bounded source snapshot -> review space -> accepted observations -> contexts
+and incidences -> lift morphism and interpretation mapping -> invariants ->
+obstructions -> completion candidates -> evidence/review status -> projections
+-> runtime command surface.
 
 The workflow belongs to the `highergraphen` product CLI because it is a
 domain-product review workflow over bounded source structure. It must not add
@@ -66,6 +70,8 @@ Required fields:
 | `source` | Source metadata for the bounded input document and adapter. |
 | `review_subject` | The design decision, model, bounded context map, or case space under review. |
 | `source_boundary` | Explicit boundary of what was read, omitted, summarized, or adapted. |
+| `lift_morphism` | Deterministic source-to-DDD-review-space morphism that records preserved IDs, inferred IDs, adapter IDs, and lift loss. |
+| `operation_gate` | Actor, capability, policy, scope, audience, and source-boundary binding for the review operation. |
 | `accepted_facts` | Source-backed DDD facts accepted only as input observations. |
 
 Optional fields:
@@ -77,6 +83,11 @@ Optional fields:
 | `inferred_claims` | AI-created or adapter-inferred claims copied into the snapshot with `review_status: "unreviewed"`. |
 | `completion_hints` | Existing unreviewed completion candidates from source material, such as a missing anti-corruption mapping. |
 | `projection_requests` | Requested human, AI-agent, implementation, or audit views. |
+
+The DDD review input is the model, not a mere report prompt. It must be
+complete enough for an AI agent to inspect the source boundary, understand how
+DDD terms were lifted into HigherGraphen structure, and decide which objects are
+accepted facts versus unreviewed claims.
 
 Accepted input facts may include bounded contexts, aggregates, entities, value
 objects, services, APIs, databases, teams, domain events, commands, messages,
@@ -92,10 +103,11 @@ promote them.
 
 ## Source Boundary
 
-The source boundary is part of the scenario. The adapter and review command
-must preserve:
+The source boundary is part of the scenario and must have a stable ID. The
+adapter and review command must preserve:
 
 - input file paths and schema IDs;
+- included and excluded sources;
 - adapter IDs such as `casegraphen_case_space.v1` or `ddd_review_input.v1`;
 - source-backed evidence IDs separately from AI inference IDs;
 - omitted store replay, omitted MorphismLog history, omitted full workshop
@@ -106,7 +118,29 @@ The v1 workflow is deterministic and local. It must not fetch network data, call
 provider APIs, ask an LLM for hidden interpretation, scan unrelated repository
 files, or silently promote inferred claims into accepted facts.
 
+Absence from the boundary is not absence from the product world. A missing ADR,
+ticket, code path, or test result is omitted material unless the bounded input
+contains accepted evidence that it does not exist.
+
 ## Structural Lift
+
+The workflow must model the lift explicitly as `lift_morphism`. This morphism
+is the audit record for how source material became a DDD review space. It must
+record:
+
+- the source-boundary ID;
+- the source schema or source product contract;
+- the target review `Space`;
+- adapter IDs;
+- source-backed IDs preserved as accepted observations;
+- inferred IDs kept reviewable;
+- information loss introduced by summarization or partial mapping.
+
+The workflow must also expose DDD-to-HigherGraphen interpretation mappings.
+These mappings explain why a DDD bounded context becomes a review context cell,
+why a boundary issue becomes an obstruction, and why an anti-corruption mapping
+gap becomes a completion candidate. The mappings are part of the product
+contract; they are not implicit naming conventions.
 
 The DDD snapshot lifts into one review space:
 
@@ -127,6 +161,25 @@ summaries, but DDD labels remain workflow-local. No DDD-specific enum, cell
 type, invariant template, or projection purpose should be added to
 `higher-graphen-core`.
 
+## Operation Gate
+
+DDD review is a read-only diagnostic operation, but it still acts on a bounded
+product snapshot and may be used by AI agents to plan follow-up work. Therefore
+the input and report must preserve an `operation_gate` with:
+
+- `actor_id`;
+- `operation`, initially `ddd_review`;
+- `operation_scope_id`, normally the DDD review space;
+- `audience`, usually `audit` or `ai_agent`;
+- `capability_ids`;
+- `policy_ids`;
+- `source_boundary_id`.
+
+The gate is not a substitute for closeability. It only says that this actor and
+capability may run the review over this source boundary. The DDD decision is
+closeable only when review invariants, evidence boundaries, projection loss,
+and review gaps are all satisfied.
+
 ## Invariants
 
 The initial review evaluates these deterministic invariants against the bounded
@@ -140,6 +193,7 @@ snapshot:
 | Review gates satisfied before close | A decision requiring domain review is not closeable until the review record is accepted. |
 | Inference not accepted evidence | AI-created equivalence proofs, mappings, risks, and suggestions cannot satisfy accepted evidence requirements. |
 | Projection declares loss | Every projection view must state information loss when it omits risk, evidence, review state, or boundary semantics. |
+| Context ownership explicit | Aggregates, APIs, databases, services, teams, domain events, and external messages should carry context ownership or an explicit ownership mapping before the design is closeable. |
 
 Absence of a violation means only that the bounded snapshot did not violate
 these invariants. It does not prove the entire domain model is correct.
@@ -177,8 +231,10 @@ The report result must include these sections:
 | `accepted_fact_ids` | IDs of source-backed input observations used by the workflow. |
 | `inferred_claim_ids` | IDs of unreviewed claims considered but not accepted. |
 | `evaluated_invariant_ids` | DDD review invariant IDs evaluated against the bounded snapshot. |
+| `interpretation_mapping_ids` | IDs of DDD-to-HigherGraphen mapping records used to interpret domain objects as cells, contexts, incidences, obstructions, completions, and projections. |
 | `obstructions` | Boundary, identity, evidence, contradiction, missing-case, projection-loss, and review-gate blockers. |
 | `completion_candidates` | Unreviewed proposed fixes, such as an anti-corruption mapping. |
+| `completion_morphisms` | Reviewable CaseGraphen patch morphism skeletons derived from completion candidates. They are plans, not applied mutations. |
 | `evidence_boundaries` | Machine-readable separation of source-backed evidence, AI inference, adapter inference, missing evidence, and omitted evidence. |
 | `projection_loss` | Information loss by projection/view, including implementation views that hide domain risk or accepted evidence. |
 | `review_gaps` | Missing, unaccepted, stale, or contradictory review records. |
@@ -204,10 +260,18 @@ Initial obstruction types:
 | `projection_information_loss` | Projection ID, omitted risk/evidence/review/boundary records, affected source IDs. |
 | `contradiction_candidate` | Decision, constraint, relation cluster, and conflicting source or inference IDs. |
 
+The workflow also applies DDD-specific heuristics over accepted records and
+relations: same normalized model term in multiple bounded contexts becomes a
+cross-context language/identity risk; boundary mapping hints or inferred
+mapping claims become missing-boundary-mapping obstructions; unreviewed
+semantic-case risks become boundary-semantic-loss obstructions; and ownership
+records without context ownership become missing-evidence obstructions.
+
 For the Sales/Billing Customer fixture, the expected obstruction set includes a
-boundary issue for the shared Customer model, missing accepted equivalence
-evidence, a required domain model review, and projection information loss for
-the implementation-focused view.
+cross-context Customer language conflict, an unaccepted inferred boundary risk,
+a missing Sales-to-Billing mapping, missing accepted equivalence evidence, and
+a required domain model review. Projection loss is reported separately under
+`projection_loss`.
 
 ## Completion Candidates
 
@@ -229,6 +293,19 @@ DDD review completion candidates must include:
 The Sales/Billing reference should preserve
 `completion:missing-sales-billing-acl` as an unreviewed candidate for an
 explicit Sales-to-Billing anti-corruption mapping.
+
+## Completion Morphisms
+
+Every emitted completion candidate may be accompanied by an unreviewed
+`completion_morphism`. The morphism translates the candidate into a
+CaseGraphen-oriented patch skeleton, such as `upsert_ontology_record` with a
+record kind of `transformation`, `review`, `evidence`, `boundary`, or
+`constraint`.
+
+Completion morphisms are deliberately not applied by `ddd review`. They make
+the next action machine-readable for an AI agent or human reviewer while
+preserving the promotion boundary: a candidate remains unreviewed until a
+separate patch review or later bounded input accepts it.
 
 ## Evidence, Review, And Promotion Boundary
 
@@ -257,6 +334,9 @@ The projection should follow the existing `ProjectionViewSet` style:
 
 Every view must carry non-empty `source_ids` and at least one
 `information_loss` entry. Projection must not change `review_status`.
+The audit trace must include the source-boundary ID, lift-morphism ID,
+operation-gate ID or fields, and interpretation mapping IDs when those objects
+exist in the scenario.
 
 ## Schema And Fixture Artifacts
 

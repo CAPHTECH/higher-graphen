@@ -6,12 +6,12 @@ use crate::{
 };
 use higher_graphen_core::Id;
 use higher_graphen_runtime::{
-    run_architecture_direct_db_access_smoke, run_architecture_input_lift, run_completion_review,
-    run_feed_reader, run_pr_review_target_recommend, run_semantic_proof_verify,
-    run_test_gap_detect, ArchitectureInputLiftDocument, CompletionReviewDecision,
-    CompletionReviewRequest, CompletionReviewSnapshot, CompletionReviewSourceReport,
-    FeedReaderInputDocument, PrReviewTargetInputDocument, RuntimeError, SemanticProofInputDocument,
-    TestGapInputDocument,
+    ddd_input_from_case_space, run_architecture_direct_db_access_smoke,
+    run_architecture_input_lift, run_completion_review, run_ddd_review, run_feed_reader,
+    run_pr_review_target_recommend, run_semantic_proof_verify, run_test_gap_detect,
+    ArchitectureInputLiftDocument, CompletionReviewDecision, CompletionReviewRequest,
+    CompletionReviewSnapshot, CompletionReviewSourceReport, FeedReaderInputDocument,
+    PrReviewTargetInputDocument, RuntimeError, SemanticProofInputDocument, TestGapInputDocument,
 };
 use rust_test_semantics::RustTestSemanticsPathRequest;
 use serde::de::DeserializeOwned;
@@ -35,6 +35,8 @@ impl Command {
             Self::ArchitectureSmokeDirectDbAccess { .. }
             | Self::ArchitectureInputLift { .. }
             | Self::FeedReaderRun { .. }
+            | Self::DddInputFromCaseSpace { .. }
+            | Self::DddReview { .. }
             | Self::PrReviewInputFromGit { .. }
             | Self::PrReviewTargetsRecommend { .. } => self.run_primary_json(),
             Self::TestGapDetect { .. }
@@ -60,6 +62,10 @@ impl Command {
             Self::ArchitectureSmokeDirectDbAccess { .. } => architecture_smoke_json(),
             Self::ArchitectureInputLift { input, .. } => architecture_input_lift_json(input),
             Self::FeedReaderRun { input, .. } => feed_reader_json(input),
+            Self::DddInputFromCaseSpace { case_space, .. } => {
+                ddd_input_from_case_space_json(case_space)
+            }
+            Self::DddReview { input, .. } => ddd_review_json(input),
             Self::PrReviewInputFromGit {
                 repo, base, head, ..
             } => pr_review_input_from_git_json(repo, base, head),
@@ -187,6 +193,18 @@ fn architecture_input_lift_json(input: &Path) -> Result<String, CliError> {
 fn feed_reader_json(input: &Path) -> Result<String, CliError> {
     let document = read_feed_reader_input_document(input)?;
     let report = run_feed_reader(document)?;
+    serialize_json!(&report)
+}
+
+fn ddd_input_from_case_space_json(case_space: &Path) -> Result<String, CliError> {
+    let case_space_value = read_json_value(case_space)?;
+    let document = ddd_input_from_case_space(case_space_value, &case_space.to_string_lossy())?;
+    serialize_json!(&document)
+}
+
+fn ddd_review_json(input: &Path) -> Result<String, CliError> {
+    let document = read_json_value(input)?;
+    let report = run_ddd_review(document)?;
     serialize_json!(&report)
 }
 

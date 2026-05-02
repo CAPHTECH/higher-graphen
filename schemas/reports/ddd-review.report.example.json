@@ -16,8 +16,25 @@
       "title": "Sales and Billing Customer unification review"
     },
     "source_boundary": {
+      "id": "source_boundary:ddd-sales-billing-demo",
       "input_paths": [
         "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json"
+      ],
+      "included_sources": [
+        "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json",
+        "evidence:workshop-notes",
+        "semantic_case:customer-identity-loss"
+      ],
+      "excluded_sources": [
+        "CaseGraphen store replay",
+        "full MorphismLog history",
+        "source code",
+        "ADRs",
+        "tickets",
+        "tests"
+      ],
+      "adapters": [
+        "casegraphen_case_space.v1"
       ],
       "accepted_fact_boundaries": [
         "source_backed",
@@ -34,6 +51,46 @@
       "information_loss": [
         "Native CaseSpace records are summarized into a bounded DDD review snapshot."
       ]
+    },
+    "lift_morphism": {
+      "id": "morphism:lift-ddd-sales-billing-demo",
+      "morphism_type": "source_to_ddd_review_space",
+      "source_boundary_id": "source_boundary:ddd-sales-billing-demo",
+      "source_schema": "highergraphen.case.space.v1",
+      "target_space_id": "space:ddd-review:ddd-sales-billing-demo",
+      "adapter_ids": [
+        "casegraphen_case_space.v1"
+      ],
+      "preserved_ids": [
+        "context:sales",
+        "context:billing",
+        "decision:unified-customer-model",
+        "semantic_case:customer-identity-loss",
+        "evidence:workshop-notes",
+        "constraint:accepted-equivalence-required",
+        "review:domain-model-acceptance",
+        "completion:missing-sales-billing-acl"
+      ],
+      "inferred_ids": [
+        "evidence:customer-equivalence-proof"
+      ],
+      "information_loss": [
+        "Native CaseSpace records are summarized into DDD review records.",
+        "Store replay, historical morphisms, and external implementation evidence are not read."
+      ]
+    },
+    "operation_gate": {
+      "actor_id": "actor:highergraphen-cli",
+      "operation": "ddd_review",
+      "operation_scope_id": "space:ddd-review:ddd-sales-billing-demo",
+      "audience": "audit",
+      "capability_ids": [
+        "capability:highergraphen-cli:ddd-review"
+      ],
+      "policy_ids": [
+        "policy:ddd-review-source-boundary"
+      ],
+      "source_boundary_id": "source_boundary:ddd-sales-billing-demo"
     },
     "accepted_facts": [
       {
@@ -83,6 +140,46 @@
         "review_status": "unreviewed"
       }
     ],
+    "interpretation_mappings": [
+      {
+        "id": "mapping:ddd-bounded-context-to-context-cell",
+        "domain_type": "bounded_context",
+        "highergraphen_target": "context",
+        "source_ids": [
+          "context:sales",
+          "context:billing"
+        ],
+        "review_status": "accepted"
+      },
+      {
+        "id": "mapping:ddd-boundary-risk-to-obstruction",
+        "domain_type": "boundary_issue",
+        "highergraphen_target": "obstruction",
+        "source_ids": [
+          "semantic_case:customer-identity-loss"
+        ],
+        "review_status": "accepted"
+      },
+      {
+        "id": "mapping:ddd-acl-gap-to-completion",
+        "domain_type": "anti_corruption_mapping_gap",
+        "highergraphen_target": "completion_candidate",
+        "source_ids": [
+          "completion:missing-sales-billing-acl"
+        ],
+        "review_status": "unreviewed"
+      },
+      {
+        "id": "mapping:ddd-relation-to-incidence",
+        "domain_type": "ddd_relation",
+        "highergraphen_target": "incidence",
+        "source_ids": [
+          "relation:decision-requires-equivalence-proof",
+          "relation:decision-requires-review"
+        ],
+        "review_status": "accepted"
+      }
+    ],
     "lifted_structure": {
       "space_id": "space:ddd-review:ddd-sales-billing-demo",
       "cell_ids": [
@@ -103,6 +200,21 @@
       "context_ids": [
         "context:sales",
         "context:billing"
+      ],
+      "invariant_ids": [
+        "invariant:context-language-preserved",
+        "invariant:cross-context-identity-not-collapsed",
+        "invariant:boundary-translation-explicit",
+        "invariant:review-gates-satisfied-before-close",
+        "invariant:inference-not-accepted-evidence",
+        "invariant:projection-declares-loss",
+        "invariant:context-ownership-explicit"
+      ],
+      "interpretation_mapping_ids": [
+        "mapping:ddd-bounded-context-to-context-cell",
+        "mapping:ddd-boundary-risk-to-obstruction",
+        "mapping:ddd-acl-gap-to-completion",
+        "mapping:ddd-relation-to-incidence"
       ],
       "morphism_summary_ids": [
         "morphism-summary:customer-equivalence-unaccepted",
@@ -130,7 +242,14 @@
       "invariant:boundary-translation-explicit",
       "invariant:review-gates-satisfied-before-close",
       "invariant:inference-not-accepted-evidence",
-      "invariant:projection-declares-loss"
+      "invariant:projection-declares-loss",
+      "invariant:context-ownership-explicit"
+    ],
+    "interpretation_mapping_ids": [
+      "mapping:ddd-bounded-context-to-context-cell",
+      "mapping:ddd-boundary-risk-to-obstruction",
+      "mapping:ddd-acl-gap-to-completion",
+      "mapping:ddd-relation-to-incidence"
     ],
     "obstructions": [
       {
@@ -251,6 +370,28 @@
         },
         "severity": "high",
         "confidence": 0.88,
+        "review_status": "unreviewed"
+      }
+    ],
+    "completion_morphisms": [
+      {
+        "id": "morphism:complete-missing-sales-billing-acl",
+        "morphism_type": "completion_candidate_to_casegraphen_patch",
+        "completion_candidate_id": "completion:missing-sales-billing-acl",
+        "source_ids": [
+          "semantic_case:customer-identity-loss",
+          "evidence:workshop-notes"
+        ],
+        "target_ids": [
+          "context:sales",
+          "context:billing",
+          "decision:unified-customer-model"
+        ],
+        "operation": {
+          "op": "upsert_ontology_record",
+          "record_kind": "transformation",
+          "review_required": true
+        },
         "review_status": "unreviewed"
       }
     ],

@@ -298,6 +298,36 @@ pub(crate) struct TestRunEvidenceOptions {
     pub(crate) output: Option<PathBuf>,
 }
 
+#[derive(Debug, Default, Eq, PartialEq)]
+pub(crate) struct DddCaseSpaceInputOptions {
+    pub(crate) case_space: Option<PathBuf>,
+    pub(crate) output: Option<PathBuf>,
+}
+
+impl DddCaseSpaceInputOptions {
+    pub(crate) fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut format_seen = false;
+        let mut options = Self::default();
+
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                require_json_format(&mut args)?;
+                format_seen = true;
+            } else if arg == "--case-space" {
+                options.case_space = Some(require_path(&mut args, "--case-space")?);
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        require_format_seen(format_seen)?;
+        Ok(options)
+    }
+}
+
 impl TestRunEvidenceOptions {
     pub(crate) fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let mut format_seen = false;

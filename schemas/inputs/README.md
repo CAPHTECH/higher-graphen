@@ -76,8 +76,9 @@ record human review decisions.
 `ddd-review.input.schema.json` defines the bounded DDD review input contract,
 `highergraphen.ddd_review.input.v1`. It accepts source-backed DDD facts,
 constraints, reviews, unreviewed inferred claims, completion hints, projection
-requests, and an explicit source boundary. Accepted source facts are separate
-from AI-inferred or unreviewed claims.
+requests, an explicit source boundary, a source-to-DDD-review lift morphism,
+and an operation gate. Accepted source facts are separate from AI-inferred or
+unreviewed claims.
 
 The matching fixture is:
 

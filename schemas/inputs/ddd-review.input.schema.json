@@ -9,6 +9,8 @@
     "source",
     "review_subject",
     "source_boundary",
+    "lift_morphism",
+    "operation_gate",
     "accepted_facts"
   ],
   "properties": {
@@ -23,6 +25,12 @@
     },
     "source_boundary": {
       "$ref": "#/$defs/source_boundary"
+    },
+    "lift_morphism": {
+      "$ref": "#/$defs/lift_morphism"
+    },
+    "operation_gate": {
+      "$ref": "#/$defs/operation_gate"
     },
     "accepted_facts": {
       "type": "array",
@@ -172,14 +180,44 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "id",
         "input_paths",
+        "included_sources",
+        "excluded_sources",
+        "adapters",
         "accepted_fact_boundaries",
         "inference_boundaries",
         "omitted_material",
         "information_loss"
       ],
       "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
         "input_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "included_sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "excluded_sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "adapters": {
           "type": "array",
           "items": {
             "type": "string",
@@ -222,6 +260,101 @@
             "minLength": 1
           },
           "minItems": 1
+        }
+      }
+    },
+    "lift_morphism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "morphism_type",
+        "source_boundary_id",
+        "source_schema",
+        "target_space_id",
+        "adapter_ids",
+        "preserved_ids",
+        "inferred_ids",
+        "information_loss"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "morphism_type": {
+          "const": "source_to_ddd_review_space"
+        },
+        "source_boundary_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_space_id": {
+          "$ref": "#/$defs/id"
+        },
+        "adapter_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "preserved_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "inferred_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "information_loss": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "operation_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "operation",
+        "operation_scope_id",
+        "audience",
+        "capability_ids",
+        "policy_ids",
+        "source_boundary_id"
+      ],
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "ddd_review"
+        },
+        "operation_scope_id": {
+          "$ref": "#/$defs/id"
+        },
+        "audience": {
+          "enum": [
+            "human_review",
+            "ai_agent",
+            "audit",
+            "system"
+          ]
+        },
+        "capability_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "policy_ids": {
+          "$ref": "#/$defs/id_array"
+        },
+        "source_boundary_id": {
+          "$ref": "#/$defs/id"
         }
       }
     },

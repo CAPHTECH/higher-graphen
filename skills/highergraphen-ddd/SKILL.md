@@ -64,6 +64,15 @@ python3 scripts/validate-json-contracts.py
 
 ## Interpretation Rules
 
+- Follow `docs/guides/product-integration-for-ai-agents.md`: start from a
+  bounded source snapshot, lift into a DDD review space, preserve the lift
+  morphism, map DDD vocabulary through explicit interpretation mappings,
+  evaluate invariants, then project human/AI/audit views with declared loss.
+- Treat `source_boundary.id`, `lift_morphism`, and `operation_gate` as required
+  product integration objects. The source boundary says what was read and
+  omitted; the lift morphism says how source records became DDD review
+  structure; the operation gate says which actor/capability/policy/scope is
+  allowed to run the diagnostic over that boundary.
 - Exit code `0` means the workflow emitted a report. Domain findings such as
   blocked decisions, missing accepted evidence, unreviewed completion
   candidates, projection loss, review gaps, and non-closeable state are
@@ -75,6 +84,13 @@ python3 scripts/validate-json-contracts.py
   invariant, anti-corruption mapping, and semantic-case risk are interpretation
   records over HigherGraphen structure. Do not add them to
   `higher-graphen-core`.
+- Inspect `result.completion_morphisms` when planning follow-up work. They are
+  reviewable CaseGraphen patch skeletons derived from completion candidates,
+  not applied mutations.
+- Expect the v1 deterministic heuristics to cover cross-context language
+  conflicts, unaccepted inferred boundary risks, missing boundary/ACL mappings,
+  unaccepted AI evidence, review gates, and missing context ownership for key
+  DDD structural records.
 - Prefer `highergraphen ddd review` for product-facing DDD diagnostics. Use
   `casegraphen` only when the task is explicitly about native CaseGraphen
   CaseSpace/MorphismLog inspection, migration, or low-level case reasoning.
@@ -91,6 +107,8 @@ review signals:
   accepted evidence requirements;
 - a Sales-to-Billing anti-corruption mapping is proposed as a reviewable
   completion candidate;
+- a matching completion morphism is emitted so the next CaseGraphen patch can
+  be planned without treating the candidate as accepted;
 - implementation-focused projection loss remains visible;
 - closeability is false until hard obstructions, evidence gaps, review gaps,
   and projection-loss disclosure are resolved.

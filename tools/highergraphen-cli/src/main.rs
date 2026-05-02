@@ -29,6 +29,8 @@ pub(crate) const USAGE: &str = "usage:
   highergraphen architecture smoke direct-db-access --format json [--output <path>]
   highergraphen architecture input lift --input <path> --format json [--output <path>]
   highergraphen feed reader run --input <path> --format json [--output <path>]
+  highergraphen ddd input from-case-space --case-space <path> --format json [--output <path>]
+  highergraphen ddd review --input <path> --format json [--output <path>]
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--binding-rules <path>] [--output <path>]

@@ -1,10 +1,10 @@
 use crate::{
     cli_args::{
-        require_token, required_segment, GitInputOptions, PathInputOptions, ReportOptions,
-        ReviewOptions, SemanticProofArtifactOptions, SemanticProofAttachArtifactOptions,
-        SemanticProofBackendOptions, SemanticProofReportInputOptions, TestRunEvidenceOptions,
-        TestSemanticsGapOptions, TestSemanticsInterpretOptions, TestSemanticsReviewOptions,
-        TestSemanticsVerifyOptions,
+        require_token, required_segment, DddCaseSpaceInputOptions, GitInputOptions,
+        PathInputOptions, ReportOptions, ReviewOptions, SemanticProofArtifactOptions,
+        SemanticProofAttachArtifactOptions, SemanticProofBackendOptions,
+        SemanticProofReportInputOptions, TestRunEvidenceOptions, TestSemanticsGapOptions,
+        TestSemanticsInterpretOptions, TestSemanticsReviewOptions, TestSemanticsVerifyOptions,
     },
     cli_error::CliError,
     command::Command,
@@ -22,6 +22,7 @@ impl Command {
             Some("version") | Some("--version") | Some("-V") => Self::parse_version(args),
             Some("architecture") => Self::parse_architecture(args),
             Some("feed") => Self::parse_feed(args),
+            Some("ddd") => Self::parse_ddd(args),
             Some("pr-review") => Self::parse_pr_review(args),
             Some("test-gap") => Self::parse_test_gap(args),
             Some("test-semantics") => Self::parse_test_semantics(args),
@@ -77,6 +78,32 @@ impl Command {
         let input = required_option(options.input, "--input <path> is required")?;
         Ok(Self::FeedReaderRun {
             input,
+            output: options.output,
+        })
+    }
+
+    fn parse_ddd(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "ddd command")?;
+        match segment.to_str() {
+            Some("input") => Self::parse_ddd_input(args),
+            Some("review") => Self::parse_ddd_review(args),
+            Some(_) | None => Err(CliError::usage("unsupported ddd command segment")),
+        }
+    }
+
+    fn parse_ddd_input(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "from-case-space")?;
+        let options = DddCaseSpaceInputOptions::parse(args)?;
+        Ok(Self::DddInputFromCaseSpace {
+            case_space: required_option(options.case_space, "--case-space <path> is required")?,
+            output: options.output,
+        })
+    }
+
+    fn parse_ddd_review(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let options = ReportOptions::parse(args, true)?;
+        Ok(Self::DddReview {
+            input: required_option(options.input, "--input <path> is required")?,
             output: options.output,
         })
     }

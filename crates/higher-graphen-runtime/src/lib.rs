@@ -83,6 +83,6 @@ pub use test_gap_reports::{
 };
 pub use workflows::{
     architecture::{run_architecture_direct_db_access_smoke, run_architecture_input_lift},
-    run_completion_review, run_feed_reader, run_pr_review_target_recommend,
-    run_semantic_proof_verify, run_test_gap_detect,
+    ddd_input_from_case_space, run_completion_review, run_ddd_review, run_feed_reader,
+    run_pr_review_target_recommend, run_semantic_proof_verify, run_test_gap_detect,
 };

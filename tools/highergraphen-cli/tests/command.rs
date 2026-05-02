@@ -12,6 +12,8 @@ use std::{
 const REPORT_SCHEMA: &str = "highergraphen.architecture.direct_db_access_smoke.report.v1";
 const INPUT_LIFT_REPORT_SCHEMA: &str = "highergraphen.architecture.input_lift.report.v1";
 const FEED_READER_REPORT_SCHEMA: &str = "highergraphen.feed.reader.report.v1";
+const DDD_REVIEW_INPUT_SCHEMA: &str = "highergraphen.ddd_review.input.v1";
+const DDD_REVIEW_REPORT_SCHEMA: &str = "highergraphen.ddd_review.report.v1";
 const PR_REVIEW_TARGET_REPORT_SCHEMA: &str = "highergraphen.pr_review_target.report.v1";
 const TEST_GAP_INPUT_SCHEMA: &str = "highergraphen.test_gap.input.v1";
 const TEST_GAP_REPORT_SCHEMA: &str = "highergraphen.test_gap.report.v1";
@@ -232,6 +234,123 @@ fn feed_reader_run_writes_output_file_without_stdout() {
     let value: Value = serde_json::from_str(&text).expect("file should be JSON");
     assert_eq!(value["schema"], json!(FEED_READER_REPORT_SCHEMA));
     assert_eq!(value["projection"]["timeline"]["audience"], json!("human"));
+
+    fs::remove_dir_all(directory).expect("remove temp test directory");
+}
+
+#[test]
+fn ddd_input_from_case_space_emits_lift_contract() {
+    let fixture = ddd_case_space_fixture();
+    let output = run_cli(&[
+        "ddd",
+        "input",
+        "from-case-space",
+        "--case-space",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(DDD_REVIEW_INPUT_SCHEMA));
+    assert_eq!(
+        value["source_boundary"]["id"],
+        json!("source_boundary:ddd-sales-billing-demo")
+    );
+    assert_eq!(
+        value["lift_morphism"]["source_boundary_id"],
+        value["source_boundary"]["id"]
+    );
+    assert_eq!(
+        value["operation_gate"]["source_boundary_id"],
+        value["source_boundary"]["id"]
+    );
+    assert!(value["inferred_claims"]
+        .as_array()
+        .expect("inferred claims")
+        .iter()
+        .any(|claim| claim["id"] == json!("semantic_case:customer-identity-loss")));
+}
+
+#[test]
+fn ddd_review_reads_fixture_and_reports_operation_gate_effects() {
+    let fixture = ddd_review_input_fixture();
+    let output = run_cli(&[
+        "ddd",
+        "review",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(DDD_REVIEW_REPORT_SCHEMA));
+    assert_eq!(value["result"]["status"], json!("issues_detected"));
+    assert_eq!(value["result"]["closeability"]["closeable"], json!(false));
+    assert!(value["result"]["interpretation_mapping_ids"]
+        .as_array()
+        .expect("interpretation mappings")
+        .contains(&json!("mapping:ddd-bounded-context-to-context-cell")));
+    assert!(value["result"]["completion_morphisms"]
+        .as_array()
+        .expect("completion morphisms")
+        .contains(&json!({
+            "id": "morphism:complete-missing-sales-billing-acl",
+            "morphism_type": "completion_candidate_to_casegraphen_patch",
+            "completion_candidate_id": "completion:missing-sales-billing-acl",
+            "source_ids": ["semantic_case:customer-identity-loss", "evidence:workshop-notes"],
+            "target_ids": ["context:sales", "context:billing", "decision:unified-customer-model"],
+            "operation": {
+                "op": "upsert_ontology_record",
+                "record_kind": "transformation",
+                "review_required": true
+            },
+            "review_status": "unreviewed"
+        })));
+    assert!(value["projection"]["audit_trace"]["represented_ids"]
+        .as_array()
+        .expect("audit represented ids")
+        .contains(&json!("morphism:lift-ddd-sales-billing-demo")));
+}
+
+#[test]
+fn ddd_review_writes_output_file_without_stdout() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp test directory");
+    let output_path = directory.join("ddd-review.report.json");
+    let fixture = ddd_review_input_fixture();
+
+    let output = run_cli(&[
+        "ddd",
+        "review",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+        "--output",
+        output_path.to_str().expect("temp path should be utf-8"),
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+    assert!(stderr(&output).is_empty());
+
+    let text = fs::read_to_string(&output_path).expect("read JSON report file");
+    let value: Value = serde_json::from_str(&text).expect("file should be JSON");
+    assert_eq!(value["schema"], json!(DDD_REVIEW_REPORT_SCHEMA));
+    assert_eq!(
+        value["metadata"]["command"],
+        json!("highergraphen ddd review")
+    );
 
     fs::remove_dir_all(directory).expect("remove temp test directory");
 }
@@ -3727,6 +3846,18 @@ fn pr_review_target_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/pr-review-target.input.example.json")
+}
+
+fn ddd_review_input_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/inputs/ddd-review.input.example.json")
+}
+
+fn ddd_case_space_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json")
 }
 
 fn test_gap_fixture() -> PathBuf {

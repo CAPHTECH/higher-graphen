@@ -16,6 +16,14 @@ pub(crate) enum Command {
         input: PathBuf,
         output: Option<PathBuf>,
     },
+    DddInputFromCaseSpace {
+        case_space: PathBuf,
+        output: Option<PathBuf>,
+    },
+    DddReview {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
     PrReviewInputFromGit {
         repo: PathBuf,
         base: String,
@@ -136,6 +144,8 @@ impl Command {
             Self::ArchitectureSmokeDirectDbAccess { output }
             | Self::ArchitectureInputLift { output, .. }
             | Self::FeedReaderRun { output, .. }
+            | Self::DddInputFromCaseSpace { output, .. }
+            | Self::DddReview { output, .. }
             | Self::PrReviewInputFromGit { output, .. }
             | Self::PrReviewTargetsRecommend { output, .. }
             | Self::TestGapInputFromGit { output, .. }

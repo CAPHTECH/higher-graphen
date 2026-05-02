@@ -17,8 +17,25 @@
     "description": "Review whether a shared Customer model can preserve Sales and Billing semantics."
   },
   "source_boundary": {
+    "id": "source_boundary:ddd-sales-billing-demo",
     "input_paths": [
       "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json"
+    ],
+    "included_sources": [
+      "examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json",
+      "evidence:workshop-notes",
+      "semantic_case:customer-identity-loss"
+    ],
+    "excluded_sources": [
+      "CaseGraphen store replay",
+      "full MorphismLog history",
+      "source code",
+      "ADRs",
+      "tickets",
+      "tests"
+    ],
+    "adapters": [
+      "casegraphen_case_space.v1"
     ],
     "accepted_fact_boundaries": [
       "source_backed",
@@ -36,6 +53,46 @@
       "Native CaseSpace records are summarized into a bounded DDD review snapshot.",
       "Implementation projection details are represented only by stable IDs and loss notes."
     ]
+  },
+  "lift_morphism": {
+    "id": "morphism:lift-ddd-sales-billing-demo",
+    "morphism_type": "source_to_ddd_review_space",
+    "source_boundary_id": "source_boundary:ddd-sales-billing-demo",
+    "source_schema": "highergraphen.case.space.v1",
+    "target_space_id": "space:ddd-review:ddd-sales-billing-demo",
+    "adapter_ids": [
+      "casegraphen_case_space.v1"
+    ],
+    "preserved_ids": [
+      "context:sales",
+      "context:billing",
+      "decision:unified-customer-model",
+      "semantic_case:customer-identity-loss",
+      "evidence:workshop-notes",
+      "constraint:accepted-equivalence-required",
+      "review:domain-model-acceptance",
+      "completion:missing-sales-billing-acl"
+    ],
+    "inferred_ids": [
+      "evidence:customer-equivalence-proof"
+    ],
+    "information_loss": [
+      "Native CaseSpace records are summarized into DDD review records.",
+      "Store replay, historical morphisms, and external implementation evidence are not read."
+    ]
+  },
+  "operation_gate": {
+    "actor_id": "actor:highergraphen-cli",
+    "operation": "ddd_review",
+    "operation_scope_id": "space:ddd-review:ddd-sales-billing-demo",
+    "audience": "audit",
+    "capability_ids": [
+      "capability:highergraphen-cli:ddd-review"
+    ],
+    "policy_ids": [
+      "policy:ddd-review-source-boundary"
+    ],
+    "source_boundary_id": "source_boundary:ddd-sales-billing-demo"
   },
   "accepted_facts": [
     {
