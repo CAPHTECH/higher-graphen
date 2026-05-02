@@ -17,6 +17,7 @@ The design extends the current baseline and workflow contracts:
 - [`casegraphen-current-surface-inventory.md`](casegraphen-current-surface-inventory.md)
 - [`casegraphen-workflow-contracts.md`](casegraphen-workflow-contracts.md)
 - [`casegraphen-feature-completion-contract.md`](casegraphen-feature-completion-contract.md)
+- [`../../guides/product-integration-for-ai-agents.md`](../../guides/product-integration-for-ai-agents.md)
 
 ## Purpose And Non-Goals
 
@@ -53,7 +54,93 @@ Explicit non-goals:
 - Treating missing coverage, blocked cells, obstructions, or unreviewed
   completion candidates as tool failures. They are successful domain findings.
 
+## Product Integration Alignment
+
+Native CaseGraphen follows the product-integration pipeline defined in
+[`product-integration-for-ai-agents.md`](../../guides/product-integration-for-ai-agents.md).
+The native product object is not a task list, report, or UI state. It is a
+bounded case world lifted into HigherGraphen-compatible structure.
+
+Mapping:
+
+| Product integration concept | Native CaseGraphen target |
+| --- | --- |
+| Bounded source snapshot | `CaseSourceBoundary` contract, encoded in v1 under `CaseSpace.metadata.source_boundary`. |
+| `Space` | `CaseSpace`. |
+| `Cell` | `CaseCell`. |
+| Incidence | `CaseRelation`. |
+| `Context` | Context cells or external HigherGraphen context refs, represented in v1 by `custom:context`, `external_ref`, and context relations. |
+| `Morphism` | `CaseMorphism` plus append-only `MorphismLog`. |
+| `Invariant` | Readiness, close, evidence, projection, policy, and morphism-preservation rules. |
+| `Obstruction` | Derived obstruction reports or durable obstruction cells when the obstruction itself must be tracked. |
+| `CompletionCandidate` | Completion cells, generated completion report records, and review morphisms. |
+| Evidence and witness | Evidence cells, evidence relations, provenance, and generated core-extension `Witness` records. |
+| Review boundary | Review cells, review morphisms, `ReviewStatus`, and explicit accept/reject/reopen/waive transitions. |
+| Projection | Named projection records with represented IDs, omitted IDs, information loss, and allowed operations. |
+| Policy and capability | Close policies, projection operation gates, supplied core-extension `Policy`/`Capability` records, and generated decision-gate extensions. |
+
+This alignment changes the modeling priority:
+
+```text
+source material
+  -> CaseSourceBoundary
+  -> CaseSpace
+  -> CaseCell / CaseRelation / context refs
+  -> CaseMorphism and MorphismLog
+  -> derived readiness, obstructions, completions, evidence, review gaps
+  -> projections and allowed operations
+```
+
+Reports and CLI outputs are projections over the replayed case space. They must
+not become the source of truth.
+
 ## Conceptual Model
+
+### CaseSourceBoundary
+
+`CaseSourceBoundary` defines what the native case space is allowed to treat as
+accepted input. It is required as a product concept and as a v1 validation
+contract even though the current schema stores it in `metadata`.
+
+In `highergraphen.case.space.v1`, the recommended encoding is:
+
+```json
+{
+  "metadata": {
+    "source_boundary": {
+      "id": "source_boundary:example",
+      "included_sources": [],
+      "excluded_sources": [],
+      "adapters": [],
+      "accepted_fact_policy": "Only records supplied by the input file, import adapter, or reviewed morphism are accepted input facts.",
+      "inference_policy": "AI or heuristic records start unreviewed unless review-promoted.",
+      "information_loss": []
+    }
+  }
+}
+```
+
+Fields:
+
+| Field | Contract |
+| --- | --- |
+| `id` | Stable source-boundary ID used by operation gates to prove the operation is bound to the same lifted source snapshot. |
+| `included_sources` | Source IDs, paths, commands, case IDs, workflow graph IDs, or external systems included in the bounded snapshot. |
+| `excluded_sources` | Known omitted sources or scopes. Absence from the snapshot is not evidence of absence in the real world. |
+| `adapters` | Importers or deterministic adapters that produced accepted records, such as `native.case.import.v1`, `workflow.graph.import.v1`, `cg.workspace.snapshot.v1`, or `manual.review.v1`. |
+| `accepted_fact_policy` | Rule for which records may be treated as accepted input facts. |
+| `inference_policy` | Rule for AI-generated, heuristic, or derived records. |
+| `information_loss` | Source text, events, payload fields, review detail, or external state omitted or summarized during the lift. |
+
+Native `case new` creates an empty case universe and records a minimal source
+boundary. Native `case import` and workflow migration inputs must record the
+input file, source schema, source revision or workflow graph ID, adapter name,
+and import loss. Native validation rejects case spaces whose top-level
+`metadata.source_boundary` is missing or underspecified, and the first
+`MorphismLogEntry` must preserve the lift boundary in
+`morphism.metadata.source_boundary` with `morphism.metadata.lift_semantics`.
+A future v2 schema may promote `source_boundary` from metadata into a
+first-class `CaseSpace` field.
 
 ### CaseSpace
 
@@ -72,7 +159,7 @@ Required fields:
 | `case_relations` | Typed incidences between cells and stable external HigherGraphen structures. |
 | `revision` | Current materialized revision derived from the log. |
 | `close_policy_id` | Optional policy selecting close invariants. |
-| `metadata` | Downstream-owned object with no required semantics. |
+| `metadata` | Downstream-owned object. In v1, native CaseGraphen reserves `metadata.source_boundary` and `metadata.higher_graphen_extensions` as documented integration contracts. |
 
 The materialized `CaseSpace` is a replay result, not the source of truth. The
 source of truth is the ordered `MorphismLog`.
@@ -99,6 +186,7 @@ cell type, not the organizing abstraction.
 | `revision` | Materialized replay point. |
 | `morphism` | First-class reference to a transformation recorded in the log. |
 | `external_ref` | Stable pointer to external structures when a full cell is not owned here. |
+| `custom:context` | v1-compatible context cell for local vocabulary, review scope, policy scope, source boundary, or projection scope. A future v2 schema may add a first-class `context` value. |
 | `custom:<extension>` | Extension cell type, valid only when the schema explicitly preserves its metadata. |
 
 Common fields:
@@ -147,10 +235,23 @@ Core relation types:
 - `accepts`
 - `rejects`
 - `supersedes`
+- `custom:in_context`
+- `custom:governed_by_policy`
+- `custom:allowed_by_capability`
+- `custom:source_boundary_of`
 
 Relations may be `hard`, `soft`, or `diagnostic`. Only hard relations can block
 readiness or closure by default. Soft and diagnostic relations can emit
 warnings, review recommendations, or transfer hints without changing readiness.
+
+Context modeling in v1 should use one of these patterns:
+
+| Need | v1 encoding | v2 direction |
+| --- | --- | --- |
+| A local vocabulary or review scope is owned by the native case space. | `CaseCell` with `cell_type: "custom:context"` plus `custom:in_context` relations. | First-class `context` cell type. |
+| The context already exists in HigherGraphen structure. | `external_ref` cell or `structure_ids` pointing at the external context ID. | Explicit `context_refs` field or relation target policy. |
+| A projection hides or collapses contexts. | `Projection.information_loss` names represented and omitted context IDs. | Projection contract remains first-class. |
+| A policy applies only in one scope. | Policy ID in `close_policy_id`, core-extension `Policy`, or `custom:governed_by_policy` relation. | First-class policy/capability gate records. |
 
 ### CaseMorphism
 
@@ -163,7 +264,7 @@ Required fields:
 | Field | Contract |
 | --- | --- |
 | `morphism_id` | Stable ID. |
-| `morphism_type` | `create`, `update`, `retire`, `relate`, `unrelate`, `review`, `evidence_attach`, `completion_accept`, `completion_reject`, `projection`, `migration`, `close`, or `custom:<extension>`. |
+| `morphism_type` | `create`, `update`, `retire`, `relate`, `unrelate`, `review`, `evidence_attach`, `completion_accept`, `completion_reject`, `projection`, `migration`, `close`, or `custom:<extension>`. Use `create`, `migration`, or `custom:lift` to record source-snapshot-to-case-space lifts in v1. |
 | `source_revision_id` | Revision the morphism applies to, or `null` for genesis. |
 | `target_revision_id` | Revision produced by replaying the morphism. |
 | `added_ids` | Cell or relation IDs added. |
@@ -179,6 +280,24 @@ Required fields:
 A valid morphism is not automatically applied. Application requires appending
 it to the `MorphismLog`. A generated morphism must remain `unreviewed` until an
 explicit review morphism accepts or rejects it.
+
+The first materializing morphism in a case space should be interpreted as a
+lift morphism from a bounded source snapshot into a native case universe. In
+v1, this can be represented as:
+
+- `morphism_type: "create"` for empty `case new`;
+- `morphism_type: "migration"` for workflow graph or external case imports;
+- `morphism_type: "custom:lift"` when a downstream integration needs to make
+  the lift explicit without waiting for a v2 enum.
+
+Lift morphism metadata should preserve:
+
+- `source_boundary_id` or inline `source_boundary` summary;
+- source schema and source revision or snapshot ID;
+- adapter name and version;
+- preserved source IDs and lost source fields;
+- generated cell and relation IDs;
+- review status of any AI-created or heuristic structures.
 
 ### MorphismLog
 
@@ -226,6 +345,52 @@ truth, review status, evidence status, or readiness. It reports:
 - source IDs required to interpret the view;
 - warnings when the projection hides blockers, unreviewed inference, or close
   invariant failures.
+
+`allowed_operations` is an operation view, not authorization by itself. A
+projection may state that a view exposes `inspect`, `propose_morphism`, or
+`accept_completion`, but the operation is executable only when policy and
+capability gates allow it.
+
+## Policy And Capability Gates
+
+CaseGraphen is an agent-operated product surface. Operations that mutate,
+approve, export, close, or otherwise change durable case state must be gated by
+policy and capability, not by projection visibility alone.
+
+Current native close-check enforces this at the package API boundary by adding
+`close:native-policy-capability-gate`: a close attempt must select a close
+policy, name operation source evidence, and carry a first-class operation gate.
+The gate binds `actor_id`, `operation`, `operation_scope_id`, `audience`,
+`capability_ids`, and `source_boundary_id`. The close-check gate passes only
+when the operation is `close-check`, the scope matches the case space, the
+audience is `audit` or `system`, at least one capability is named, and the
+gate source-boundary ID matches the lifted case-space source boundary.
+
+Minimum operation gates:
+
+| Operation | Gate |
+| --- | --- |
+| Inspect a case space | Projection permits the view, and no policy blocks the audience. |
+| Propose a morphism | Actor has capability to propose against the target revision and source boundary. |
+| Apply a morphism | Morphism check passes, base revision matches, required review exists, and policy permits the mutation. |
+| Reject a morphism | Actor has review capability for the morphism target. |
+| Accept/reject/reopen a completion | Completion review policy permits the action, reviewer is recorded, and linked evidence or decision IDs satisfy the rule. |
+| Close a case space | Close-check passes, close policy is selected, validation evidence is named, and actor has close capability. |
+| Export a projection | Projection audience is allowed, information loss is declared, and source boundary permits export. |
+
+In v1, gates may be represented by:
+
+- `close_policy_id`;
+- core-extension `Policy` and `Capability` records under
+  `metadata.higher_graphen_extensions`;
+- generated `core_extensions` in close-check, morphism-check, and workflow
+  reports;
+- `custom:governed_by_policy` and `custom:allowed_by_capability` relations;
+- explicit review morphisms naming reviewer, reason, evidence, and decisions.
+
+Generated capabilities are explanatory unless a supplied policy or review
+workflow consumes them. A report that says an operation is visible or suggested
+must not imply that it has been authorized.
 
 ## Derived Readiness, Frontier, And Blockers
 
@@ -386,12 +551,17 @@ Default close invariants:
    rejected, or explicitly deferred by review.
 6. Required projections disclose represented IDs, omitted IDs, and information
    loss.
-7. The case-space revision being closed matches the caller's `base_revision`.
-8. Storage replay from `MorphismLog` produces the same revision checksum as the
+7. The case-space source boundary is declared and any excluded source scopes
+   relevant to closeability are either represented as projection loss,
+   reviewed waivers, or explicit residual risk.
+8. The actor or workflow attempting closure is allowed by the selected close
+   policy and capability gate.
+9. The case-space revision being closed matches the caller's `base_revision`.
+10. Storage replay from `MorphismLog` produces the same revision checksum as the
    close-check input.
-9. Migration bridges, if used, have recorded their source revision or snapshot
+11. Migration bridges, if used, have recorded their source revision or snapshot
    IDs.
-10. The close morphism names evidence for the validation commands used at close
+12. The close morphism names evidence for the validation commands used at close
     time.
 
 Close-check results are domain reports:
@@ -603,7 +773,7 @@ Mapping:
 
 | Current workflow record | Native target |
 | --- | --- |
-| `WorkflowCaseGraph` | Imported `CaseSpace` revision plus migration morphism. |
+| `WorkflowCaseGraph` | Imported `CaseSpace` revision plus migration or lift morphism. |
 | `WorkItem` | `CaseCell` with `cell_type` mapped from `item_type`. |
 | `WorkflowRelation` | `CaseRelation`. |
 | `ReadinessRule` | Readiness policy cell or relation constraint. |
@@ -614,6 +784,7 @@ Mapping:
 | `ProjectionProfile` | Projection `CaseCell` or projection request. |
 | `CorrespondenceRecord` | Correspondence relation or diagnostic cell. |
 | workflow history entry | `MorphismLog` migration/import entry and revision record. |
+| workflow metadata/source records | `CaseSpace.metadata.source_boundary`, source-boundary cells, or source-boundary relations. |
 
 The existing `casegraphen cg workflow ...` bridge remains a compatibility
 bridge while native case management is built. Its purpose is to import,
@@ -623,15 +794,19 @@ semantics are the native product model.
 
 Migration sequence:
 
-1. Import a current workflow graph into a native store as a genesis migration
-   morphism.
-2. Replay the imported cells and relations into a native `CaseSpace`.
-3. Preserve source workflow graph ID, revision ID, store path, and report IDs
-   in migration metadata.
-4. Run native validation and readiness projections.
-5. Compare native reports against current workflow reports until parity is
+1. Build a `CaseSourceBoundary` from the workflow graph, store path, source
+   schema, source revision, projection loss, and imported adapter.
+2. Import a current workflow graph into a native store as a genesis migration
+   or lift morphism.
+3. Replay the imported cells, relations, contexts, and source-boundary records
+   into a native `CaseSpace`.
+4. Preserve source workflow graph ID, revision ID, store path, report IDs,
+   accepted input facts, inferred records, and import loss in migration
+   metadata.
+5. Run native validation, readiness projections, and policy/capability gates.
+6. Compare native reports against current workflow reports until parity is
    sufficient.
-6. Move operator docs from `casegraphen cg workflow ...` bridge commands to
+7. Move operator docs from `casegraphen cg workflow ...` bridge commands to
    native `casegraphen case ...` and `casegraphen morphism ...` commands;
    include `casegraphen review ...` only after that planned command surface is
    implemented.
@@ -640,13 +815,20 @@ Migration sequence:
 
 Verification layers:
 
+- source-boundary tests proving included/excluded sources and lift information
+  loss survive import, replay, projection, and close-check;
 - schema validation for native case space, cell, relation, morphism, log entry,
   projection, and close-check records;
 - replay determinism tests from `MorphismLog` to `CaseSpace`;
+- context modeling tests proving local context relations or external context
+  references are preserved and disclosed in projection loss when omitted;
 - readiness projection tests proving ready/frontier/blocker values are derived,
   not stored;
 - evidence-boundary tests proving unreviewed inference cannot satisfy hard
   evidence requirements;
+- policy/capability gate tests proving projected allowed operations are not
+  treated as authorization, and blocked supplied core extensions make
+  close-check not closeable or morphism-check not applicable;
 - completion review tests proving generated completions start unreviewed and
   change only through review morphisms;
 - morphism check/apply/reject tests with stale-revision and invariant failure
@@ -719,6 +901,11 @@ release gate run on 2026-04-26 passed `cargo fmt --all --check`,
 
 - The native model is more general than the current workflow graph; migration
   needs parity tests to avoid losing current operator behavior.
+- Source-boundary metadata is a v1 compatibility encoding. If downstream
+  integrations rely on it heavily, v2 should promote it into a first-class
+  field instead of leaving it in metadata.
+- Context modeling through `custom:context` and custom relations is compatible
+  with v1 but less self-documenting than a first-class native context record.
 - Derived readiness is safer than stored readiness but requires deterministic
   replay and clear policy versioning.
 - Completion and evidence review semantics can become noisy unless projections
@@ -731,5 +918,8 @@ release gate run on 2026-04-26 passed `cargo fmt --all --check`,
   `casegraphen cg workflow ...`.
 - Close invariants are policy-sensitive; early implementation should keep the
   default policy strict and make waivers explicit review morphisms.
+- Projection `allowed_operations` can be misread as authorization unless
+  policy/capability gates remain explicit in docs, schemas, examples, and
+  skills.
 - Store layout and package APIs should be treated as target contracts until the
   implementation tasks prove them with schemas, tests, and reference fixtures.

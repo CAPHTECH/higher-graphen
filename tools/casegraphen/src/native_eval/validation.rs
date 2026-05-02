@@ -1,14 +1,16 @@
 use super::{NativeEvalError, NativeEvalResult, NativeEvalViolation, NativeEvalViolationCode};
 use crate::native_model::{
-    CaseSpace, NATIVE_CASE_SPACE_SCHEMA, NATIVE_CASE_SPACE_SCHEMA_VERSION,
+    CaseMorphismType, CaseSpace, NATIVE_CASE_SPACE_SCHEMA, NATIVE_CASE_SPACE_SCHEMA_VERSION,
     NATIVE_MORPHISM_LOG_ENTRY_SCHEMA,
 };
 use higher_graphen_core::Id;
+use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
 pub fn validate_native_case_space(case_space: &CaseSpace) -> NativeEvalResult<()> {
     let mut violations = Vec::new();
     validate_schema(case_space, &mut violations);
+    validate_source_boundary(case_space, &mut violations);
     let ids = collect_declared_ids(case_space, &mut violations);
     validate_relation_references(case_space, &ids, &mut violations);
     validate_projection_references(case_space, &ids, &mut violations);
@@ -182,6 +184,15 @@ fn validate_schema(case_space: &CaseSpace, violations: &mut Vec<NativeEvalViolat
     }
 }
 
+fn validate_source_boundary(case_space: &CaseSpace, violations: &mut Vec<NativeEvalViolation>) {
+    validate_source_boundary_value(
+        case_space.metadata.get("source_boundary"),
+        &case_space.case_space_id,
+        "metadata.source_boundary",
+        violations,
+    );
+}
+
 fn validate_morphism_log(
     case_space: &CaseSpace,
     ids: &BTreeSet<Id>,
@@ -314,6 +325,193 @@ fn validate_morphism_contract(
             Some(&entry.entry_id),
             "source_revision_id",
             "morphism source revision must equal the previous log target revision",
+        );
+    }
+    if previous_target_revision_id.is_none() {
+        validate_lift_morphism_metadata(entry, violations);
+    }
+}
+
+fn validate_lift_morphism_metadata(
+    entry: &crate::native_model::MorphismLogEntry,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    let is_lift_like = match &entry.morphism.morphism_type {
+        CaseMorphismType::Create | CaseMorphismType::Migration => true,
+        CaseMorphismType::Custom(extension) => extension == "lift",
+        _ => false,
+    };
+    if !is_lift_like {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::InvalidMorphism,
+            Some(&entry.entry_id),
+            "morphism.morphism_type",
+            "first native morphism must be create, migration, or custom:lift",
+        );
+    }
+    let lift_semantics = entry
+        .morphism
+        .metadata
+        .get("lift_semantics")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    if !lift_semantics {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(&entry.entry_id),
+            "morphism.metadata.lift_semantics",
+            "first native morphism must declare lift_semantics",
+        );
+    }
+    validate_source_boundary_value(
+        entry.morphism.metadata.get("source_boundary"),
+        &entry.entry_id,
+        "morphism.metadata.source_boundary",
+        violations,
+    );
+}
+
+fn validate_source_boundary_value(
+    value: Option<&Value>,
+    record_id: &Id,
+    field_prefix: &str,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    let Some(value) = value else {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            field_prefix,
+            "native case spaces must declare a bounded source boundary",
+        );
+        return;
+    };
+    let Some(boundary) = value.as_object() else {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            field_prefix,
+            "source boundary must be an object",
+        );
+        return;
+    };
+
+    require_id_string(boundary, "id", record_id, field_prefix, violations);
+    require_non_empty_array(
+        boundary,
+        "included_sources",
+        record_id,
+        field_prefix,
+        violations,
+    );
+    require_non_empty_array(boundary, "adapters", record_id, field_prefix, violations);
+    require_non_empty_string(
+        boundary,
+        "accepted_fact_policy",
+        record_id,
+        field_prefix,
+        violations,
+    );
+    require_non_empty_string(
+        boundary,
+        "inference_policy",
+        record_id,
+        field_prefix,
+        violations,
+    );
+    require_array(
+        boundary,
+        "information_loss",
+        record_id,
+        field_prefix,
+        violations,
+    );
+}
+
+fn require_non_empty_array(
+    object: &Map<String, Value>,
+    key: &str,
+    record_id: &Id,
+    field_prefix: &str,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    if !object
+        .get(key)
+        .and_then(Value::as_array)
+        .is_some_and(|values| !values.is_empty())
+    {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            format!("{field_prefix}.{key}"),
+            "source boundary field must be a non-empty array",
+        );
+    }
+}
+
+fn require_array(
+    object: &Map<String, Value>,
+    key: &str,
+    record_id: &Id,
+    field_prefix: &str,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    if !object.get(key).and_then(Value::as_array).is_some() {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            format!("{field_prefix}.{key}"),
+            "source boundary field must be an array",
+        );
+    }
+}
+
+fn require_non_empty_string(
+    object: &Map<String, Value>,
+    key: &str,
+    record_id: &Id,
+    field_prefix: &str,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    if !object
+        .get(key)
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            format!("{field_prefix}.{key}"),
+            "source boundary field must be a non-empty string",
+        );
+    }
+}
+
+fn require_id_string(
+    object: &Map<String, Value>,
+    key: &str,
+    record_id: &Id,
+    field_prefix: &str,
+    violations: &mut Vec<NativeEvalViolation>,
+) {
+    let valid = object
+        .get(key)
+        .and_then(Value::as_str)
+        .is_some_and(|value| Id::new(value.to_owned()).is_ok());
+    if !valid {
+        push_violation(
+            violations,
+            NativeEvalViolationCode::EmptyRequiredField,
+            Some(record_id),
+            format!("{field_prefix}.{key}"),
+            "source boundary field must be a valid id string",
         );
     }
 }

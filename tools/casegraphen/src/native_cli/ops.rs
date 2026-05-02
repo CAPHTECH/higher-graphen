@@ -11,10 +11,10 @@ use crate::{
     native_eval::evaluate_native_case,
     native_model::{
         CaseCell, CaseCellLifecycle, CaseCellType, CaseMorphism, CaseMorphismType, CaseSpace,
-        MorphismLogEntry, ReviewAction, Revision, NATIVE_CASE_SPACE_SCHEMA,
+        MorphismLogEntry, ProjectionAudience, ReviewAction, Revision, NATIVE_CASE_SPACE_SCHEMA,
         NATIVE_CASE_SPACE_SCHEMA_VERSION, NATIVE_MORPHISM_LOG_ENTRY_SCHEMA,
     },
-    native_review::{check_native_close, NativeCloseCheckRequest},
+    native_review::{check_native_close, NativeCloseCheckRequest, NativeOperationGate},
     native_store::NativeCaseStore,
     topology::TopologyReportOptions,
 };
@@ -103,17 +103,20 @@ pub(super) fn case_close_check(
     case_space_id: &Id,
     base_revision_id: &Id,
     validation_evidence_ids: &[Id],
+    gate_options: NativeCloseGateOptions,
 ) -> Result<Value, NativeCliError> {
     let replay =
         NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
+    let operation_gate = close_operation_gate(&replay.case_space, gate_options)?;
     let check = check_native_close(
         &replay.case_space,
         NativeCloseCheckRequest {
-            close_policy_id: None,
+            close_policy_id: operation_gate.close_policy_id.clone(),
             base_revision_id: base_revision_id.clone(),
             declared_projection_loss_ids: Vec::new(),
             validation_evidence_ids: validation_evidence_ids.to_vec(),
             source_ids: validation_evidence_ids.to_vec(),
+            operation_gate: Some(operation_gate.gate),
         },
     )?;
     let core_extensions = native_close_check_extensions(&replay.case_space, &check);
@@ -121,6 +124,21 @@ pub(super) fn case_close_check(
         "casegraphen case close-check",
         native_close_check_result(check, core_extensions),
     ))
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct NativeCloseGateOptions {
+    pub(super) close_policy_id: Option<Id>,
+    pub(super) actor_id: Option<Id>,
+    pub(super) capability_ids: Vec<Id>,
+    pub(super) operation_scope_id: Option<Id>,
+    pub(super) audience: Option<ProjectionAudience>,
+    pub(super) source_boundary_id: Option<Id>,
+}
+
+struct ResolvedCloseGate {
+    close_policy_id: Option<Id>,
+    gate: NativeOperationGate,
 }
 
 pub(super) fn case_topology(
@@ -296,6 +314,17 @@ fn new_case_space(
         "morphism_log_entry:create:{}",
         path_segment(case_space_id)
     ))?;
+    let source_boundary = source_boundary_value(
+        Id::new(format!(
+            "source_boundary:{}",
+            path_segment(case_space_id)
+        ))?,
+        &[source_id.clone()],
+        &["native.case.new.v1"],
+        "native CLI source fields are accepted as explicit user input; inferred fields need review before close.",
+        "case new records no inferred facts beyond the requested identifiers and title.",
+        Vec::new(),
+    );
     let now = timestamp();
     let provenance = provenance(SourceKind::Human, ReviewStatus::Accepted);
     let entry = genesis_entry(GenesisEntryInput {
@@ -307,7 +336,10 @@ fn new_case_space(
         entry_id,
         recorded_at: &now,
         provenance: &provenance,
+        source_boundary: source_boundary.clone(),
     })?;
+    let mut metadata = Map::new();
+    metadata.insert("source_boundary".to_owned(), source_boundary);
     let mut case_space = CaseSpace {
         schema: NATIVE_CASE_SPACE_SCHEMA.to_owned(),
         schema_version: NATIVE_CASE_SPACE_SCHEMA_VERSION,
@@ -335,7 +367,7 @@ fn new_case_space(
             metadata: Map::new(),
         },
         close_policy_id: None,
-        metadata: Map::new(),
+        metadata,
     };
     case_space.revision.applied_entry_ids = vec![case_space.morphism_log[0].entry_id.clone()];
     case_space.revision.applied_morphism_ids = vec![case_space.morphism_log[0].morphism_id.clone()];
@@ -354,9 +386,23 @@ struct GenesisEntryInput<'a> {
     entry_id: Id,
     recorded_at: &'a str,
     provenance: &'a Provenance,
+    source_boundary: Value,
 }
 
 fn genesis_entry(input: GenesisEntryInput<'_>) -> Result<MorphismLogEntry, NativeCliError> {
+    let mut metadata = Map::new();
+    metadata.insert(
+        "lift_semantics".to_owned(),
+        json!("native_cli_request_to_case_space"),
+    );
+    metadata.insert(
+        "source_boundary_id".to_owned(),
+        json!(Id::new(format!(
+            "source_boundary:{}",
+            path_segment(input.case_space_id)
+        ))?),
+    );
+    metadata.insert("source_boundary".to_owned(), input.source_boundary);
     let morphism = CaseMorphism {
         morphism_id: input.morphism_id.clone(),
         morphism_type: CaseMorphismType::Create,
@@ -370,7 +416,7 @@ fn genesis_entry(input: GenesisEntryInput<'_>) -> Result<MorphismLogEntry, Nativ
         review_status: ReviewStatus::Accepted,
         evidence_ids: Vec::new(),
         source_ids: vec![input.source_id.clone()],
-        metadata: Map::new(),
+        metadata,
     };
     Ok(MorphismLogEntry {
         schema: NATIVE_MORPHISM_LOG_ENTRY_SCHEMA.to_owned(),
@@ -410,6 +456,78 @@ fn root_case_cell(
         provenance: provenance.clone(),
         metadata: Map::new(),
     }
+}
+
+fn source_boundary_value(
+    source_boundary_id: Id,
+    included_sources: &[Id],
+    adapters: &[&str],
+    accepted_fact_policy: &str,
+    inference_policy: &str,
+    information_loss: Vec<Value>,
+) -> Value {
+    json!({
+        "id": source_boundary_id,
+        "included_sources": included_sources,
+        "excluded_sources": [],
+        "adapters": adapters,
+        "accepted_fact_policy": accepted_fact_policy,
+        "inference_policy": inference_policy,
+        "information_loss": information_loss
+    })
+}
+
+fn close_operation_gate(
+    case_space: &CaseSpace,
+    options: NativeCloseGateOptions,
+) -> Result<ResolvedCloseGate, NativeCliError> {
+    let source_boundary_id = match options.source_boundary_id {
+        Some(id) => id,
+        None => declared_source_boundary_id(case_space).ok_or_else(|| {
+            NativeCliError::invalid(
+                "case space does not declare a source boundary id for close-check",
+            )
+        })?,
+    };
+    let actor_id = options
+        .actor_id
+        .unwrap_or_else(|| id_lossy("actor:casegraphen-cli"));
+    let capability_ids = if options.capability_ids.is_empty() {
+        vec![id_lossy("capability:casegraphen-cli:close-check")]
+    } else {
+        options.capability_ids
+    };
+    Ok(ResolvedCloseGate {
+        close_policy_id: options.close_policy_id,
+        gate: NativeOperationGate {
+            actor_id,
+            operation: "close-check".to_owned(),
+            operation_scope_id: options
+                .operation_scope_id
+                .unwrap_or_else(|| case_space.case_space_id.clone()),
+            audience: options.audience.unwrap_or(ProjectionAudience::Audit),
+            capability_ids,
+            source_boundary_id,
+        },
+    })
+}
+
+fn declared_source_boundary_id(case_space: &CaseSpace) -> Option<Id> {
+    case_space
+        .metadata
+        .get("source_boundary")
+        .and_then(Value::as_object)
+        .and_then(|boundary| boundary.get("id"))
+        .and_then(Value::as_str)
+        .and_then(|value| Id::new(value.to_owned()).ok())
+        .or_else(|| {
+            case_space
+                .morphism_log
+                .first()
+                .and_then(|entry| entry.morphism.metadata.get("source_boundary_id"))
+                .and_then(Value::as_str)
+                .and_then(|value| Id::new(value.to_owned()).ok())
+        })
 }
 
 fn retarget_latest_revision(

@@ -216,6 +216,66 @@ fn close_requires_validation_evidence_to_name_existing_evidence() {
 }
 
 #[test]
+fn close_reports_source_boundary_and_policy_capability_gate() {
+    let space = fixture_space();
+    let close = check_native_close(&space, close_request()).expect("close check");
+
+    assert!(close
+        .invariant_results
+        .iter()
+        .any(
+            |result| result.invariant_id == id("close:native-source-boundary-declared")
+                && result.passed
+        ));
+
+    let mut no_policy_space = space.clone();
+    no_policy_space.close_policy_id = None;
+    let blocked = check_native_close(
+        &no_policy_space,
+        NativeCloseCheckRequest {
+            close_policy_id: None,
+            source_ids: Vec::new(),
+            ..close_request_for(&no_policy_space)
+        },
+    )
+    .expect("close check");
+
+    let gate = blocked
+        .invariant_results
+        .iter()
+        .find(|result| result.invariant_id == id("close:native-policy-capability-gate"))
+        .expect("policy/capability gate invariant");
+    assert!(!gate.passed);
+    assert!(gate.witness_ids.contains(&id("case_space:review-fixture")));
+    assert!(gate.witness_ids.contains(&id("revision:fixture")));
+}
+
+#[test]
+fn close_operation_gate_must_match_scope_audience_and_source_boundary() {
+    let space = fixture_space();
+    let mut request = close_request();
+    request.operation_gate = Some(NativeOperationGate {
+        actor_id: id("actor:native-review-test"),
+        operation: "close".to_owned(),
+        operation_scope_id: id("case_space:other"),
+        audience: ProjectionAudience::AiAgent,
+        capability_ids: Vec::new(),
+        source_boundary_id: id("source_boundary:other"),
+    });
+
+    let blocked = check_native_close(&space, request).expect("close check");
+
+    let gate = blocked
+        .invariant_results
+        .iter()
+        .find(|result| result.invariant_id == id("close:native-policy-capability-gate"))
+        .expect("policy/capability gate invariant");
+    assert!(!gate.passed);
+    assert!(gate.witness_ids.contains(&id("case_space:other")));
+    assert!(gate.witness_ids.contains(&id("source_boundary:other")));
+}
+
+#[test]
 fn close_evidence_requirement_requires_evidence_cell() {
     let mut space = fixture_space();
     space.case_cells.push(cell(
@@ -464,6 +524,7 @@ fn fixture_space_with_completion() -> CaseSpace {
 }
 
 fn fixture_space() -> CaseSpace {
+    let source_boundary = source_boundary_metadata();
     let revision = Revision {
         revision_id: id("revision:fixture"),
         case_space_id: id("case_space:review-fixture"),
@@ -475,6 +536,13 @@ fn fixture_space() -> CaseSpace {
         source_ids: vec![id("source:test")],
         metadata: Map::new(),
     };
+    let mut morphism_metadata = Map::new();
+    morphism_metadata.insert("lift_semantics".to_owned(), json!("fixture_to_case_space"));
+    morphism_metadata.insert(
+        "source_boundary_id".to_owned(),
+        json!("source_boundary:review-fixture"),
+    );
+    morphism_metadata.insert("source_boundary".to_owned(), source_boundary.clone());
     let morphism = CaseMorphism {
         morphism_id: id("morphism:genesis"),
         morphism_type: CaseMorphismType::Create,
@@ -488,8 +556,10 @@ fn fixture_space() -> CaseSpace {
         review_status: ReviewStatus::Accepted,
         evidence_ids: Vec::new(),
         source_ids: vec![id("source:test")],
-        metadata: Map::new(),
+        metadata: morphism_metadata,
     };
+    let mut metadata = Map::new();
+    metadata.insert("source_boundary".to_owned(), source_boundary);
     CaseSpace {
         schema: NATIVE_CASE_SPACE_SCHEMA.to_owned(),
         schema_version: NATIVE_CASE_SPACE_SCHEMA_VERSION,
@@ -517,8 +587,20 @@ fn fixture_space() -> CaseSpace {
         projections: Vec::new(),
         revision,
         close_policy_id: Some(id("close_policy:native-default")),
-        metadata: Map::new(),
+        metadata,
     }
+}
+
+fn source_boundary_metadata() -> serde_json::Value {
+    json!({
+        "id": "source_boundary:review-fixture",
+        "included_sources": ["source:test"],
+        "excluded_sources": [],
+        "adapters": ["native.review.fixture.v1"],
+        "accepted_fact_policy": "fixture facts are accepted test input",
+        "inference_policy": "fixture makes no inferred claims",
+        "information_loss": []
+    })
 }
 
 fn generated_morphism(space: &CaseSpace, sequence: u64) -> MorphismLogEntry {
@@ -676,6 +758,14 @@ fn close_request() -> NativeCloseCheckRequest {
         declared_projection_loss_ids: Vec::new(),
         validation_evidence_ids: vec![id("source:test")],
         source_ids: vec![id("source:test")],
+        operation_gate: Some(NativeOperationGate {
+            actor_id: id("actor:native-review-test"),
+            operation: "close-check".to_owned(),
+            operation_scope_id: id("case_space:review-fixture"),
+            audience: ProjectionAudience::Audit,
+            capability_ids: vec![id("capability:native-review-test:close-check")],
+            source_boundary_id: id("source_boundary:review-fixture"),
+        }),
     }
 }
 

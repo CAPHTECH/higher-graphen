@@ -4,7 +4,7 @@ use crate::native_model::{
     NATIVE_CASE_SPACE_SCHEMA, NATIVE_CASE_SPACE_SCHEMA_VERSION, NATIVE_MORPHISM_LOG_ENTRY_SCHEMA,
 };
 use higher_graphen_core::{Provenance, SourceKind, SourceRef};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 const NATIVE_EXAMPLE: &str =
     include_str!("../../../../schemas/casegraphen/native.case.space.example.json");
@@ -436,7 +436,38 @@ fn materialized_revision_must_match_latest_log_checksum_and_case_space() {
     }));
 }
 
+#[test]
+fn case_space_source_boundary_is_required() {
+    let mut space = fixture_space();
+    space.metadata.remove("source_boundary");
+
+    let err = evaluate_native_case(&space).expect_err("missing source boundary");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::EmptyRequiredField
+            && violation.field == "metadata.source_boundary"
+    }));
+}
+
+#[test]
+fn genesis_morphism_must_preserve_lift_boundary() {
+    let mut space = fixture_space();
+    space.morphism_log[0].morphism.metadata.clear();
+
+    let err = evaluate_native_case(&space).expect_err("missing lift boundary");
+
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::EmptyRequiredField
+            && violation.field == "morphism.metadata.lift_semantics"
+    }));
+    assert!(err.violations.iter().any(|violation| {
+        violation.code == NativeEvalViolationCode::EmptyRequiredField
+            && violation.field == "morphism.metadata.source_boundary"
+    }));
+}
+
 fn fixture_space() -> CaseSpace {
+    let source_boundary = source_boundary_metadata();
     let revision = Revision {
         revision_id: id("revision:native-fixture-v1"),
         case_space_id: id("case_space:native-fixture"),
@@ -448,6 +479,13 @@ fn fixture_space() -> CaseSpace {
         source_ids: vec![id("source:test")],
         metadata: Map::new(),
     };
+    let mut morphism_metadata = Map::new();
+    morphism_metadata.insert("lift_semantics".to_owned(), json!("fixture_to_case_space"));
+    morphism_metadata.insert(
+        "source_boundary_id".to_owned(),
+        json!("source_boundary:native-fixture"),
+    );
+    morphism_metadata.insert("source_boundary".to_owned(), source_boundary.clone());
     let morphism = CaseMorphism {
         morphism_id: id("morphism:create-fixture"),
         morphism_type: CaseMorphismType::Create,
@@ -461,8 +499,10 @@ fn fixture_space() -> CaseSpace {
         review_status: ReviewStatus::Accepted,
         evidence_ids: Vec::new(),
         source_ids: vec![id("source:test")],
-        metadata: Map::new(),
+        metadata: morphism_metadata,
     };
+    let mut metadata = Map::new();
+    metadata.insert("source_boundary".to_owned(), source_boundary);
     CaseSpace {
         schema: NATIVE_CASE_SPACE_SCHEMA.to_owned(),
         schema_version: NATIVE_CASE_SPACE_SCHEMA_VERSION,
@@ -490,8 +530,20 @@ fn fixture_space() -> CaseSpace {
         projections: Vec::new(),
         revision,
         close_policy_id: Some(id("close_policy:native-default")),
-        metadata: Map::new(),
+        metadata,
     }
+}
+
+fn source_boundary_metadata() -> Value {
+    json!({
+        "id": "source_boundary:native-fixture",
+        "included_sources": ["source:test"],
+        "excluded_sources": [],
+        "adapters": ["native.fixture.v1"],
+        "accepted_fact_policy": "fixture facts are accepted test input",
+        "inference_policy": "fixture makes no inferred claims",
+        "information_loss": []
+    })
 }
 
 fn refresh_morphism(space: &mut CaseSpace) {

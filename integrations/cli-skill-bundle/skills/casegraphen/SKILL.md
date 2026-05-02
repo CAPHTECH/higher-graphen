@@ -126,6 +126,7 @@ casegraphen case completions --store <dir> --case-space-id <id> --format json
 casegraphen case evidence --store <dir> --case-space-id <id> --format json
 casegraphen case project --store <dir> --case-space-id <id> --format json
 casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
+casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --close-policy-id <policy_id> --actor-id <actor_id> --capability-id <capability_id> --operation-scope-id <case_space_id> --audience audit --source-boundary-id <source_boundary_id> --validation-evidence-id <evidence_id> --format json
 ```
 
 Propose, check, apply, or reject native morphisms:
@@ -151,6 +152,18 @@ candidate morphism metadata with generated scenario/schema/equivalence/valuation
 extensions. Blocked supplied extensions are reported in
 `core_extensions.validation`; they make close-check not closeable or morphism
 check not applicable without treating the JSON shape itself as invalid.
+
+Native case spaces must preserve their bounded source boundary. In v1, expect
+it under `metadata.source_boundary`; use it to distinguish accepted input facts
+from AI inference and to report import or projection loss. Treat initial
+`case new`, `case import`, and migration records as source-snapshot-to-CaseSpace
+lift morphisms, and expect the first morphism to carry
+`morphism.metadata.source_boundary` plus `morphism.metadata.lift_semantics`.
+Projection `allowed_operations` is only an operation view: mutating, approving,
+closing, or exporting still requires an explicit policy, capability, review, or
+close-check gate. Native close-check emits a first-class operation gate binding
+actor, capability, operation scope, audience, and source boundary; malformed or
+mismatched gates fail `close:native-policy-capability-gate`.
 
 ## Native Case Workflow
 

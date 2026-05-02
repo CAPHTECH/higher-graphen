@@ -1,4 +1,5 @@
-use super::NativeCliError;
+use super::{parse_projection_audience, NativeCliError};
+use crate::native_model::ProjectionAudience;
 use crate::topology::TopologyReportOptions;
 use higher_graphen_core::Id;
 use higher_graphen_structure::space::Dimension;
@@ -22,6 +23,12 @@ pub(super) struct NativeOptions {
     pub(super) base_revision_id: Option<Id>,
     pub(super) morphism_id: Option<Id>,
     pub(super) reviewer_id: Option<Id>,
+    pub(super) close_policy_id: Option<Id>,
+    pub(super) actor_id: Option<Id>,
+    pub(super) capability_ids: Vec<Id>,
+    pub(super) operation_scope_id: Option<Id>,
+    pub(super) audience: Option<ProjectionAudience>,
+    pub(super) source_boundary_id: Option<Id>,
     pub(super) title: Option<String>,
     pub(super) reason: Option<String>,
     pub(super) validation_evidence_ids: Vec<Id>,
@@ -73,6 +80,27 @@ impl NativeOptions {
                 }
                 Some("--reviewer-id") => {
                     options.reviewer_id = Some(require_id(&mut args, "--reviewer-id")?)
+                }
+                Some("--close-policy-id") => {
+                    options.close_policy_id = Some(require_id(&mut args, "--close-policy-id")?)
+                }
+                Some("--actor-id") => options.actor_id = Some(require_id(&mut args, "--actor-id")?),
+                Some("--capability-id") => options
+                    .capability_ids
+                    .push(require_id(&mut args, "--capability-id")?),
+                Some("--operation-scope-id") => {
+                    options.operation_scope_id =
+                        Some(require_id(&mut args, "--operation-scope-id")?)
+                }
+                Some("--audience") => {
+                    options.audience = Some(parse_projection_audience(&require_string(
+                        &mut args,
+                        "--audience",
+                    )?)?)
+                }
+                Some("--source-boundary-id") => {
+                    options.source_boundary_id =
+                        Some(require_id(&mut args, "--source-boundary-id")?)
                 }
                 Some("--title") => options.title = Some(require_string(&mut args, "--title")?),
                 Some("--reason") => options.reason = Some(require_string(&mut args, "--reason")?),

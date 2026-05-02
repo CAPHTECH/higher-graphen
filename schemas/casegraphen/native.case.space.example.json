@@ -243,7 +243,30 @@
           "source:native-design-doc"
         ],
         "metadata": {
-          "contract_only": true
+          "contract_only": true,
+          "lift_semantics": "source_snapshot_to_case_space",
+          "source_boundary_id": "source_boundary:native-case-management-contract",
+          "source_boundary": {
+            "id": "source_boundary:native-case-management-contract",
+            "included_sources": [
+              "docs/specs/intermediate-tools/casegraphen-native-case-management.md",
+              "schemas/casegraphen/native.case.space.schema.json",
+              "schemas/casegraphen/native.case.space.example.json",
+              "tools/casegraphen/src/native_model.rs"
+            ],
+            "excluded_sources": [
+              "external casegraphen reference workspace events",
+              "installed cg workspace cache"
+            ],
+            "adapters": [
+              "native.case.fixture.v1"
+            ],
+            "accepted_fact_policy": "Only records supplied by the native fixture or explicit review morphisms are accepted input facts.",
+            "inference_policy": "AI or heuristic records start unreviewed unless review-promoted.",
+            "information_loss": [
+              "Fixture summarizes implementation and test evidence instead of embedding full source files or cargo test output."
+            ]
+          }
         }
       },
       "actor_id": "actor:casegraphen-contract-author",
@@ -359,6 +382,27 @@
   },
   "close_policy_id": "close_policy:native-default",
   "metadata": {
-    "contract_status": "schema_and_api_only"
+    "contract_status": "schema_and_api_only",
+    "source_boundary": {
+      "id": "source_boundary:native-case-management-contract",
+      "included_sources": [
+        "docs/specs/intermediate-tools/casegraphen-native-case-management.md",
+        "schemas/casegraphen/native.case.space.schema.json",
+        "schemas/casegraphen/native.case.space.example.json",
+        "tools/casegraphen/src/native_model.rs"
+      ],
+      "excluded_sources": [
+        "external casegraphen reference workspace events",
+        "installed cg workspace cache"
+      ],
+      "adapters": [
+        "native.case.fixture.v1"
+      ],
+      "accepted_fact_policy": "Only records supplied by the native fixture or explicit review morphisms are accepted input facts.",
+      "inference_policy": "AI or heuristic records start unreviewed unless review-promoted.",
+      "information_loss": [
+        "Fixture summarizes implementation and test evidence instead of embedding full source files or cargo test output."
+      ]
+    }
   }
 }

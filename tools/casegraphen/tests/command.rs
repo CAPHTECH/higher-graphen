@@ -1946,6 +1946,18 @@ fn native_close_check_uses_metadata_core_extensions_as_close_gate() {
         value["result"]["core_extensions"]["validation"]["blocked_count"],
         json!(1)
     );
+    assert_eq!(
+        value["result"]["close_check"]["operation_gate"]["actor_id"],
+        json!("actor:casegraphen-cli")
+    );
+    assert_eq!(
+        value["result"]["close_check"]["operation_gate"]["audience"],
+        json!("audit")
+    );
+    assert_eq!(
+        value["result"]["close_check"]["operation_gate"]["source_boundary_id"],
+        json!("source_boundary:native-case-management-contract")
+    );
 }
 
 #[test]

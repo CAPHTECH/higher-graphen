@@ -1,3 +1,4 @@
+use crate::native_model::ProjectionAudience;
 use crate::native_store::{NativeCaseStore, NativeStoreError};
 use crate::topology::TopologyReportOptions;
 use higher_graphen_core::Id;
@@ -17,13 +18,13 @@ mod path_helpers;
 mod reporting;
 use ops::{
     case_close_check, case_import, case_new, case_reason, case_topology, case_topology_diff,
-    morphism_apply, morphism_check, morphism_propose, morphism_reject,
+    morphism_apply, morphism_check, morphism_propose, morphism_reject, NativeCloseGateOptions,
 };
 use options::{required_segment, NativeOptions};
 use reporting::report;
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum NativeCliCommand {
+pub(crate) enum NativeCliCommand {
     CaseNew {
         store: PathBuf,
         case_space_id: Id,
@@ -73,6 +74,7 @@ pub enum NativeCliCommand {
         case_space_id: Id,
         base_revision_id: Id,
         validation_evidence_ids: Vec<Id>,
+        gate_options: NativeCloseGateOptions,
         output: Option<PathBuf>,
     },
     CaseTopology {
@@ -238,12 +240,14 @@ impl NativeCliCommand {
                 case_space_id,
                 base_revision_id,
                 validation_evidence_ids,
+                gate_options,
                 ..
             } => case_close_check(
                 store,
                 case_space_id,
                 base_revision_id,
                 validation_evidence_ids,
+                gate_options.clone(),
             )?,
             Self::CaseTopology {
                 store,
@@ -390,6 +394,14 @@ impl NativeCliCommand {
                     .or(options.revision_id.clone())
                     .ok_or_else(|| NativeCliError::usage("--base-revision-id <id> is required"))?,
                 validation_evidence_ids: options.validation_evidence_ids,
+                gate_options: NativeCloseGateOptions {
+                    close_policy_id: options.close_policy_id,
+                    actor_id: options.actor_id,
+                    capability_ids: options.capability_ids,
+                    operation_scope_id: options.operation_scope_id,
+                    audience: options.audience,
+                    source_boundary_id: options.source_boundary_id,
+                },
                 output: options.output,
             }),
             _ => Err(NativeCliError::usage("unsupported native case command")),
@@ -483,6 +495,19 @@ impl NativeCliCommand {
             }),
             _ => Err(NativeCliError::usage("unsupported native morphism command")),
         }
+    }
+}
+
+pub(super) fn parse_projection_audience(value: &str) -> Result<ProjectionAudience, NativeCliError> {
+    match value {
+        "human_review" => Ok(ProjectionAudience::HumanReview),
+        "ai_agent" => Ok(ProjectionAudience::AiAgent),
+        "audit" => Ok(ProjectionAudience::Audit),
+        "system" => Ok(ProjectionAudience::System),
+        "migration" => Ok(ProjectionAudience::Migration),
+        _ => Err(NativeCliError::usage(format!(
+            "unsupported projection audience {value:?}"
+        ))),
     }
 }
 

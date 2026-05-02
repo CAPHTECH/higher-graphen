@@ -34,5 +34,6 @@ usage:
   casegraphen cg workflow patch apply|reject --store <dir> --workflow-graph-id <id> --transition-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--reviewed-at <text>] [--output <path>]
   casegraphen case history topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]] [--output <path>]
   casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]] [--output <path>]
+  casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <id> --format json [--close-policy-id <id>] [--actor-id <id>] [--capability-id <id> ...] [--operation-scope-id <id>] [--audience audit|system] [--source-boundary-id <id>] [--validation-evidence-id <id> ...] [--output <path>]
   casegraphen case new|import|list|inspect|history|replay|validate|reason|frontier|obstructions|completions|evidence|project|close-check ... --format json [--output <path>]
   casegraphen morphism propose|check|apply|reject ... --format json [--output <path>]

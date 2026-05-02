@@ -60,7 +60,7 @@
       "$ref": "#/$defs/id"
     },
     "metadata": {
-      "$ref": "#/$defs/metadata"
+      "$ref": "#/$defs/case_space_metadata"
     }
   },
   "$defs": {
@@ -70,6 +70,55 @@
     },
     "metadata": {
       "type": "object"
+    },
+    "case_space_metadata": {
+      "type": "object",
+      "required": [
+        "source_boundary"
+      ],
+      "properties": {
+        "source_boundary": {
+          "$ref": "#/$defs/source_boundary"
+        }
+      }
+    },
+    "source_boundary": {
+      "type": "object",
+      "required": [
+        "id",
+        "included_sources",
+        "adapters",
+        "accepted_fact_policy",
+        "inference_policy",
+        "information_loss"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "included_sources": {
+          "type": "array",
+          "minItems": 1
+        },
+        "excluded_sources": {
+          "type": "array"
+        },
+        "adapters": {
+          "type": "array",
+          "minItems": 1
+        },
+        "accepted_fact_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inference_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "information_loss": {
+          "type": "array"
+        }
+      }
     },
     "source_ref": {
       "type": "object",

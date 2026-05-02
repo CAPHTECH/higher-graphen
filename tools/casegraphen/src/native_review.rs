@@ -3,10 +3,11 @@ use crate::{
         evaluate_native_case, NativeCaseEvaluation, NativeCloseInvariantResult, NativeEvalError,
         NativeReviewGapType,
     },
-    native_model::{CaseCellType, CaseMorphism, CaseSpace, ReviewAction},
+    native_model::{CaseCellType, CaseMorphism, CaseSpace, ProjectionAudience, ReviewAction},
 };
 use higher_graphen_core::{Id, ReviewStatus};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod support;
@@ -46,6 +47,18 @@ pub struct NativeCloseCheckRequest {
     pub declared_projection_loss_ids: Vec<Id>,
     pub validation_evidence_ids: Vec<Id>,
     pub source_ids: Vec<Id>,
+    pub operation_gate: Option<NativeOperationGate>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeOperationGate {
+    pub actor_id: Id,
+    pub operation: String,
+    pub operation_scope_id: Id,
+    pub audience: ProjectionAudience,
+    pub capability_ids: Vec<Id>,
+    pub source_boundary_id: Id,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -56,6 +69,7 @@ pub struct NativeCloseCheck {
     pub revision_id: Id,
     pub close_policy_id: Option<Id>,
     pub closeable: bool,
+    pub operation_gate: Option<NativeOperationGate>,
     pub invariant_results: Vec<NativeCloseInvariantResult>,
     pub blocker_ids: Vec<Id>,
 }
@@ -192,6 +206,7 @@ pub fn check_native_close(
             .close_policy_id
             .or_else(|| case_space.close_policy_id.clone()),
         closeable: invariant_results.iter().all(|result| result.passed),
+        operation_gate: request.operation_gate,
         invariant_results,
         blocker_ids,
     })
@@ -205,11 +220,13 @@ fn close_invariants(
 ) -> Vec<NativeCloseInvariantResult> {
     vec![
         base_revision_invariant(case_space, request),
+        source_boundary_declared_invariant(case_space),
         hard_obstructions_invariant(evaluation, reviews),
         completions_reviewed_invariant(evaluation, reviews),
         morphisms_reviewed_invariant(evaluation, reviews),
         evidence_accepted_invariant(case_space, reviews),
         projection_loss_declared_invariant(request, evaluation, reviews),
+        policy_capability_gate_invariant(case_space, request),
         validation_evidence_invariant(case_space, request),
     ]
 }
@@ -246,6 +263,19 @@ fn hard_obstructions_invariant(
             .map(|obstruction| obstruction.id.clone())
             .collect(),
         "No unresolved high or critical hard obstruction may remain.",
+    )
+}
+
+fn source_boundary_declared_invariant(case_space: &CaseSpace) -> NativeCloseInvariantResult {
+    let witness_ids = if has_source_boundary(&case_space.metadata) {
+        Vec::new()
+    } else {
+        vec![case_space.case_space_id.clone()]
+    };
+    close_invariant(
+        "close:native-source-boundary-declared",
+        witness_ids,
+        "Close checks require a declared source boundary for the lifted case space.",
     )
 }
 
@@ -340,6 +370,101 @@ fn validation_evidence_invariant(
         witness_ids,
         "Close checks must name validation evidence for the exact revision.",
     )
+}
+
+fn policy_capability_gate_invariant(
+    case_space: &CaseSpace,
+    request: &NativeCloseCheckRequest,
+) -> NativeCloseInvariantResult {
+    let has_close_policy =
+        request.close_policy_id.is_some() || case_space.close_policy_id.is_some();
+    let has_operation_source = !request.source_ids.is_empty();
+    let mut witness_ids = Vec::new();
+    if !has_close_policy {
+        witness_ids.push(case_space.case_space_id.clone());
+    }
+    if !has_operation_source {
+        witness_ids.push(case_space.revision.revision_id.clone());
+    }
+    let Some(gate) = &request.operation_gate else {
+        witness_ids.push(case_space.case_space_id.clone());
+        return close_invariant(
+            "close:native-policy-capability-gate",
+            dedupe_ids(witness_ids),
+            "Close checks must include an operation gate with actor, capability, scope, audience, and source boundary.",
+        );
+    };
+    if gate.operation != "close-check" {
+        witness_ids.push(gate.actor_id.clone());
+    }
+    if gate.operation_scope_id != case_space.case_space_id {
+        witness_ids.push(gate.operation_scope_id.clone());
+        witness_ids.push(case_space.case_space_id.clone());
+    }
+    if !matches!(
+        gate.audience,
+        ProjectionAudience::Audit | ProjectionAudience::System
+    ) {
+        witness_ids.push(gate.actor_id.clone());
+    }
+    if gate.capability_ids.is_empty() {
+        witness_ids.push(gate.actor_id.clone());
+    }
+    if declared_source_boundary_id(case_space).as_ref() != Some(&gate.source_boundary_id) {
+        witness_ids.push(gate.source_boundary_id.clone());
+    }
+    close_invariant(
+        "close:native-policy-capability-gate",
+        dedupe_ids(witness_ids),
+        "Close checks must name a close policy, source evidence, and a matching operation gate for actor, capability, scope, audience, and source boundary.",
+    )
+}
+
+fn declared_source_boundary_id(case_space: &CaseSpace) -> Option<Id> {
+    source_boundary_id_from_value(case_space.metadata.get("source_boundary")).or_else(|| {
+        case_space
+            .morphism_log
+            .first()
+            .and_then(|entry| entry.morphism.metadata.get("source_boundary_id"))
+            .and_then(Value::as_str)
+            .and_then(|value| Id::new(value.to_owned()).ok())
+    })
+}
+
+fn source_boundary_id_from_value(value: Option<&Value>) -> Option<Id> {
+    value
+        .and_then(Value::as_object)
+        .and_then(|boundary| boundary.get("id"))
+        .and_then(Value::as_str)
+        .and_then(|value| Id::new(value.to_owned()).ok())
+}
+
+fn has_source_boundary(metadata: &serde_json::Map<String, Value>) -> bool {
+    metadata
+        .get("source_boundary")
+        .and_then(Value::as_object)
+        .is_some_and(|boundary| {
+            boundary
+                .get("included_sources")
+                .and_then(Value::as_array)
+                .is_some_and(|values| !values.is_empty())
+                && boundary
+                    .get("adapters")
+                    .and_then(Value::as_array)
+                    .is_some_and(|values| !values.is_empty())
+                && boundary
+                    .get("accepted_fact_policy")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty())
+                && boundary
+                    .get("inference_policy")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty())
+                && boundary
+                    .get("information_loss")
+                    .and_then(Value::as_array)
+                    .is_some()
+        })
 }
 
 fn require_review_request(

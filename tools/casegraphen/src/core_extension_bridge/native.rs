@@ -237,13 +237,27 @@ fn close_capability(
     check: &NativeCloseCheck,
     provenance: &Provenance,
 ) -> Capability {
+    let gate = check.operation_gate.as_ref();
     Capability {
-        id: generated_id("capability", &[check.check_id.as_str(), "close-check"]),
-        actor: generated_id("actor", &["casegraphen-cli"]),
+        id: gate
+            .and_then(|gate| gate.capability_ids.first().cloned())
+            .unwrap_or_else(|| {
+                generated_id("capability", &[check.check_id.as_str(), "close-check"])
+            }),
+        actor: gate
+            .map(|gate| gate.actor_id.clone())
+            .unwrap_or_else(|| generated_id("actor", &["casegraphen-cli"])),
         operation: CapabilityOperation::Read,
         target_type: "native_close_check".to_owned(),
         target_refs: vec![ObjectRef::new(check.check_id.clone())],
-        contexts: vec![case_space.case_space_id.clone()],
+        contexts: gate
+            .map(|gate| {
+                vec![
+                    gate.operation_scope_id.clone(),
+                    gate.source_boundary_id.clone(),
+                ]
+            })
+            .unwrap_or_else(|| vec![case_space.case_space_id.clone()]),
         preconditions: check
             .invariant_results
             .iter()
