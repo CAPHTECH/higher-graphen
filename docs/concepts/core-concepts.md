@@ -129,3 +129,105 @@ its confidence, and its review status.
 Provenance is required because HigherGraphen must distinguish observed facts,
 human claims, AI-generated inferences, and reviewed conclusions.
 
+## Equivalence Claim
+
+An Equivalence Claim is a reviewable claim that two or more structures may be
+treated as equivalent under declared criteria, scope, witnesses, and quotient
+effects.
+
+It is not a silent merge and it is not accepted identity by default. An
+equivalence claim remains a candidate until its scope, criteria, supporting
+witnesses, quotient losses, unresolved obstructions, provenance, and review
+state make acceptance safe.
+
+## Derivation
+
+A Derivation records how premises, inference rules, warrants, and verification
+produce a conclusion.
+
+Provenance answers where a structure came from. A derivation answers why a
+conclusion follows. It can record excluded premises, counterexamples,
+verification status, verifier identity, and failure modes such as missing
+premises, invalid rules, circular reasoning, or unsupported jumps.
+
+## Witness
+
+A Witness is observable support or contradiction for a structural judgment.
+
+Witnesses can support or refute claims, derivations, equivalence claims,
+constraint violations, invariant checks, and obstructions. A witness points to a
+payload such as a log entry, metric point, test result, code location, document
+excerpt, counterexample, human review, machine check result, or external
+reference. Its validity contexts and review status determine whether it may be
+used as accepted support.
+
+## Scenario
+
+A Scenario represents a hypothetical, reachable, blocked, counterfactual,
+planned, refuted, or accepted operational world relative to a base space.
+
+Scenarios let HigherGraphen compare actual, proposed, reachable, and what-if
+structures without confusing them with accepted current state. A scenario can
+record assumptions, changed structures, reachability, affected invariants,
+expected obstructions, required witnesses, valuations, provenance, and review
+state.
+
+## Capability
+
+A Capability records which actor can perform which operation on which target in
+which contexts.
+
+Capabilities are actor-specific operational permissions over structures. They
+can cover operations such as read, propose, modify, accept, reject, project,
+execute morphism, merge equivalence, create scenario, or approve a policy
+exception. Active use may require preconditions, postconditions, absence of
+forbidden effects, explicit review, and a valid time interval.
+
+## Policy
+
+A Policy is a system-wide or context-bound rule for permission, prohibition,
+obligation, review, projection safety, candidate acceptance, data boundaries, or
+escalation.
+
+Policies make operational and review constraints explicit instead of leaving
+them as informal prose. They define applicability, rules, required witnesses,
+required derivations, escalation paths, violation obstruction templates,
+provenance, and review state.
+
+## Valuation
+
+A Valuation records a value judgment about a structure, morphism, completion
+candidate, scenario, projection, or other target under an explicit evaluation
+context.
+
+Valuations are for comparing alternatives by criteria, evidence, ordering mode,
+and trade-offs. They are not substitutes for invariant satisfaction. They may
+use scalar scores, lexicographic order, partial order, Pareto frontiers,
+threshold acceptance, or qualitative ranking, and they can explicitly mark
+alternatives as incomparable.
+
+## Schema Morphism
+
+A Schema Morphism describes evolution between schemas, ontologies,
+interpretation packages, or report contracts.
+
+HigherGraphen structures are interpreted through models that can themselves
+change. Schema morphisms record source and target schemas, interpretation
+packages, mapping kind, individual mappings, affected objects, compatibility,
+verification, provenance, review state, and explicit loss claims. They prevent
+schema migration from being treated as an ordinary data mapping with no semantic
+or compatibility risk.
+
+## Core Extension Support Objects
+
+HigherGraphen v0.3.0 also exposes support objects used by the extension
+concepts above. These include object references, lifecycle states, review
+requirements, inference rules, verifiers, payload references, reachability
+records, scenario changes, validity intervals, policy rules, policy
+applicability, valuation criteria, trade-offs, schema mappings, and schema
+verification records.
+
+These support objects should be used when they carry validation, review,
+projection, or agent-operation meaning. They should not be added as decorative
+metadata.
+
