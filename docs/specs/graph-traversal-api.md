@@ -9,6 +9,7 @@ HigherGraphen packages often need to ask structural questions such as:
 
 - Can cell `A` reach cell `C` through typed incidences?
 - Which path witnesses the chain `A -> B -> C`?
+- Which simple directed cycles exist in the incidence graph?
 - Does a fixed layer pattern such as `Requirement -> Design -> Implementation`
   exist inside a space?
 - Where does traversal stop when the target is not reachable?
@@ -34,11 +35,12 @@ This is intentional:
 
 ## Public Surface
 
-`InMemorySpaceStore` exposes three traversal operations:
+`InMemorySpaceStore` exposes four traversal operations:
 
 ```rust
 store.reachable(&query) -> Result<ReachabilityResult>
 store.walk_paths(&query) -> Result<Vec<GraphPath>>
+store.find_simple_cycles(&space_id, &options) -> Result<Vec<SimpleCycleIndicator>>
 store.matches_path_pattern(&pattern) -> Result<Vec<PathPatternMatch>>
 ```
 
@@ -47,6 +49,11 @@ when the target is reachable.
 
 `walk_paths` returns simple paths between the query endpoints. It respects
 `TraversalOptions::max_depth` and `TraversalOptions::max_paths`.
+
+`find_simple_cycles` returns deterministic `SimpleCycleIndicator` witnesses for
+simple directed cycles over incidence `from_cell_id -> to_cell_id` edges. It is
+the incidence-graph counterpart to topology cycle reporting, which operates over
+chain-complex cells and boundaries.
 
 `matches_path_pattern` detects fixed, single-edge-per-layer chains. It is the
 API for questions like "does this space contain an `A -> B -> C` chain where
@@ -66,6 +73,10 @@ Undirected incidences can be traversed from either endpoint.
 
 `TraversalOptions::relation_types` filters incidences by relation type. An empty
 list accepts all relation types.
+
+`CycleSearchOptions::relation_types` uses the same relation-filter convention.
+`CycleSearchOptions::max_cycles` and `CycleSearchOptions::max_path_length` bound
+cycle enumeration for dense or adversarial incidence graphs.
 
 `ReachabilityResult` includes:
 
@@ -103,6 +114,23 @@ Requirement --maps_to--> Design --implements--> Implementation
 ```
 
 Each match returns both the `GraphPath` witness and the matched cell identifiers.
+
+## Cycle Search Example
+
+```rust
+let cycles = store.find_simple_cycles(
+    &space_id,
+    &CycleSearchOptions::new()
+        .with_relation_type("depends_on")
+        .with_max_cycles(32),
+)?;
+```
+
+Each returned `SimpleCycleIndicator` contains:
+
+- `witness_edge_id`: the closing incidence that completed the cycle
+- `vertex_cell_ids`: the canonical ordered cells in the cycle
+- `edge_cell_ids`: the path incidences plus the closing incidence
 
 ## Non-goals
 

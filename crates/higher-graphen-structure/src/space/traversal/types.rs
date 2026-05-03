@@ -113,6 +113,51 @@ impl ReachabilityQuery {
     }
 }
 
+/// Controls for incidence-induced directed cycle search.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CycleSearchOptions {
+    /// Optional allowed relation types. Empty means any relation type.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation_types: Vec<String>,
+    /// Optional maximum number of cycles returned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_cycles: Option<usize>,
+    /// Optional maximum number of incidences in a returned cycle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_path_length: Option<usize>,
+}
+
+impl CycleSearchOptions {
+    /// Creates cycle search options with no relation-type filter.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns these options with an allowed relation type appended.
+    #[must_use]
+    pub fn with_relation_type(mut self, relation_type: impl Into<String>) -> Self {
+        self.relation_types
+            .push(relation_type.into().trim().to_owned());
+        self
+    }
+
+    /// Returns these options with a maximum returned cycle count.
+    #[must_use]
+    pub fn with_max_cycles(mut self, max_cycles: usize) -> Self {
+        self.max_cycles = Some(max_cycles);
+        self
+    }
+
+    /// Returns these options with a maximum cycle length.
+    #[must_use]
+    pub fn with_max_path_length(mut self, max_path_length: usize) -> Self {
+        self.max_path_length = Some(max_path_length);
+        self
+    }
+}
+
 /// One traversed incidence in a graph path.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

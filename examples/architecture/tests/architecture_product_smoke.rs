@@ -14,7 +14,8 @@ use higher_graphen_reasoning::obstruction::{
     Counterexample, Obstruction, ObstructionExplanation, ObstructionType, RequiredResolution,
 };
 use higher_graphen_structure::space::{
-    Cell, Complex, ComplexType, InMemorySpaceStore, Incidence, IncidenceOrientation, Space,
+    Cell, Complex, ComplexType, CycleSearchOptions, InMemorySpaceStore, Incidence,
+    IncidenceOrientation, Space,
 };
 
 const ARCHITECTURE_SPACE: &str = "space:architecture-product-smoke";
@@ -83,6 +84,67 @@ fn order_service_to_billing_db_produces_obstruction_and_unreviewed_candidate() -
     assert_eq!(
         candidate.inferred_from,
         vec![id(DIRECT_DB_ACCESS_OBSTRUCTION), id(ORDER_READS_BILLING_DB),]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn architecture_dependency_cycle_is_detected_from_incidences() -> Result<()> {
+    let mut store = InMemorySpaceStore::new();
+    store.insert_space(Space::new(
+        id(ARCHITECTURE_SPACE),
+        "Architecture Product Cycle Smoke",
+    ))?;
+    for cell_id in [ORDER_SERVICE, BILLING_SERVICE, BILLING_STATUS_API_CELL] {
+        store.insert_cell(Cell::new(id(cell_id), id(ARCHITECTURE_SPACE), 0, "service"))?;
+    }
+    store.insert_incidence(Incidence::new(
+        id("incidence:order-service-depends-on-billing-service"),
+        id(ARCHITECTURE_SPACE),
+        id(ORDER_SERVICE),
+        id(BILLING_SERVICE),
+        "depends_on",
+        IncidenceOrientation::Directed,
+    ))?;
+    store.insert_incidence(Incidence::new(
+        id("incidence:billing-service-depends-on-billing-status-api"),
+        id(ARCHITECTURE_SPACE),
+        id(BILLING_SERVICE),
+        id(BILLING_STATUS_API_CELL),
+        "depends_on",
+        IncidenceOrientation::Directed,
+    ))?;
+    store.insert_incidence(Incidence::new(
+        id("incidence:billing-status-api-depends-on-order-service"),
+        id(ARCHITECTURE_SPACE),
+        id(BILLING_STATUS_API_CELL),
+        id(ORDER_SERVICE),
+        "depends_on",
+        IncidenceOrientation::Directed,
+    ))?;
+
+    let cycles = store.find_simple_cycles(
+        &id(ARCHITECTURE_SPACE),
+        &CycleSearchOptions::new().with_relation_type("depends_on"),
+    )?;
+
+    assert_eq!(cycles.len(), 1);
+    assert_eq!(
+        cycles[0].vertex_cell_ids,
+        vec![
+            id(BILLING_SERVICE),
+            id(BILLING_STATUS_API_CELL),
+            id(ORDER_SERVICE)
+        ]
+    );
+    assert_eq!(
+        cycles[0].edge_cell_ids,
+        vec![
+            id("incidence:billing-service-depends-on-billing-status-api"),
+            id("incidence:billing-status-api-depends-on-order-service"),
+            id("incidence:order-service-depends-on-billing-service"),
+        ]
     );
 
     Ok(())

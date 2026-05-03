@@ -1,9 +1,10 @@
 use super::{
-    malformed, GraphPath, NormalizedCellPattern, NormalizedPathPattern,
-    NormalizedPathPatternSegment, NormalizedTraversalOptions, PathPattern, PathPatternMatch,
-    PathStep, ReachabilityQuery, ReachabilityResult, TraversalDirection,
+    malformed, CycleSearchOptions, GraphPath, NormalizedCellPattern, NormalizedCycleSearchOptions,
+    NormalizedPathPattern, NormalizedPathPatternSegment, NormalizedTraversalOptions, PathPattern,
+    PathPatternMatch, PathStep, ReachabilityQuery, ReachabilityResult, TraversalDirection,
 };
 use crate::space::{Cell, InMemorySpaceStore, Incidence, IncidenceOrientation};
+use crate::topology::SimpleCycleIndicator;
 use higher_graphen_core::{Id, Result};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -36,6 +37,18 @@ impl InMemorySpaceStore {
 
         let mut walker = PathWalker::new(self, query, &options, max_depth);
         Ok(walker.run())
+    }
+
+    /// Returns simple directed cycles over incidence `from_cell_id -> to_cell_id` edges.
+    pub fn find_simple_cycles(
+        &self,
+        space_id: &Id,
+        options: &CycleSearchOptions,
+    ) -> Result<Vec<SimpleCycleIndicator>> {
+        self.require_space(space_id)?;
+        let options = NormalizedCycleSearchOptions::try_from(options)?;
+        let mut search = SimpleCycleSearch::new(self, space_id, &options);
+        Ok(search.run())
     }
 
     /// Returns paths that satisfy a fixed layer-by-layer path pattern.
@@ -110,6 +123,146 @@ impl InMemorySpaceStore {
             .filter(|incidence| options.allows_relation(&incidence.relation_type))
             .filter_map(|incidence| step_from_incidence(current_cell_id, incidence, options))
             .collect()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CycleEdge {
+    incidence_id: Id,
+    to_cell_id: Id,
+}
+
+struct SimpleCycleSearch<'a> {
+    store: &'a InMemorySpaceStore,
+    space_id: &'a Id,
+    options: &'a NormalizedCycleSearchOptions,
+    adjacency: BTreeMap<Id, Vec<CycleEdge>>,
+    cycles: Vec<SimpleCycleIndicator>,
+    seen_cycles: BTreeSet<(Vec<Id>, Vec<Id>)>,
+}
+
+impl<'a> SimpleCycleSearch<'a> {
+    fn new(
+        store: &'a InMemorySpaceStore,
+        space_id: &'a Id,
+        options: &'a NormalizedCycleSearchOptions,
+    ) -> Self {
+        Self {
+            store,
+            space_id,
+            options,
+            adjacency: directed_adjacency(store, space_id, options),
+            cycles: Vec::new(),
+            seen_cycles: BTreeSet::new(),
+        }
+    }
+
+    fn run(&mut self) -> Vec<SimpleCycleIndicator> {
+        for start_cell_id in self.cell_ids() {
+            if self.has_enough_cycles() {
+                break;
+            }
+            let mut visited = BTreeSet::from([start_cell_id.clone()]);
+            self.visit(
+                &start_cell_id,
+                &start_cell_id,
+                &mut vec![start_cell_id.clone()],
+                &mut Vec::new(),
+                &mut visited,
+            );
+        }
+        self.cycles.clone()
+    }
+
+    fn cell_ids(&self) -> Vec<Id> {
+        let mut cell_ids = self
+            .store
+            .spaces
+            .get(self.space_id)
+            .map_or_else(Vec::new, |space| space.cell_ids.clone());
+        cell_ids.sort();
+        cell_ids
+    }
+
+    fn visit(
+        &mut self,
+        start_cell_id: &Id,
+        current_cell_id: &Id,
+        vertex_cell_ids: &mut Vec<Id>,
+        edge_cell_ids: &mut Vec<Id>,
+        visited: &mut BTreeSet<Id>,
+    ) {
+        if self.has_enough_cycles() {
+            return;
+        }
+
+        let outgoing_edges = self
+            .adjacency
+            .get(current_cell_id)
+            .cloned()
+            .unwrap_or_default();
+        for edge in outgoing_edges {
+            if self.has_enough_cycles() {
+                return;
+            }
+            let next_cycle_length = edge_cell_ids.len() + 1;
+            if self.exceeds_max_path_length(next_cycle_length) {
+                continue;
+            }
+            if &edge.to_cell_id == start_cell_id {
+                self.record_cycle(vertex_cell_ids, edge_cell_ids, edge.incidence_id);
+                continue;
+            }
+            if &edge.to_cell_id < start_cell_id || visited.contains(&edge.to_cell_id) {
+                continue;
+            }
+
+            visited.insert(edge.to_cell_id.clone());
+            vertex_cell_ids.push(edge.to_cell_id.clone());
+            edge_cell_ids.push(edge.incidence_id);
+            let next_cell_id = vertex_cell_ids.last().expect("just pushed vertex").clone();
+            self.visit(
+                start_cell_id,
+                &next_cell_id,
+                vertex_cell_ids,
+                edge_cell_ids,
+                visited,
+            );
+            let removed_cell_id = vertex_cell_ids.pop().expect("visited vertex should exist");
+            visited.remove(&removed_cell_id);
+            edge_cell_ids.pop();
+        }
+    }
+
+    fn record_cycle(
+        &mut self,
+        vertex_cell_ids: &[Id],
+        path_edge_cell_ids: &[Id],
+        witness_edge_id: Id,
+    ) {
+        let mut edge_cell_ids = path_edge_cell_ids.to_vec();
+        edge_cell_ids.push(witness_edge_id.clone());
+        let key = (vertex_cell_ids.to_vec(), edge_cell_ids.clone());
+        if !self.seen_cycles.insert(key) {
+            return;
+        }
+        self.cycles.push(SimpleCycleIndicator {
+            witness_edge_id,
+            vertex_cell_ids: vertex_cell_ids.to_vec(),
+            edge_cell_ids,
+        });
+    }
+
+    fn exceeds_max_path_length(&self, length: usize) -> bool {
+        self.options
+            .max_path_length
+            .is_some_and(|max_path_length| length > max_path_length)
+    }
+
+    fn has_enough_cycles(&self) -> bool {
+        self.options
+            .max_cycles
+            .is_some_and(|max_cycles| self.cycles.len() >= max_cycles)
     }
 }
 
@@ -376,6 +529,45 @@ fn undirected_next_cell_id(current_cell_id: &Id, incidence: &Incidence) -> Optio
     } else {
         None
     }
+}
+
+fn directed_adjacency(
+    store: &InMemorySpaceStore,
+    space_id: &Id,
+    options: &NormalizedCycleSearchOptions,
+) -> BTreeMap<Id, Vec<CycleEdge>> {
+    let Some(space) = store.spaces.get(space_id) else {
+        return BTreeMap::new();
+    };
+
+    let mut adjacency: BTreeMap<Id, Vec<CycleEdge>> = space
+        .cell_ids
+        .iter()
+        .map(|cell_id| (cell_id.clone(), Vec::new()))
+        .collect();
+    for incidence_id in &space.incidence_ids {
+        let Some(incidence) = store.incidences.get(incidence_id) else {
+            continue;
+        };
+        if !options.allows_relation(&incidence.relation_type) {
+            continue;
+        }
+        adjacency
+            .entry(incidence.from_cell_id.clone())
+            .or_default()
+            .push(CycleEdge {
+                incidence_id: incidence.id.clone(),
+                to_cell_id: incidence.to_cell_id.clone(),
+            });
+    }
+    for edges in adjacency.values_mut() {
+        edges.sort_by(|left, right| {
+            left.to_cell_id
+                .cmp(&right.to_cell_id)
+                .then_with(|| left.incidence_id.cmp(&right.incidence_id))
+        });
+    }
+    adjacency
 }
 
 fn reachable_result(query: &ReachabilityQuery, path: GraphPath) -> ReachabilityResult {

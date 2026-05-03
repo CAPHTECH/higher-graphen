@@ -9,8 +9,8 @@ use higher_graphen_core::CoreError;
 pub use types::*;
 
 pub(crate) use normalized::{
-    NormalizedCellPattern, NormalizedPathPattern, NormalizedPathPatternSegment,
-    NormalizedTraversalOptions,
+    NormalizedCellPattern, NormalizedCycleSearchOptions, NormalizedPathPattern,
+    NormalizedPathPatternSegment, NormalizedTraversalOptions,
 };
 
 pub(crate) fn malformed(field: &str, reason: impl Into<String>) -> CoreError {

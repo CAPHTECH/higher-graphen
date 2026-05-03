@@ -1,5 +1,6 @@
 use super::{
-    malformed, CellPattern, PathPattern, PathPatternSegment, TraversalDirection, TraversalOptions,
+    malformed, CellPattern, CycleSearchOptions, PathPattern, PathPatternSegment,
+    TraversalDirection, TraversalOptions,
 };
 use crate::space::{Cell, Dimension};
 use higher_graphen_core::{CoreError, Id, Result};
@@ -43,6 +44,40 @@ impl TryFrom<&TraversalOptions> for NormalizedTraversalOptions {
             relation_types: normalize_string_set("relation_types", &options.relation_types)?,
             max_depth: options.max_depth,
             max_paths: options.max_paths,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct NormalizedCycleSearchOptions {
+    relation_types: BTreeSet<String>,
+    pub(crate) max_cycles: Option<usize>,
+    pub(crate) max_path_length: Option<usize>,
+}
+
+impl NormalizedCycleSearchOptions {
+    pub(crate) fn allows_relation(&self, relation_type: &str) -> bool {
+        self.relation_types.is_empty() || self.relation_types.contains(relation_type)
+    }
+}
+
+impl TryFrom<&CycleSearchOptions> for NormalizedCycleSearchOptions {
+    type Error = CoreError;
+
+    fn try_from(options: &CycleSearchOptions) -> Result<Self> {
+        if options.max_cycles == Some(0) {
+            return Err(malformed("max_cycles", "value must be greater than zero"));
+        }
+        if options.max_path_length == Some(0) {
+            return Err(malformed(
+                "max_path_length",
+                "value must be greater than zero",
+            ));
+        }
+        Ok(Self {
+            relation_types: normalize_string_set("relation_types", &options.relation_types)?,
+            max_cycles: options.max_cycles,
+            max_path_length: options.max_path_length,
         })
     }
 }
