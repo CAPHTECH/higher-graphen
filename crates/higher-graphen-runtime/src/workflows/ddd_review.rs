@@ -282,7 +282,7 @@ fn accepted_facts_from_case_space(case_space: &Value) -> Vec<Value> {
                 Some("custom:constraint" | "review")
             )
         })
-        .filter_map(|cell| ddd_record_from_cell(cell))
+        .filter_map(ddd_record_from_cell)
         .collect()
 }
 
@@ -294,7 +294,7 @@ fn records_by_type(case_space: &Value, cell_types: &[&str]) -> Vec<Value> {
                 .and_then(Value::as_str)
                 .is_some_and(|cell_type| cell_types.contains(&cell_type))
         })
-        .filter_map(|cell| ddd_record_from_cell(cell))
+        .filter_map(ddd_record_from_cell)
         .collect()
 }
 

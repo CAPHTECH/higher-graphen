@@ -461,7 +461,7 @@ fn require_array(
     field_prefix: &str,
     violations: &mut Vec<NativeEvalViolation>,
 ) {
-    if !object.get(key).and_then(Value::as_array).is_some() {
+    if object.get(key).and_then(Value::as_array).is_none() {
         push_violation(
             violations,
             NativeEvalViolationCode::EmptyRequiredField,

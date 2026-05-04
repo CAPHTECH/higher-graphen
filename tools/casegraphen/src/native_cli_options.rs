@@ -43,90 +43,84 @@ impl NativeOptions {
         let mut format_seen = false;
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
-            match arg.to_str() {
-                Some("--format") => {
-                    require_json_format(&mut args)?;
-                    format_seen = true;
-                }
-                Some("--store") => options.store = Some(require_path(&mut args, "--store")?),
-                Some("--left-store") => {
-                    options.left_store = Some(require_path(&mut args, "--left-store")?)
-                }
-                Some("--right-store") => {
-                    options.right_store = Some(require_path(&mut args, "--right-store")?)
-                }
-                Some("--input") => options.input = Some(require_path(&mut args, "--input")?),
-                Some("--output") => options.output = Some(require_path(&mut args, "--output")?),
-                Some("--case-space-id") => {
-                    options.case_space_id = Some(require_id(&mut args, "--case-space-id")?)
-                }
-                Some("--left-case-space-id") => {
-                    options.left_case_space_id =
-                        Some(require_id(&mut args, "--left-case-space-id")?)
-                }
-                Some("--right-case-space-id") => {
-                    options.right_case_space_id =
-                        Some(require_id(&mut args, "--right-case-space-id")?)
-                }
-                Some("--space-id") => options.space_id = Some(require_id(&mut args, "--space-id")?),
-                Some("--revision-id") => {
-                    options.revision_id = Some(require_id(&mut args, "--revision-id")?)
-                }
-                Some("--base-revision") | Some("--base-revision-id") => {
-                    options.base_revision_id = Some(require_id(&mut args, "--base-revision-id")?)
-                }
-                Some("--morphism-id") => {
-                    options.morphism_id = Some(require_id(&mut args, "--morphism-id")?)
-                }
-                Some("--reviewer-id") => {
-                    options.reviewer_id = Some(require_id(&mut args, "--reviewer-id")?)
-                }
-                Some("--close-policy-id") => {
-                    options.close_policy_id = Some(require_id(&mut args, "--close-policy-id")?)
-                }
-                Some("--actor-id") => options.actor_id = Some(require_id(&mut args, "--actor-id")?),
-                Some("--capability-id") => options
-                    .capability_ids
-                    .push(require_id(&mut args, "--capability-id")?),
-                Some("--operation-scope-id") => {
-                    options.operation_scope_id =
-                        Some(require_id(&mut args, "--operation-scope-id")?)
-                }
-                Some("--audience") => {
-                    options.audience = Some(parse_projection_audience(&require_string(
-                        &mut args,
-                        "--audience",
-                    )?)?)
-                }
-                Some("--source-boundary-id") => {
-                    options.source_boundary_id =
-                        Some(require_id(&mut args, "--source-boundary-id")?)
-                }
-                Some("--title") => options.title = Some(require_string(&mut args, "--title")?),
-                Some("--reason") => options.reason = Some(require_string(&mut args, "--reason")?),
-                Some("--validation-evidence-id") => options
-                    .validation_evidence_ids
-                    .push(require_id(&mut args, "--validation-evidence-id")?),
-                Some("--higher-order") => {
-                    options.higher_order = true;
-                }
-                Some("--max-dimension") => {
-                    options.max_dimension = Some(require_dimension(&mut args, "--max-dimension")?)
-                }
-                Some("--min-persistence") | Some("--min-persistence-stages") => {
-                    options.min_persistence_stages = require_usize(&mut args, "--min-persistence")?;
-                }
-                Some(_) | None => {
-                    return Err(NativeCliError::usage(format!(
-                        "unsupported native argument {arg:?}"
-                    )))
-                }
-            }
+            options.consume_arg(&arg, &mut args, &mut format_seen)?;
         }
         if !format_seen {
             return Err(NativeCliError::usage("--format json is required"));
         }
         Ok(options)
+    }
+
+    fn consume_arg(
+        &mut self,
+        arg: &OsString,
+        args: &mut impl Iterator<Item = OsString>,
+        format_seen: &mut bool,
+    ) -> Result<(), NativeCliError> {
+        match arg.to_str() {
+            Some("--format") => {
+                require_json_format(args)?;
+                *format_seen = true;
+            }
+            Some("--store") => self.store = Some(require_path(args, "--store")?),
+            Some("--left-store") => self.left_store = Some(require_path(args, "--left-store")?),
+            Some("--right-store") => self.right_store = Some(require_path(args, "--right-store")?),
+            Some("--input") => self.input = Some(require_path(args, "--input")?),
+            Some("--output") => self.output = Some(require_path(args, "--output")?),
+            Some("--case-space-id") => {
+                self.case_space_id = Some(require_id(args, "--case-space-id")?)
+            }
+            Some("--left-case-space-id") => {
+                self.left_case_space_id = Some(require_id(args, "--left-case-space-id")?)
+            }
+            Some("--right-case-space-id") => {
+                self.right_case_space_id = Some(require_id(args, "--right-case-space-id")?)
+            }
+            Some("--space-id") => self.space_id = Some(require_id(args, "--space-id")?),
+            Some("--revision-id") => self.revision_id = Some(require_id(args, "--revision-id")?),
+            Some("--base-revision") | Some("--base-revision-id") => {
+                self.base_revision_id = Some(require_id(args, "--base-revision-id")?)
+            }
+            Some("--morphism-id") => self.morphism_id = Some(require_id(args, "--morphism-id")?),
+            Some("--reviewer-id") => self.reviewer_id = Some(require_id(args, "--reviewer-id")?),
+            Some("--close-policy-id") => {
+                self.close_policy_id = Some(require_id(args, "--close-policy-id")?)
+            }
+            Some("--actor-id") => self.actor_id = Some(require_id(args, "--actor-id")?),
+            Some("--capability-id") => self
+                .capability_ids
+                .push(require_id(args, "--capability-id")?),
+            Some("--operation-scope-id") => {
+                self.operation_scope_id = Some(require_id(args, "--operation-scope-id")?)
+            }
+            Some("--audience") => {
+                self.audience = Some(parse_projection_audience(&require_string(
+                    args,
+                    "--audience",
+                )?)?)
+            }
+            Some("--source-boundary-id") => {
+                self.source_boundary_id = Some(require_id(args, "--source-boundary-id")?)
+            }
+            Some("--title") => self.title = Some(require_string(args, "--title")?),
+            Some("--reason") => self.reason = Some(require_string(args, "--reason")?),
+            Some("--validation-evidence-id") => self
+                .validation_evidence_ids
+                .push(require_id(args, "--validation-evidence-id")?),
+            Some("--higher-order") => self.higher_order = true,
+            Some("--max-dimension") => {
+                self.max_dimension = Some(require_dimension(args, "--max-dimension")?)
+            }
+            Some("--min-persistence") | Some("--min-persistence-stages") => {
+                self.min_persistence_stages = require_usize(args, "--min-persistence")?;
+            }
+            Some(_) | None => {
+                return Err(NativeCliError::usage(format!(
+                    "unsupported native argument {arg:?}"
+                )))
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn topology_options(&self) -> TopologyReportOptions {

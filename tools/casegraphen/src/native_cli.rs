@@ -385,27 +385,31 @@ impl NativeCliCommand {
             "completions" => Self::parse_reason(options, NativeReasonSection::Completions),
             "evidence" => Self::parse_reason(options, NativeReasonSection::Evidence),
             "project" => Self::parse_reason(options, NativeReasonSection::Project),
-            "close-check" => Ok(Self::CaseCloseCheck {
-                store: options.require_store()?,
-                case_space_id: options.require_id("--case-space-id")?,
-                base_revision_id: options
-                    .base_revision_id
-                    .clone()
-                    .or(options.revision_id.clone())
-                    .ok_or_else(|| NativeCliError::usage("--base-revision-id <id> is required"))?,
-                validation_evidence_ids: options.validation_evidence_ids,
-                gate_options: NativeCloseGateOptions {
-                    close_policy_id: options.close_policy_id,
-                    actor_id: options.actor_id,
-                    capability_ids: options.capability_ids,
-                    operation_scope_id: options.operation_scope_id,
-                    audience: options.audience,
-                    source_boundary_id: options.source_boundary_id,
-                },
-                output: options.output,
-            }),
+            "close-check" => Self::parse_close_check(options),
             _ => Err(NativeCliError::usage("unsupported native case command")),
         }
+    }
+
+    fn parse_close_check(options: NativeOptions) -> Result<Self, NativeCliError> {
+        Ok(Self::CaseCloseCheck {
+            store: options.require_store()?,
+            case_space_id: options.require_id("--case-space-id")?,
+            base_revision_id: options
+                .base_revision_id
+                .clone()
+                .or(options.revision_id.clone())
+                .ok_or_else(|| NativeCliError::usage("--base-revision-id <id> is required"))?,
+            validation_evidence_ids: options.validation_evidence_ids,
+            gate_options: NativeCloseGateOptions {
+                close_policy_id: options.close_policy_id,
+                actor_id: options.actor_id,
+                capability_ids: options.capability_ids,
+                operation_scope_id: options.operation_scope_id,
+                audience: options.audience,
+                source_boundary_id: options.source_boundary_id,
+            },
+            output: options.output,
+        })
     }
 
     fn parse_history_case(
