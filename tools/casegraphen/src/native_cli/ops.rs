@@ -24,7 +24,7 @@ use std::path::Path;
 
 mod io;
 use io::{
-    case_space_checksum, known_ids, provenance, proposal_path, proposal_value, read_case_space,
+    case_space_checksum, known_ids, proposal_path, proposal_value, provenance, read_case_space,
     read_morphism, read_proposal, timestamp, write_json,
 };
 
@@ -683,4 +683,3 @@ fn checksum_after_append(
     };
     case_space_checksum(&next)
 }
-

@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "casegraphen"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-projection",
@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-architecture-smoke"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "casegraphen",
  "higher-graphen-core",
@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -36,7 +36,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-evidence"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-feed-example"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-runtime",
@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-interpretation"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-projection"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-reasoning"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-projection",
@@ -83,7 +83,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-interpretation",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "higher-graphen-structure"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "serde",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "highergraphen-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-runtime",

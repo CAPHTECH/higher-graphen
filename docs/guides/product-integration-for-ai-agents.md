@@ -251,7 +251,7 @@ is still unreviewed.
 
 ## Step 11: Use Extension Objects Deliberately
 
-HigherGraphen v0.3.0 exposes several core extension objects. Use them when the
+HigherGraphen v0.4.0 exposes several core extension objects. Use them when the
 product has the corresponding failure mode. Do not add them as decorative
 metadata.
 
@@ -285,7 +285,7 @@ Every projection should declare meaningful information loss, such as omitted
 source text, summarized evidence, dropped unsupported fields, hidden internal
 policy, or collapsed contexts.
 
-## Implemented Surface In v0.3.0
+## Implemented Surface In v0.4.0
 
 Use this map when choosing crates.
 
