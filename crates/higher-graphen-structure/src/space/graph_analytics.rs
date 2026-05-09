@@ -172,6 +172,9 @@ pub struct GraphAnalyticsReport {
     /// Dominator candidates from a single seed cell when exactly one seed is supplied.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dominator_candidates: Vec<GraphDominatorCandidate>,
+    /// Minimum vertex-cut candidates between two seed cells when exactly two seeds are supplied.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub min_cut_cell_sets: Vec<Vec<Id>>,
 }
 
 impl InMemorySpaceStore {
@@ -212,6 +215,7 @@ impl InMemorySpaceStore {
         let centrality_scores = centrality_scores(&view);
         let cut_cell_candidate_ids = articulation_cell_ids.clone();
         let dominator_candidates = dominator_candidates(&view, &input.seed_cell_ids);
+        let min_cut_cell_sets = min_cut_cell_sets(&view, &input.seed_cell_ids);
 
         Ok(GraphAnalyticsReport {
             space_id: input.space_id,
@@ -224,6 +228,7 @@ impl InMemorySpaceStore {
             centrality_scores,
             cut_cell_candidate_ids,
             dominator_candidates,
+            min_cut_cell_sets,
         })
     }
 }
@@ -485,6 +490,63 @@ fn dominator_candidates(view: &GraphView, seed_cell_ids: &[Id]) -> Vec<GraphDomi
     candidates
 }
 
+fn min_cut_cell_sets(view: &GraphView, seed_cell_ids: &[Id]) -> Vec<Vec<Id>> {
+    let [source_id, target_id] = seed_cell_ids else {
+        return Vec::new();
+    };
+    if !reachable_cells(view, source_id).contains(target_id) {
+        return vec![Vec::new()];
+    }
+    let candidates = view
+        .adjacency
+        .keys()
+        .filter(|cell_id| *cell_id != source_id && *cell_id != target_id)
+        .cloned()
+        .collect::<Vec<_>>();
+    for size in 1..=candidates.len() {
+        let mut cuts = Vec::new();
+        let search = CutSearch {
+            view,
+            source_id,
+            target_id,
+            candidates: &candidates,
+            target_size: size,
+        };
+        search.collect(0, &mut Vec::new(), &mut cuts);
+        if !cuts.is_empty() {
+            return cuts;
+        }
+    }
+    Vec::new()
+}
+
+struct CutSearch<'a> {
+    view: &'a GraphView,
+    source_id: &'a Id,
+    target_id: &'a Id,
+    candidates: &'a [Id],
+    target_size: usize,
+}
+
+impl CutSearch<'_> {
+    fn collect(&self, start_index: usize, selected: &mut Vec<Id>, cuts: &mut Vec<Vec<Id>>) {
+        if selected.len() == self.target_size {
+            let reduced = selected.iter().fold(self.view.clone(), |current, cell_id| {
+                remove_cell(&current, cell_id)
+            });
+            if !reachable_cells(&reduced, self.source_id).contains(self.target_id) {
+                cuts.push(selected.clone());
+            }
+            return;
+        }
+        for index in start_index..self.candidates.len() {
+            selected.push(self.candidates[index].clone());
+            self.collect(index + 1, selected, cuts);
+            selected.pop();
+        }
+    }
+}
+
 fn remove_cell(view: &GraphView, removed_cell_id: &Id) -> GraphView {
     let adjacency = view
         .adjacency
@@ -684,6 +746,16 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn min_cut_cell_sets_are_reported_for_two_seed_cells() {
+        let store = analytics_store();
+        let input = GraphAnalyticsInput::new(id("space-a")).with_seed_cell_ids([id("a"), id("d")]);
+
+        let report = store.analyze_graph(&input).expect("analyze graph");
+
+        assert_eq!(report.min_cut_cell_sets, vec![vec![id("b")], vec![id("c")]]);
     }
 
     #[test]

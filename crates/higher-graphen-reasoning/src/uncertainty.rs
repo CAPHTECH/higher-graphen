@@ -474,80 +474,19 @@ pub fn score_information_gain(
     let mut obstructions = Vec::new();
 
     for action in actions {
-        action.validate()?;
-        if !action.target_claim_ids.contains(&state.claim_id) {
-            continue;
-        }
-        if !action.blocked_by_policy_ids.is_empty() {
-            obstructions.push(UncertaintyObstruction::new(
-                UncertaintyObstructionType::ObservationBlockedByPolicy,
-                Some(action.id.clone()),
-                "observation action is blocked by policy",
-            )?);
-        }
-
-        let Some(expected_posterior_confidence) = action.expected_posterior_confidence else {
-            obstructions.push(UncertaintyObstruction::new(
-                UncertaintyObstructionType::MissingLikelihoodModel,
-                Some(action.id.clone()),
-                "observation action does not declare an expected posterior confidence",
-            )?);
-            continue;
-        };
-
-        if options
-            .cost_budget
-            .is_some_and(|cost_budget| action.estimated_cost > cost_budget)
-        {
-            obstructions.push(UncertaintyObstruction::new(
-                UncertaintyObstructionType::CostExceedsBudget,
-                Some(action.id.clone()),
-                "observation action exceeds the configured cost budget",
-            )?);
-        }
-
-        let expected_posterior_uncertainty = uncertainty(
-            expected_posterior_confidence,
-            state.uncertainty_measure,
-            options.decision_threshold,
-        );
-        let expected_information_gain = current_uncertainty - expected_posterior_uncertainty;
-        if expected_information_gain <= 0.0 {
-            obstructions.push(UncertaintyObstruction::new(
-                UncertaintyObstructionType::NonReducingObservation,
-                Some(action.id.clone()),
-                "observation action is not expected to reduce uncertainty",
-            )?);
-        }
-        let normalized_observation_cost = action.estimated_cost / options.cost_normalizer;
-        candidate_actions.push(ScoredObservationAction {
-            action_id: action.id.clone(),
-            target_claim_ids: action.target_claim_ids.clone(),
+        if let Some(scored_action) = score_observation_action(
+            state,
+            action,
+            options,
             current_uncertainty,
-            expected_posterior_uncertainty,
-            expected_information_gain,
-            normalized_observation_cost,
-            net_value: expected_information_gain - normalized_observation_cost,
-            blocked_by_policy_ids: action.blocked_by_policy_ids.clone(),
-            review_status: action.review_status,
-        });
+            &mut obstructions,
+        )? {
+            candidate_actions.push(scored_action);
+        }
     }
 
     candidate_actions.sort_by(compare_scored_actions);
-    let mut recommended_action_ids = candidate_actions
-        .iter()
-        .filter(|action| {
-            action.net_value > 0.0
-                && action.blocked_by_policy_ids.is_empty()
-                && options.cost_budget.is_none_or(|budget| {
-                    action.normalized_observation_cost * options.cost_normalizer <= budget
-                })
-        })
-        .map(|action| action.action_id.clone())
-        .collect::<Vec<_>>();
-    if let Some(max_recommended_actions) = options.max_recommended_actions {
-        recommended_action_ids.truncate(max_recommended_actions);
-    }
+    let recommended_action_ids = recommended_action_ids(&candidate_actions, options);
 
     Ok(InformationGainReport {
         claim_id: state.claim_id.clone(),
@@ -562,6 +501,101 @@ pub fn score_information_gain(
             "cost is normalized by a caller-provided scalar".to_owned(),
         ],
     })
+}
+
+fn score_observation_action(
+    state: &UncertaintyState,
+    action: &ObservationAction,
+    options: &InformationGainOptions,
+    current_uncertainty: f64,
+    obstructions: &mut Vec<UncertaintyObstruction>,
+) -> Result<Option<ScoredObservationAction>> {
+    action.validate()?;
+    if !action.target_claim_ids.contains(&state.claim_id) {
+        return Ok(None);
+    }
+    append_action_obstructions(action, options, obstructions)?;
+
+    let Some(expected_posterior_confidence) = action.expected_posterior_confidence else {
+        obstructions.push(UncertaintyObstruction::new(
+            UncertaintyObstructionType::MissingLikelihoodModel,
+            Some(action.id.clone()),
+            "observation action does not declare an expected posterior confidence",
+        )?);
+        return Ok(None);
+    };
+
+    let expected_posterior_uncertainty = uncertainty(
+        expected_posterior_confidence,
+        state.uncertainty_measure,
+        options.decision_threshold,
+    );
+    let expected_information_gain = current_uncertainty - expected_posterior_uncertainty;
+    if expected_information_gain <= 0.0 {
+        obstructions.push(UncertaintyObstruction::new(
+            UncertaintyObstructionType::NonReducingObservation,
+            Some(action.id.clone()),
+            "observation action is not expected to reduce uncertainty",
+        )?);
+    }
+    let normalized_observation_cost = action.estimated_cost / options.cost_normalizer;
+    Ok(Some(ScoredObservationAction {
+        action_id: action.id.clone(),
+        target_claim_ids: action.target_claim_ids.clone(),
+        current_uncertainty,
+        expected_posterior_uncertainty,
+        expected_information_gain,
+        normalized_observation_cost,
+        net_value: expected_information_gain - normalized_observation_cost,
+        blocked_by_policy_ids: action.blocked_by_policy_ids.clone(),
+        review_status: action.review_status,
+    }))
+}
+
+fn append_action_obstructions(
+    action: &ObservationAction,
+    options: &InformationGainOptions,
+    obstructions: &mut Vec<UncertaintyObstruction>,
+) -> Result<()> {
+    if !action.blocked_by_policy_ids.is_empty() {
+        obstructions.push(UncertaintyObstruction::new(
+            UncertaintyObstructionType::ObservationBlockedByPolicy,
+            Some(action.id.clone()),
+            "observation action is blocked by policy",
+        )?);
+    }
+    if options
+        .cost_budget
+        .is_some_and(|cost_budget| action.estimated_cost > cost_budget)
+    {
+        obstructions.push(UncertaintyObstruction::new(
+            UncertaintyObstructionType::CostExceedsBudget,
+            Some(action.id.clone()),
+            "observation action exceeds the configured cost budget",
+        )?);
+    }
+    Ok(())
+}
+
+fn recommended_action_ids(
+    candidate_actions: &[ScoredObservationAction],
+    options: &InformationGainOptions,
+) -> Vec<Id> {
+    let mut action_ids = candidate_actions
+        .iter()
+        .filter(|action| {
+            action.net_value > 0.0
+                && action.blocked_by_policy_ids.is_empty()
+                && options.cost_budget.map_or(true, |budget| {
+                    action.normalized_observation_cost * options.cost_normalizer <= budget
+                })
+        })
+        .map(|action| action.action_id.clone())
+        .collect::<Vec<_>>();
+    if let Some(max_recommended_actions) = options.max_recommended_actions {
+        action_ids.truncate(max_recommended_actions);
+    }
+    action_ids
 }
 
 /// Scores observation actions across multiple claims, charging shared action cost once.
@@ -747,202 +781,5 @@ fn unique_ids(ids: impl IntoIterator<Item = Id>) -> Vec<Id> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        score_information_gain, score_multi_claim_information_gain, EvidenceLikelihoodModel,
-        InformationGainOptions, InformationGainReport, MultiClaimInformationGainReport,
-        ObservationAction, UncertaintyMeasure, UncertaintyObstructionType, UncertaintyState,
-    };
-    use higher_graphen_core::{Confidence, Id};
-    use serde::{Deserialize, Serialize};
-
-    fn assert_serde_contract<T>()
-    where
-        T: Serialize + for<'de> Deserialize<'de>,
-    {
-    }
-
-    fn id(value: &str) -> Id {
-        Id::new(value).expect("valid id")
-    }
-
-    fn confidence(value: f64) -> Confidence {
-        Confidence::new(value).expect("valid confidence")
-    }
-
-    #[test]
-    fn value_of_information_recommends_best_net_reducing_action() {
-        let state = UncertaintyState::new(
-            id("claim/api"),
-            confidence(0.4),
-            confidence(0.5),
-            UncertaintyMeasure::BinaryEntropy,
-        );
-        let cheap_log_check =
-            ObservationAction::new(id("observe/logs"), [id("claim/api")], "logs", 0.05)
-                .expect("valid action")
-                .with_expected_posterior_confidence(confidence(0.85));
-        let expensive_audit =
-            ObservationAction::new(id("observe/audit"), [id("claim/api")], "audit", 0.4)
-                .expect("valid action")
-                .with_expected_posterior_confidence(confidence(0.95));
-
-        let report = score_information_gain(
-            &state,
-            &[cheap_log_check, expensive_audit],
-            &InformationGainOptions::new(),
-        )
-        .expect("score actions");
-
-        assert_eq!(report.recommended_action_ids[0], id("observe/logs"));
-        assert_eq!(report.candidate_actions[0].action_id, id("observe/logs"));
-        assert!(report.candidate_actions[0].net_value > 0.0);
-        assert_eq!(report.obstructions.len(), 0);
-
-        let json = serde_json::to_string(&report).expect("serialize");
-        let roundtrip: InformationGainReport = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(roundtrip, report);
-    }
-
-    #[test]
-    fn blocked_missing_and_over_budget_actions_are_obstructed() {
-        let state = UncertaintyState::new(
-            id("claim/risk"),
-            confidence(0.6),
-            confidence(0.52),
-            UncertaintyMeasure::DecisionThresholdDistance,
-        );
-        let blocked = ObservationAction::new(
-            id("observe/customer-data"),
-            [id("claim/risk")],
-            "customer data",
-            0.2,
-        )
-        .expect("valid action")
-        .with_expected_posterior_confidence(confidence(0.9))
-        .with_blocked_by_policy_ids([id("policy/privacy")]);
-        let missing_model = ObservationAction::new(
-            id("observe/interview"),
-            [id("claim/risk")],
-            "interview",
-            0.1,
-        )
-        .expect("valid action");
-        let over_budget =
-            ObservationAction::new(id("observe/audit"), [id("claim/risk")], "audit", 0.9)
-                .expect("valid action")
-                .with_expected_posterior_confidence(confidence(0.95));
-        let options = InformationGainOptions::new()
-            .with_cost_budget(0.5)
-            .expect("budget")
-            .with_cost_normalizer(1.0)
-            .expect("normalizer");
-
-        let report =
-            score_information_gain(&state, &[blocked, missing_model, over_budget], &options)
-                .expect("score actions");
-
-        assert!(report.recommended_action_ids.is_empty());
-        assert!(report.obstructions.iter().any(|obstruction| {
-            obstruction.obstruction_type == UncertaintyObstructionType::ObservationBlockedByPolicy
-        }));
-        assert!(report.obstructions.iter().any(|obstruction| {
-            obstruction.obstruction_type == UncertaintyObstructionType::MissingLikelihoodModel
-        }));
-        assert!(report.obstructions.iter().any(|obstruction| {
-            obstruction.obstruction_type == UncertaintyObstructionType::CostExceedsBudget
-        }));
-    }
-
-    #[test]
-    fn multi_claim_scoring_charges_shared_action_cost_once() {
-        let states = vec![
-            UncertaintyState::new(
-                id("claim/a"),
-                confidence(0.4),
-                confidence(0.5),
-                UncertaintyMeasure::BinaryEntropy,
-            ),
-            UncertaintyState::new(
-                id("claim/b"),
-                confidence(0.4),
-                confidence(0.5),
-                UncertaintyMeasure::BinaryEntropy,
-            ),
-        ];
-        let shared = ObservationAction::new(
-            id("observe/shared"),
-            [id("claim/a"), id("claim/b")],
-            "shared logs",
-            0.1,
-        )
-        .expect("valid action")
-        .with_expected_posterior_confidence(confidence(0.9));
-
-        let report =
-            score_multi_claim_information_gain(&states, &[shared], &InformationGainOptions::new())
-                .expect("score multiple claims");
-
-        assert_eq!(report.recommended_action_ids, vec![id("observe/shared")]);
-        assert_eq!(
-            report.aggregate_action_scores[0].claim_ids,
-            vec![id("claim/a"), id("claim/b")]
-        );
-        assert_eq!(report.claim_reports.len(), 2);
-        assert!(report.aggregate_action_scores[0].net_value > 0.0);
-
-        let roundtrip: MultiClaimInformationGainReport =
-            serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))
-                .expect("deserialize");
-        assert_eq!(
-            roundtrip.recommended_action_ids,
-            report.recommended_action_ids
-        );
-        assert_eq!(
-            roundtrip.aggregate_action_scores[0].action_id,
-            id("observe/shared")
-        );
-    }
-
-    #[test]
-    fn constructors_reject_malformed_costs_and_text() {
-        assert!(ObservationAction::new(id("observe/bad"), [id("claim")], " ", 0.1).is_err());
-        assert!(ObservationAction::new(id("observe/bad"), [id("claim")], "logs", -0.1).is_err());
-        assert!(InformationGainOptions::new()
-            .with_cost_normalizer(0.0)
-            .is_err());
-        assert!(InformationGainOptions::new()
-            .with_cost_budget(f64::NAN)
-            .is_err());
-    }
-
-    #[test]
-    fn likelihood_model_computes_posterior_confidence() {
-        let model = EvidenceLikelihoodModel::new(confidence(0.8), confidence(0.2));
-        let posterior = model.posterior(confidence(0.5)).expect("posterior");
-
-        assert!((posterior.value() - 0.8).abs() < 0.000_000_1);
-        assert!(super::posterior_from_likelihood(
-            confidence(0.5),
-            confidence(0.0),
-            confidence(0.0)
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn public_types_implement_serde_contracts() {
-        assert_serde_contract::<UncertaintyMeasure>();
-        assert_serde_contract::<super::InformationGainCalculationKind>();
-        assert_serde_contract::<UncertaintyObstructionType>();
-        assert_serde_contract::<super::UncertaintyObstruction>();
-        assert_serde_contract::<UncertaintyState>();
-        assert_serde_contract::<EvidenceLikelihoodModel>();
-        assert_serde_contract::<ObservationAction>();
-        assert_serde_contract::<InformationGainOptions>();
-        assert_serde_contract::<super::ScoredObservationAction>();
-        assert_serde_contract::<InformationGainReport>();
-        assert_serde_contract::<super::MultiClaimObservationScore>();
-        assert_serde_contract::<MultiClaimInformationGainReport>();
-    }
-}
+#[path = "uncertainty_tests.rs"]
+mod uncertainty_tests;

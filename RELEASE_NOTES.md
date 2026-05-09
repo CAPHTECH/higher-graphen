@@ -9,13 +9,17 @@ Release scope:
 Highlights:
 
 - Expanded graph analytics with strongly connected components, degree-style
-  centrality, cut-cell candidates, and single-seed dominator candidates.
+  centrality, cut-cell candidates, single-seed dominator candidates, and
+  two-seed minimum vertex-cut candidates.
 - Expanded bounded model checking with finite exhaustive markers and temporal
-  property descriptors.
+  property descriptors, unified temporal dispatch, and state-label query
+  helpers.
 - Added binary likelihood posterior calculation and multi-claim
   value-of-information scoring.
 - Added relation-mapping monotonicity checks and documented the implemented
   mathematics kernel API surface.
+- Added batched diagram commutativity checks and mathematical kernel API
+  examples.
 
 ## v0.2.1
 
