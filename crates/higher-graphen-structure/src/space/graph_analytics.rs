@@ -140,6 +140,9 @@ pub struct GraphAnalyticsReport {
     /// Connected components in the selected traversal view.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub connected_components: Vec<GraphAnalyticsComponent>,
+    /// Strongly connected components in the selected directed traversal view.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strongly_connected_components: Vec<GraphAnalyticsComponent>,
 }
 
 impl InMemorySpaceStore {
@@ -174,6 +177,7 @@ impl InMemorySpaceStore {
         let view = GraphView::from_store(self, &input, &space.cell_ids);
         let impact_cone_cell_ids = impact_cone(&view, &input);
         let connected_components = connected_components(&view);
+        let strongly_connected_components = strongly_connected_components(&view);
         let articulation_cell_ids = articulation_cells(&view);
         let bridge_incidence_ids = bridge_incidences(&view);
 
@@ -184,6 +188,7 @@ impl InMemorySpaceStore {
             articulation_cell_ids,
             bridge_incidence_ids,
             connected_components,
+            strongly_connected_components,
         })
     }
 }
@@ -327,6 +332,44 @@ fn connected_components(view: &GraphView) -> Vec<GraphAnalyticsComponent> {
     }
 
     components
+}
+
+fn strongly_connected_components(view: &GraphView) -> Vec<GraphAnalyticsComponent> {
+    let mut remaining = view.adjacency.keys().cloned().collect::<BTreeSet<_>>();
+    let mut components = Vec::new();
+
+    while let Some(start) = remaining.iter().next().cloned() {
+        let forward = reachable_cells(view, &start);
+        let component = forward
+            .iter()
+            .filter(|cell_id| reachable_cells(view, cell_id).contains(&start))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        for cell_id in &component {
+            remaining.remove(cell_id);
+        }
+        let cell_ids = component.into_iter().collect::<Vec<_>>();
+        components.push(GraphAnalyticsComponent {
+            representative_cell_id: cell_ids[0].clone(),
+            cell_ids,
+        });
+    }
+
+    components
+}
+
+fn reachable_cells(view: &GraphView, start: &Id) -> BTreeSet<Id> {
+    let mut visited = BTreeSet::new();
+    let mut queue = VecDeque::from([start.clone()]);
+    while let Some(cell_id) = queue.pop_front() {
+        if !visited.insert(cell_id.clone()) {
+            continue;
+        }
+        for edge in view.neighbors(&cell_id) {
+            queue.push_back(edge.to_cell_id);
+        }
+    }
+    visited
 }
 
 fn articulation_cells(view: &GraphView) -> Vec<Id> {
@@ -493,6 +536,55 @@ mod tests {
         assert_eq!(report.connected_components.len(), 4);
         assert!(report.articulation_cell_ids.is_empty());
         assert!(report.bridge_incidence_ids.is_empty());
+    }
+
+    #[test]
+    fn strongly_connected_components_group_mutually_reachable_directed_cells() {
+        let mut store = InMemorySpaceStore::new();
+        store
+            .insert_space(Space::new(id("space-a"), "Directed graph analytics"))
+            .expect("insert space");
+        for cell_id in ["a", "b", "c"] {
+            store
+                .insert_cell(Cell::new(id(cell_id), id("space-a"), 0, "node"))
+                .expect("insert cell");
+        }
+        for (incidence_id, from, to) in [
+            ("edge-ab", "a", "b"),
+            ("edge-ba", "b", "a"),
+            ("edge-bc", "b", "c"),
+        ] {
+            store
+                .insert_incidence(Incidence::new(
+                    id(incidence_id),
+                    id("space-a"),
+                    id(from),
+                    id(to),
+                    "flows_to",
+                    IncidenceOrientation::Directed,
+                ))
+                .expect("insert incidence");
+        }
+        let input = GraphAnalyticsInput::new(id("space-a"))
+            .with_relation_type("flows_to")
+            .expect("relation type")
+            .in_direction(TraversalDirection::Outgoing);
+
+        let report = store.analyze_graph(&input).expect("analyze graph");
+
+        assert_eq!(
+            report.strongly_connected_components,
+            vec![
+                GraphAnalyticsComponent {
+                    representative_cell_id: id("a"),
+                    cell_ids: vec![id("a"), id("b")],
+                },
+                GraphAnalyticsComponent {
+                    representative_cell_id: id("c"),
+                    cell_ids: vec![id("c")],
+                },
+            ]
+        );
     }
 
     #[test]

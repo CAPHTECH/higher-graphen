@@ -262,6 +262,91 @@ impl ExplicitPullbackReport {
     }
 }
 
+/// Stable obstruction emitted by explicit pushout-candidate extraction.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushoutObstructionType {
+    /// The two morphisms do not start from the same source space.
+    IncompatibleSourceSpace,
+    /// At least one source mapping has no partner on the other leg.
+    PushoutIncomplete,
+}
+
+/// Structured pushout extraction obstruction.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushoutObstruction {
+    /// Obstruction category.
+    pub obstruction_type: PushoutObstructionType,
+    /// Human-readable diagnostic.
+    pub reason: String,
+}
+
+/// Candidate identification induced by two morphisms from the same source.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentifiedSourceGroup {
+    /// Source element that induces the identification.
+    pub source_element_id: Id,
+    /// Target element from the left morphism.
+    pub left_target_id: Id,
+    /// Target element from the right morphism.
+    pub right_target_id: Id,
+}
+
+/// Deterministic explicit pushout candidate over two morphism mappings.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExplicitPushoutReport {
+    /// Candidate merged space identifier supplied by the caller.
+    pub candidate_space_id: Id,
+    /// Left morphism used by the construction.
+    pub left_morphism_id: Id,
+    /// Right morphism used by the construction.
+    pub right_morphism_id: Id,
+    /// Shared source space when the two morphisms are compatible.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_space_id: Option<Id>,
+    /// Target space from the left morphism.
+    pub left_target_space_id: Id,
+    /// Target space from the right morphism.
+    pub right_target_space_id: Id,
+    /// Cell identifications induced by shared source cells.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub identified_cell_groups: Vec<IdentifiedSourceGroup>,
+    /// Relation identifications induced by shared source relations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub identified_relation_groups: Vec<IdentifiedSourceGroup>,
+    /// Left source cells with no right mapping.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched_left_cell_source_ids: Vec<Id>,
+    /// Right source cells with no left mapping.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched_right_cell_source_ids: Vec<Id>,
+    /// Left source relations with no right mapping.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched_left_relation_source_ids: Vec<Id>,
+    /// Right source relations with no left mapping.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched_right_relation_source_ids: Vec<Id>,
+    /// Explicit quotient losses created by this candidate construction.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quotient_losses: Vec<String>,
+    /// Obstructions found while extracting the candidate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub obstructions: Vec<PushoutObstruction>,
+    /// Review status for this candidate report.
+    #[serde(default)]
+    pub review_status: higher_graphen_core::ReviewStatus,
+}
+
+impl ExplicitPushoutReport {
+    /// Returns true when sources are compatible and all explicit mappings have partners.
+    pub fn is_complete(&self) -> bool {
+        self.obstructions.is_empty()
+    }
+}
+
 /// Stable obstruction emitted by finite diagram commutativity checks.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -480,6 +565,15 @@ impl Morphism {
     pub fn explicit_pullback_with(&self, right: &Self) -> ExplicitPullbackReport {
         explicit_pullback_candidate(self, right)
     }
+
+    /// Extracts a finite explicit pushout candidate with another morphism.
+    pub fn explicit_pushout_with(
+        &self,
+        right: &Self,
+        candidate_space_id: Id,
+    ) -> ExplicitPushoutReport {
+        explicit_pushout_candidate(self, right, candidate_space_id)
+    }
 }
 
 /// Attempts to compose `first` followed by `second`.
@@ -671,6 +765,69 @@ pub fn explicit_pullback_candidate(left: &Morphism, right: &Morphism) -> Explici
         information_loss: vec![
             "only explicit mapping equality is considered".to_owned(),
             "universal property is not proven by this finite candidate report".to_owned(),
+        ],
+        obstructions,
+        review_status: higher_graphen_core::ReviewStatus::Unreviewed,
+    }
+}
+
+/// Extracts an explicit pushout-style merge candidate for two morphisms sharing a source.
+///
+/// The candidate identifies left and right targets that come from the same
+/// source element. It does not construct a new space and does not accept the
+/// quotient; losses and incompleteness remain explicit.
+pub fn explicit_pushout_candidate(
+    left: &Morphism,
+    right: &Morphism,
+    candidate_space_id: Id,
+) -> ExplicitPushoutReport {
+    let compatible_source = left.source_space_id == right.source_space_id;
+    let (identified_cell_groups, unmatched_left_cell_source_ids, unmatched_right_cell_source_ids) =
+        pushout_groups(&left.cell_mapping, &right.cell_mapping).into_parts();
+    let (
+        identified_relation_groups,
+        unmatched_left_relation_source_ids,
+        unmatched_right_relation_source_ids,
+    ) = pushout_groups(&left.relation_mapping, &right.relation_mapping).into_parts();
+    let mut obstructions = Vec::new();
+
+    if !compatible_source {
+        obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleSourceSpace,
+            reason: format!(
+                "left source space {} differs from right source space {}",
+                left.source_space_id, right.source_space_id
+            ),
+        });
+    }
+    if !unmatched_left_cell_source_ids.is_empty()
+        || !unmatched_right_cell_source_ids.is_empty()
+        || !unmatched_left_relation_source_ids.is_empty()
+        || !unmatched_right_relation_source_ids.is_empty()
+    {
+        obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::PushoutIncomplete,
+            reason: "some explicit source mappings have no partner on the other leg".to_owned(),
+        });
+    }
+
+    ExplicitPushoutReport {
+        candidate_space_id,
+        left_morphism_id: left.id.clone(),
+        right_morphism_id: right.id.clone(),
+        source_space_id: compatible_source.then(|| left.source_space_id.clone()),
+        left_target_space_id: left.target_space_id.clone(),
+        right_target_space_id: right.target_space_id.clone(),
+        identified_cell_groups,
+        identified_relation_groups,
+        unmatched_left_cell_source_ids,
+        unmatched_right_cell_source_ids,
+        unmatched_left_relation_source_ids,
+        unmatched_right_relation_source_ids,
+        quotient_losses: vec![
+            "identified target elements are quotient candidates, not accepted equivalences"
+                .to_owned(),
+            "invariant preservation across the quotient is not proven by this report".to_owned(),
         ],
         obstructions,
         review_status: higher_graphen_core::ReviewStatus::Unreviewed,
@@ -900,6 +1057,31 @@ fn pullback_matches(left: &BTreeMap<Id, Id>, right: &BTreeMap<Id, Id>) -> Pullba
     }
 }
 
+fn pushout_groups(left: &BTreeMap<Id, Id>, right: &BTreeMap<Id, Id>) -> PushoutGroups {
+    let left_source_ids = left.keys().cloned().collect::<BTreeSet<_>>();
+    let right_source_ids = right.keys().cloned().collect::<BTreeSet<_>>();
+    let identified_groups = left_source_ids
+        .intersection(&right_source_ids)
+        .map(|source_element_id| IdentifiedSourceGroup {
+            source_element_id: source_element_id.clone(),
+            left_target_id: left[source_element_id].clone(),
+            right_target_id: right[source_element_id].clone(),
+        })
+        .collect();
+
+    PushoutGroups {
+        identified_groups,
+        unmatched_left_source_ids: left_source_ids
+            .difference(&right_source_ids)
+            .cloned()
+            .collect(),
+        unmatched_right_source_ids: right_source_ids
+            .difference(&left_source_ids)
+            .cloned()
+            .collect(),
+    }
+}
+
 fn compose_path_summary(path: &[Morphism]) -> DiagramPathSummary {
     let morphism_ids = path.iter().map(|morphism| morphism.id.clone()).collect();
     let Some(first) = path.first() else {
@@ -1034,6 +1216,23 @@ struct PullbackMappingMatch {
     left_source_id: Id,
     right_source_id: Id,
     target_id: Id,
+}
+
+#[derive(Debug)]
+struct PushoutGroups {
+    identified_groups: Vec<IdentifiedSourceGroup>,
+    unmatched_left_source_ids: Vec<Id>,
+    unmatched_right_source_ids: Vec<Id>,
+}
+
+impl PushoutGroups {
+    fn into_parts(self) -> (Vec<IdentifiedSourceGroup>, Vec<Id>, Vec<Id>) {
+        (
+            self.identified_groups,
+            self.unmatched_left_source_ids,
+            self.unmatched_right_source_ids,
+        )
+    }
 }
 
 fn intersect_ids(first: &[Id], second: &[Id]) -> Vec<Id> {

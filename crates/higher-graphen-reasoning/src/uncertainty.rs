@@ -6,7 +6,7 @@
 use higher_graphen_core::{Confidence, CoreError, Id, Provenance, Result, ReviewStatus};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Supported finite uncertainty measures for a binary claim confidence.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -380,6 +380,36 @@ pub struct InformationGainReport {
     pub information_loss: Vec<String>,
 }
 
+/// Aggregate score for an action across multiple claim reports.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MultiClaimObservationScore {
+    /// Action scored.
+    pub action_id: Id,
+    /// Claims contributing positive or negative modeled value.
+    pub claim_ids: Vec<Id>,
+    /// Sum of per-claim expected information gain.
+    pub total_expected_information_gain: f64,
+    /// Maximum normalized observation cost charged once for the shared action.
+    pub normalized_observation_cost: f64,
+    /// Total gain minus shared normalized cost.
+    pub net_value: f64,
+}
+
+/// Aggregate value-of-information report across multiple claims.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MultiClaimInformationGainReport {
+    /// Per-claim reports.
+    pub claim_reports: Vec<InformationGainReport>,
+    /// Action scores aggregated across claims.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aggregate_action_scores: Vec<MultiClaimObservationScore>,
+    /// Recommended action identifiers ordered by aggregate net value.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recommended_action_ids: Vec<Id>,
+}
+
 /// Scores candidate observation actions for one claim.
 pub fn score_information_gain(
     state: &UncertaintyState,
@@ -486,6 +516,73 @@ pub fn score_information_gain(
     })
 }
 
+/// Scores observation actions across multiple claims, charging shared action cost once.
+pub fn score_multi_claim_information_gain(
+    states: &[UncertaintyState],
+    actions: &[ObservationAction],
+    options: &InformationGainOptions,
+) -> Result<MultiClaimInformationGainReport> {
+    let claim_reports = states
+        .iter()
+        .map(|state| score_information_gain(state, actions, options))
+        .collect::<Result<Vec<_>>>()?;
+    let mut aggregate = BTreeMap::<Id, MultiClaimAccumulator>::new();
+
+    for report in &claim_reports {
+        for action in &report.candidate_actions {
+            let entry = aggregate.entry(action.action_id.clone()).or_default();
+            entry.claim_ids.insert(report.claim_id.clone());
+            entry.total_expected_information_gain += action.expected_information_gain;
+            entry.normalized_observation_cost = entry
+                .normalized_observation_cost
+                .max(action.normalized_observation_cost);
+            entry.blocked |= !action.blocked_by_policy_ids.is_empty()
+                || options.cost_budget.is_some_and(|budget| {
+                    action.normalized_observation_cost * options.cost_normalizer > budget
+                });
+        }
+    }
+
+    let mut aggregate_action_scores = aggregate
+        .into_iter()
+        .map(|(action_id, accumulator)| MultiClaimObservationScore {
+            action_id,
+            claim_ids: accumulator.claim_ids.into_iter().collect(),
+            total_expected_information_gain: accumulator.total_expected_information_gain,
+            normalized_observation_cost: accumulator.normalized_observation_cost,
+            net_value: if accumulator.blocked {
+                f64::NEG_INFINITY
+            } else {
+                accumulator.total_expected_information_gain
+                    - accumulator.normalized_observation_cost
+            },
+        })
+        .collect::<Vec<_>>();
+    aggregate_action_scores.sort_by(compare_multi_claim_scores);
+    let mut recommended_action_ids = aggregate_action_scores
+        .iter()
+        .filter(|score| score.net_value > 0.0)
+        .map(|score| score.action_id.clone())
+        .collect::<Vec<_>>();
+    if let Some(max_recommended_actions) = options.max_recommended_actions {
+        recommended_action_ids.truncate(max_recommended_actions);
+    }
+
+    Ok(MultiClaimInformationGainReport {
+        claim_reports,
+        aggregate_action_scores,
+        recommended_action_ids,
+    })
+}
+
+#[derive(Debug, Default)]
+struct MultiClaimAccumulator {
+    claim_ids: BTreeSet<Id>,
+    total_expected_information_gain: f64,
+    normalized_observation_cost: f64,
+    blocked: bool,
+}
+
 fn uncertainty(
     confidence: Confidence,
     measure: UncertaintyMeasure,
@@ -528,6 +625,25 @@ fn compare_scored_actions(
             right
                 .expected_information_gain
                 .total_cmp(&left.expected_information_gain)
+        })
+        .then_with(|| {
+            left.normalized_observation_cost
+                .total_cmp(&right.normalized_observation_cost)
+        })
+        .then_with(|| left.action_id.cmp(&right.action_id))
+}
+
+fn compare_multi_claim_scores(
+    left: &MultiClaimObservationScore,
+    right: &MultiClaimObservationScore,
+) -> Ordering {
+    right
+        .net_value
+        .total_cmp(&left.net_value)
+        .then_with(|| {
+            right
+                .total_expected_information_gain
+                .total_cmp(&left.total_expected_information_gain)
         })
         .then_with(|| {
             left.normalized_observation_cost
@@ -585,7 +701,8 @@ fn unique_ids(ids: impl IntoIterator<Item = Id>) -> Vec<Id> {
 #[cfg(test)]
 mod tests {
     use super::{
-        score_information_gain, InformationGainOptions, InformationGainReport, ObservationAction,
+        score_information_gain, score_multi_claim_information_gain, InformationGainOptions,
+        InformationGainReport, MultiClaimInformationGainReport, ObservationAction,
         UncertaintyMeasure, UncertaintyObstructionType, UncertaintyState,
     };
     use higher_graphen_core::{Confidence, Id};
@@ -690,6 +807,56 @@ mod tests {
     }
 
     #[test]
+    fn multi_claim_scoring_charges_shared_action_cost_once() {
+        let states = vec![
+            UncertaintyState::new(
+                id("claim/a"),
+                confidence(0.4),
+                confidence(0.5),
+                UncertaintyMeasure::BinaryEntropy,
+            ),
+            UncertaintyState::new(
+                id("claim/b"),
+                confidence(0.4),
+                confidence(0.5),
+                UncertaintyMeasure::BinaryEntropy,
+            ),
+        ];
+        let shared = ObservationAction::new(
+            id("observe/shared"),
+            [id("claim/a"), id("claim/b")],
+            "shared logs",
+            0.1,
+        )
+        .expect("valid action")
+        .with_expected_posterior_confidence(confidence(0.9));
+
+        let report =
+            score_multi_claim_information_gain(&states, &[shared], &InformationGainOptions::new())
+                .expect("score multiple claims");
+
+        assert_eq!(report.recommended_action_ids, vec![id("observe/shared")]);
+        assert_eq!(
+            report.aggregate_action_scores[0].claim_ids,
+            vec![id("claim/a"), id("claim/b")]
+        );
+        assert_eq!(report.claim_reports.len(), 2);
+        assert!(report.aggregate_action_scores[0].net_value > 0.0);
+
+        let roundtrip: MultiClaimInformationGainReport =
+            serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))
+                .expect("deserialize");
+        assert_eq!(
+            roundtrip.recommended_action_ids,
+            report.recommended_action_ids
+        );
+        assert_eq!(
+            roundtrip.aggregate_action_scores[0].action_id,
+            id("observe/shared")
+        );
+    }
+
+    #[test]
     fn constructors_reject_malformed_costs_and_text() {
         assert!(ObservationAction::new(id("observe/bad"), [id("claim")], " ", 0.1).is_err());
         assert!(ObservationAction::new(id("observe/bad"), [id("claim")], "logs", -0.1).is_err());
@@ -712,5 +879,7 @@ mod tests {
         assert_serde_contract::<InformationGainOptions>();
         assert_serde_contract::<super::ScoredObservationAction>();
         assert_serde_contract::<InformationGainReport>();
+        assert_serde_contract::<super::MultiClaimObservationScore>();
+        assert_serde_contract::<MultiClaimInformationGainReport>();
     }
 }

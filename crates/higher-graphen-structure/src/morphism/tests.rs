@@ -480,6 +480,98 @@ fn explicit_pullback_candidate_reports_incompatible_targets() {
 }
 
 #[test]
+fn explicit_pushout_candidate_identifies_targets_from_shared_sources() {
+    let left = fixture_morphism(
+        "left",
+        "space/source",
+        "space/left",
+        [
+            ("cell/source-a", "cell/left-a"),
+            ("cell/source-only-left", "cell/left-only"),
+        ],
+        [("rel/source-a", "rel/left-a")],
+        ["invariant/shared"],
+    );
+    let right = fixture_morphism(
+        "right",
+        "space/source",
+        "space/right",
+        [
+            ("cell/source-a", "cell/right-a"),
+            ("cell/source-only-right", "cell/right-only"),
+        ],
+        [("rel/source-a", "rel/right-a")],
+        ["invariant/shared"],
+    );
+
+    let report = explicit_pushout_candidate(&left, &right, id("space/pushout-candidate"));
+
+    assert_eq!(report.source_space_id, Some(id("space/source")));
+    assert_eq!(
+        report.identified_cell_groups,
+        vec![IdentifiedSourceGroup {
+            source_element_id: id("cell/source-a"),
+            left_target_id: id("cell/left-a"),
+            right_target_id: id("cell/right-a"),
+        }]
+    );
+    assert_eq!(
+        report.identified_relation_groups,
+        vec![IdentifiedSourceGroup {
+            source_element_id: id("rel/source-a"),
+            left_target_id: id("rel/left-a"),
+            right_target_id: id("rel/right-a"),
+        }]
+    );
+    assert_eq!(
+        report.unmatched_left_cell_source_ids,
+        vec![id("cell/source-only-left")]
+    );
+    assert_eq!(
+        report.unmatched_right_cell_source_ids,
+        vec![id("cell/source-only-right")]
+    );
+    assert_eq!(
+        report.obstructions[0].obstruction_type,
+        PushoutObstructionType::PushoutIncomplete
+    );
+
+    let roundtrip: ExplicitPushoutReport =
+        serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))
+            .expect("deserialize");
+    assert_eq!(roundtrip, report);
+}
+
+#[test]
+fn explicit_pushout_candidate_reports_incompatible_sources() {
+    let left = fixture_morphism(
+        "left",
+        "space/source-a",
+        "space/left",
+        [("cell/source-a", "cell/left-a")],
+        [],
+        ["invariant/shared"],
+    );
+    let right = fixture_morphism(
+        "right",
+        "space/source-b",
+        "space/right",
+        [("cell/source-a", "cell/right-a")],
+        [],
+        ["invariant/shared"],
+    );
+
+    let report = left.explicit_pushout_with(&right, id("space/pushout-candidate"));
+
+    assert_eq!(report.source_space_id, None);
+    assert_eq!(
+        report.obstructions[0].obstruction_type,
+        PushoutObstructionType::IncompatibleSourceSpace
+    );
+    assert!(!report.is_complete());
+}
+
+#[test]
 fn diagram_commutativity_accepts_equivalent_explicit_paths() {
     let direct = fixture_morphism(
         "direct",

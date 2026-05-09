@@ -239,7 +239,9 @@ Order relations are useful for requirement strength, evidence support,
 abstraction levels, policy precedence, and refinement checks. They are claims
 unless accepted by review. A reasoning kernel may check finite consequences
 such as comparability, cycles, meet or join candidates, and whether a morphism
-preserves the declared order.
+preserves the declared order. The current finite kernel exposes selected
+relation analysis, accepted-relation filtering, meet/join candidates, and
+morphism monotonicity reports.
 
 ## Abstract State
 
@@ -259,9 +261,9 @@ incidence view.
 
 Graph analytics support impact analysis, review targeting, boundary detection,
 and dependency risk. Examples include impact cones, cut sets, articulation
-points, bridges, dominators, central cells, and cycle reduction candidates.
-These analytics produce prompts, rankings, and obstructions; they do not assign
-final review ownership or approve changes.
+points, bridges, strongly connected components, dominators, central cells, and
+cycle reduction candidates. These analytics produce prompts, rankings, and
+obstructions; they do not assign final review ownership or approve changes.
 
 ## Temporal Property
 
@@ -272,7 +274,9 @@ Temporal properties express behavior that cannot be reduced to a single static
 structure. Examples include forbidden reachability, required eventual actions,
 always-before ordering, and absence of dead-end states except accepted terminal
 states. Bounded temporal checks must report their bounds and counterexample
-traces when they find violations.
+traces when they find violations. The current bounded kernel supports forbidden
+state reachability, required-event checks, always-before checks, and dead-end
+checks.
 
 ## Diagram Construction
 
@@ -283,7 +287,8 @@ candidate.
 Diagram constructions help compare structures, find common substructure, and
 propose merges. They are candidates unless the required equivalence claims,
 quotient losses, and invariant preservation checks have been reviewed and
-accepted.
+accepted. The current finite morphism kernel exposes explicit pullback
+candidates, explicit pushout candidates, and two-path commutativity reports.
 
 ## Observation Action
 
@@ -293,7 +298,9 @@ uncertainty about claims, candidates, scenarios, or obstructions.
 Observation actions can record target claims, expected evidence kind,
 estimated cost, expected information gain, policy blockers, provenance, and
 review state. They recommend what to observe next. They do not execute the
-observation or accept the claim being investigated.
+observation or accept the claim being investigated. The current uncertainty
+kernel can score one claim or aggregate a shared observation action across
+multiple claims.
 
 ## Schema Morphism
 

@@ -95,6 +95,13 @@ net_value = expected_gain - normalized_observation_cost
 The MVP may use entropy or posterior distance from the decision threshold as
 the uncertainty measure. It must report the chosen measure explicitly.
 
+Implemented MVP surface:
+
+- `higher_graphen_reasoning::uncertainty::score_information_gain`
+- `score_multi_claim_information_gain`
+- `UncertaintyState`, `ObservationAction`, `InformationGainReport`
+- `MultiClaimInformationGainReport`
+
 ### Obstructions
 
 - `insufficient_prior`
@@ -285,6 +292,14 @@ relation:
 a <= b in source implies f(a) <= f(b) in target
 ```
 
+Implemented MVP surface:
+
+- `higher_graphen_structure::space::FiniteOrderRelationSet::analyze`
+- `accepted_relations` and `selected_by_review_statuses`
+- `check_order_monotonicity`
+- `OrderCheckReport` with comparability, meet/join candidates, selected
+  relation identifiers, and obstructions.
+
 ### Obstructions
 
 - `order_cycle`
@@ -402,6 +417,13 @@ Add deterministic finite algorithms:
 - dominator tree for directed workflow graphs;
 - feedback edge candidates for cycle reduction.
 
+Implemented MVP surface:
+
+- `InMemorySpaceStore::analyze_graph`
+- `GraphAnalyticsInput` and `GraphAnalyticsReport`
+- impact cone, articulation cells, bridge incidences, connected components,
+  and strongly connected components.
+
 ### Obstructions
 
 - `boundary_crossing_unreviewed`
@@ -461,6 +483,14 @@ Support a bounded finite subset before adding a full temporal logic parser:
 - always-before ordering;
 - absence of dead end except terminal states;
 - bounded counterexample trace generation.
+
+Implemented MVP surface:
+
+- `check_model` / `ModelChecker::check`
+- `check_required_event`
+- `check_always_before`
+- `check_dead_ends`
+- `ModelCheckingReport` and `TemporalCheckReport`
 
 ### Obstructions
 
@@ -530,6 +560,14 @@ Start with finite diagrams over explicit mappings:
 - common mapped substructure extraction as a pullback candidate;
 - explicit merge over shared source ids as a pushout candidate;
 - quotient loss declaration for identified structures.
+
+Implemented MVP surface:
+
+- `explicit_pullback_candidate`
+- `explicit_pushout_candidate`
+- `check_diagram_commutativity`
+- `ExplicitPullbackReport`, `ExplicitPushoutReport`, and
+  `DiagramCommutativityReport`
 
 ### Obstructions
 
@@ -605,4 +643,3 @@ Each kernel is ready to enter the MVP surface only when it has:
 - JSON round-trip tests;
 - source boundary and information-loss declarations when used by runtime;
 - no silent review-status promotion.
-

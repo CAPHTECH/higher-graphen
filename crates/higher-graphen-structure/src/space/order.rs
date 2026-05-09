@@ -124,6 +124,34 @@ impl FiniteOrderRelationSet {
         self
     }
 
+    /// Returns a relation set containing only relations with accepted review status.
+    #[must_use]
+    pub fn accepted_relations(&self) -> Self {
+        self.selected_by_review_statuses([ReviewStatus::Accepted])
+    }
+
+    /// Returns a relation set containing only relations whose review status is selected.
+    #[must_use]
+    pub fn selected_by_review_statuses(
+        &self,
+        statuses: impl IntoIterator<Item = ReviewStatus>,
+    ) -> Self {
+        let statuses = statuses.into_iter().collect::<BTreeSet<_>>();
+        let relations = self
+            .relations
+            .iter()
+            .filter(|relation| statuses.contains(&relation.review_status))
+            .cloned()
+            .collect();
+        Self {
+            id: self.id.clone(),
+            space_id: self.space_id.clone(),
+            relation_type: self.relation_type.clone(),
+            element_ids: self.element_ids.clone(),
+            relations,
+        }
+    }
+
     /// Runs finite partial-order and bound-candidate analysis.
     pub fn analyze(&self) -> Result<OrderCheckReport> {
         let closure = OrderClosure::build(self)?;
@@ -169,6 +197,11 @@ impl FiniteOrderRelationSet {
             relation_set_id: self.id.clone(),
             space_id: self.space_id.clone(),
             relation_type: self.relation_type.clone(),
+            selected_relation_ids: self
+                .relations
+                .iter()
+                .map(|relation| relation.id.clone())
+                .collect(),
             status: if antisymmetry_violations.is_empty() {
                 OrderCheckStatus::PartialOrder
             } else {
@@ -271,6 +304,9 @@ pub struct OrderCheckReport {
     pub space_id: Id,
     /// Relation type analyzed.
     pub relation_type: String,
+    /// Explicit relation identifiers selected for this analysis.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selected_relation_ids: Vec<Id>,
     /// Partial-order validity status.
     pub status: OrderCheckStatus,
     /// Small cycle witness when antisymmetry fails.
@@ -688,6 +724,41 @@ mod tests {
             report.obstructions[0].obstruction_type,
             OrderObstructionType::AntisymmetryViolation
         );
+    }
+
+    #[test]
+    fn accepted_relation_filter_limits_order_analysis_input() {
+        let accepted = OrderRelation::new(
+            id("accepted"),
+            id("space/order"),
+            "refines",
+            id("a"),
+            id("b"),
+        )
+        .expect("relation")
+        .with_review_status(ReviewStatus::Accepted);
+        let unreviewed = OrderRelation::new(
+            id("unreviewed"),
+            id("space/order"),
+            "refines",
+            id("b"),
+            id("a"),
+        )
+        .expect("relation");
+        let set = FiniteOrderRelationSet::new(
+            id("order/reviewed"),
+            id("space/order"),
+            "refines",
+            [id("a"), id("b")],
+        )
+        .expect("set")
+        .with_relations([accepted, unreviewed]);
+
+        let report = set.accepted_relations().analyze().expect("analyze");
+
+        assert_eq!(report.status, OrderCheckStatus::PartialOrder);
+        assert_eq!(report.selected_relation_ids, vec![id("accepted")]);
+        assert!(report.antisymmetry_violations.is_empty());
     }
 
     #[test]
