@@ -3,80 +3,16 @@
 use crate::{RuntimeError, RuntimeResult};
 use serde_json::{json, Map, Value};
 
+#[path = "ddd_review_case_space.rs"]
+mod ddd_review_case_space;
+#[path = "ddd_review_json.rs"]
+mod ddd_review_json;
+pub use ddd_review_case_space::ddd_input_from_case_space;
+use ddd_review_json::*;
+
 const INPUT_SCHEMA: &str = "highergraphen.ddd_review.input.v1";
 const REPORT_SCHEMA: &str = "highergraphen.ddd_review.report.v1";
 const CASE_SPACE_SCHEMA: &str = "highergraphen.case.space.v1";
-
-/// Converts a native CaseGraphen CaseSpace JSON document into the bounded DDD review input contract.
-pub fn ddd_input_from_case_space(case_space: Value, case_space_path: &str) -> RuntimeResult<Value> {
-    require_schema(&case_space, CASE_SPACE_SCHEMA)?;
-    let case_space_id = string_at(&case_space, &["case_space_id"])
-        .unwrap_or_else(|| "case_space:ddd-review".to_owned());
-    let space_id = format!("space:ddd-review:{}", id_tail(&case_space_id));
-    let source_boundary = source_boundary_from_case_space(&case_space, case_space_path);
-    let source_boundary_id = string_at(&source_boundary, &["id"])
-        .unwrap_or_else(|| format!("source_boundary:{}", id_tail(&case_space_id)));
-    let adapter_ids = string_array_at(&source_boundary, &["adapters"]);
-    let mut accepted_facts = accepted_facts_from_case_space(&case_space);
-    accepted_facts.extend(accepted_relations_from_case_space(&case_space));
-    let constraints = records_by_type(&case_space, &["custom:constraint"]);
-    let reviews = records_by_type(&case_space, &["review"]);
-    let mut inferred_claims = inferred_claims_from_case_space(&case_space);
-    inferred_claims.extend(inferred_relations_from_case_space(&case_space));
-    let completion_hints = completion_hints_from_case_space(&case_space);
-
-    Ok(json!({
-        "schema": INPUT_SCHEMA,
-        "source": {
-            "kind": "case_space",
-            "uri": case_space_path,
-            "title": format!("DDD review CaseSpace {}", case_space_id),
-            "confidence": 1.0,
-            "adapters": adapter_ids
-        },
-        "review_subject": {
-            "id": case_space_id,
-            "subject_type": "case_space",
-            "title": "DDD review from CaseSpace",
-            "description": "Review bounded-context and domain-model risks from a native CaseGraphen CaseSpace."
-        },
-        "source_boundary": source_boundary,
-        "lift_morphism": {
-            "id": format!("morphism:lift-{}", id_tail(&case_space_id)),
-            "morphism_type": "source_to_ddd_review_space",
-            "source_boundary_id": source_boundary_id,
-            "source_schema": CASE_SPACE_SCHEMA,
-            "target_space_id": space_id,
-            "adapter_ids": adapter_ids,
-            "preserved_ids": ids_from_records(&accepted_facts)
-                .into_iter()
-                .chain(ids_from_records(&constraints))
-                .chain(ids_from_records(&reviews))
-                .chain(ids_from_records(&completion_hints))
-                .collect::<Vec<_>>(),
-            "inferred_ids": ids_from_records(&inferred_claims),
-            "information_loss": [
-                "Native CaseSpace records are summarized into DDD review records.",
-                "Store replay, historical morphisms, and external implementation evidence are not read."
-            ]
-        },
-        "operation_gate": {
-            "actor_id": "actor:highergraphen-cli",
-            "operation": "ddd_review",
-            "operation_scope_id": space_id,
-            "audience": "audit",
-            "capability_ids": ["capability:highergraphen-cli:ddd-review"],
-            "policy_ids": ["policy:ddd-review-source-boundary"],
-            "source_boundary_id": source_boundary_id
-        },
-        "accepted_facts": accepted_facts,
-        "constraints": constraints,
-        "reviews": reviews,
-        "inferred_claims": inferred_claims,
-        "completion_hints": completion_hints,
-        "projection_requests": projection_requests_from_case_space(&case_space)
-    }))
-}
 
 /// Runs the bounded DDD review workflow and emits the stable DDD review report contract.
 pub fn run_ddd_review(input: Value) -> RuntimeResult<Value> {
@@ -86,26 +22,67 @@ pub fn run_ddd_review(input: Value) -> RuntimeResult<Value> {
     require_object(&input, "operation_gate")?;
     require_source_boundary_consistency(&input)?;
 
-    let accepted_facts = array_at(&input, &["accepted_facts"]);
-    let constraints = array_at(&input, &["constraints"]);
-    let reviews = array_at(&input, &["reviews"]);
-    let inferred_claims = array_at(&input, &["inferred_claims"]);
-    let completion_hints = array_at(&input, &["completion_hints"]);
-    let review_subject_id = string_at(&input, &["review_subject", "id"])
+    let data = ddd_review_data(&input);
+    Ok(ddd_review_report(input, data))
+}
+
+struct DddReviewData {
+    accepted_facts: Vec<Value>,
+    constraints: Vec<Value>,
+    reviews: Vec<Value>,
+    inferred_claims: Vec<Value>,
+    completion_hints: Vec<Value>,
+    space_id: String,
+    interpretation_mappings: Vec<Value>,
+    interpretation_mapping_ids: Vec<String>,
+    obstructions: Vec<Value>,
+    completion_candidates: Vec<Value>,
+    completion_morphisms: Vec<Value>,
+    projection_loss: Vec<Value>,
+    review_gaps: Vec<Value>,
+    blocker_ids: Vec<String>,
+}
+
+fn ddd_review_data(input: &Value) -> DddReviewData {
+    let accepted_facts = array_at(input, &["accepted_facts"]);
+    let constraints = array_at(input, &["constraints"]);
+    let reviews = array_at(input, &["reviews"]);
+    let inferred_claims = array_at(input, &["inferred_claims"]);
+    let completion_hints = array_at(input, &["completion_hints"]);
+    let review_subject_id = string_at(input, &["review_subject", "id"])
         .unwrap_or_else(|| "review_subject:ddd".to_owned());
-    let space_id = string_at(&input, &["lift_morphism", "target_space_id"])
+    let space_id = string_at(input, &["lift_morphism", "target_space_id"])
         .unwrap_or_else(|| format!("space:ddd-review:{}", id_tail(&review_subject_id)));
-    let interpretation_mappings = interpretation_mappings(&input);
+    let interpretation_mappings = interpretation_mappings(input);
     let interpretation_mapping_ids = ids_from_records(&interpretation_mappings);
-    let obstructions = obstructions_from_input(&input);
+    let obstructions = obstructions_from_input(input);
     let completion_candidates = completion_candidates_from_input(&completion_hints, &obstructions);
     let completion_morphisms = completion_morphisms_from_candidates(&completion_candidates);
-    let projection_loss = projection_loss_from_input(&input);
+    let projection_loss = projection_loss_from_input(input);
     let review_gaps = review_gaps_from_input(&reviews);
     let mut blocker_ids = ids_from_records(&obstructions);
     blocker_ids.extend(ids_from_records(&review_gaps));
 
-    Ok(json!({
+    DddReviewData {
+        accepted_facts,
+        constraints,
+        reviews,
+        inferred_claims,
+        completion_hints,
+        space_id,
+        interpretation_mappings,
+        interpretation_mapping_ids,
+        obstructions,
+        completion_candidates,
+        completion_morphisms,
+        projection_loss,
+        review_gaps,
+        blocker_ids,
+    }
+}
+
+fn ddd_review_report(input: Value, data: DddReviewData) -> Value {
+    json!({
         "schema": REPORT_SCHEMA,
         "report_type": "ddd_review",
         "report_version": 1,
@@ -121,56 +98,56 @@ pub fn run_ddd_review(input: Value) -> RuntimeResult<Value> {
             "source_boundary": input["source_boundary"].clone(),
             "lift_morphism": input["lift_morphism"].clone(),
             "operation_gate": input["operation_gate"].clone(),
-            "accepted_facts": compact_records(&accepted_facts, "record_type"),
-            "constraints": compact_records(&constraints, "record_type"),
-            "reviews": compact_records(&reviews, "record_type"),
-            "inferred_claims": compact_records(&inferred_claims, "claim_type"),
-            "completion_hints": compact_records(&completion_hints, "candidate_type"),
-            "interpretation_mappings": interpretation_mappings,
+            "accepted_facts": compact_records(&data.accepted_facts, "record_type"),
+            "constraints": compact_records(&data.constraints, "record_type"),
+            "reviews": compact_records(&data.reviews, "record_type"),
+            "inferred_claims": compact_records(&data.inferred_claims, "claim_type"),
+            "completion_hints": compact_records(&data.completion_hints, "candidate_type"),
+            "interpretation_mappings": data.interpretation_mappings,
             "lifted_structure": {
-                "space_id": space_id,
+                "space_id": data.space_id,
                 "cell_ids": ids_from_values(
-                    accepted_facts.iter()
-                        .chain(&constraints)
-                        .chain(&reviews)
-                        .chain(&inferred_claims)
-                        .chain(&completion_hints)
+                    data.accepted_facts.iter()
+                        .chain(&data.constraints)
+                        .chain(&data.reviews)
+                        .chain(&data.inferred_claims)
+                        .chain(&data.completion_hints)
                         .collect::<Vec<_>>()
                 ),
                 "incidence_ids": ["incidence:ddd-review-source-support"],
-                "context_ids": context_ids_from_records(&accepted_facts),
+                "context_ids": context_ids_from_records(&data.accepted_facts),
                 "invariant_ids": invariant_ids(),
-                "interpretation_mapping_ids": interpretation_mapping_ids,
+                "interpretation_mapping_ids": data.interpretation_mapping_ids,
                 "morphism_summary_ids": [input["lift_morphism"]["id"].clone()]
             }
         },
         "result": {
-            "status": if obstructions.is_empty() && review_gaps.is_empty() && projection_loss.is_empty() {
+            "status": if data.obstructions.is_empty() && data.review_gaps.is_empty() && data.projection_loss.is_empty() {
                 "no_issues_in_snapshot"
             } else {
                 "issues_detected"
             },
             "accepted_fact_ids": ids_from_values(
-                accepted_facts.iter().chain(&constraints).chain(&reviews).collect::<Vec<_>>()
+                data.accepted_facts.iter().chain(&data.constraints).chain(&data.reviews).collect::<Vec<_>>()
             ),
-            "inferred_claim_ids": ids_from_records(&inferred_claims),
+            "inferred_claim_ids": ids_from_records(&data.inferred_claims),
             "evaluated_invariant_ids": invariant_ids(),
-            "interpretation_mapping_ids": ids_from_records(&interpretation_mappings),
-            "obstructions": obstructions,
-            "completion_candidates": completion_candidates,
-            "completion_morphisms": completion_morphisms,
-            "evidence_boundaries": evidence_boundaries_from_input(&accepted_facts, &inferred_claims),
-            "projection_loss": projection_loss,
-            "review_gaps": review_gaps,
+            "interpretation_mapping_ids": ids_from_records(&data.interpretation_mappings),
+            "obstructions": data.obstructions,
+            "completion_candidates": data.completion_candidates,
+            "completion_morphisms": data.completion_morphisms,
+            "evidence_boundaries": evidence_boundaries_from_input(&data.accepted_facts, &data.inferred_claims),
+            "projection_loss": data.projection_loss,
+            "review_gaps": data.review_gaps,
             "closeability": {
-                "closeable": blocker_ids.is_empty(),
-                "blocker_ids": blocker_ids,
+                "closeable": data.blocker_ids.is_empty(),
+                "blocker_ids": data.blocker_ids,
                 "required_actions": required_actions()
             },
             "source_ids": source_ids_from_input(&input)
         },
         "projection": projection_from_input(&input)
-    }))
+    })
 }
 
 fn require_schema(value: &Value, expected: &str) -> RuntimeResult<()> {
@@ -210,180 +187,6 @@ fn require_source_boundary_consistency(input: &Value) -> RuntimeResult<()> {
             "source_boundary.id must match lift_morphism.source_boundary_id and operation_gate.source_boundary_id",
         ))
     }
-}
-
-fn source_boundary_from_case_space(case_space: &Value, case_space_path: &str) -> Value {
-    if let Some(boundary) = case_space
-        .get("metadata")
-        .and_then(|metadata| metadata.get("source_boundary"))
-    {
-        return normalize_source_boundary(boundary, case_space_path);
-    }
-    let case_space_id = string_at(case_space, &["case_space_id"])
-        .unwrap_or_else(|| "case_space:ddd-review".to_owned());
-    json!({
-        "id": format!("source_boundary:{}", id_tail(&case_space_id)),
-        "input_paths": [case_space_path],
-        "included_sources": [case_space_path],
-        "excluded_sources": [
-            "CaseGraphen store replay",
-            "full MorphismLog history",
-            "source code",
-            "ADRs",
-            "tickets",
-            "tests"
-        ],
-        "adapters": ["casegraphen_case_space.v1"],
-        "accepted_fact_boundaries": ["source_backed", "adapter_supplied"],
-        "inference_boundaries": ["ai_inference", "unreviewed_note"],
-        "omitted_material": [
-            "No CaseGraphen store replay or MorphismLog history was read.",
-            "Full workshop notes, ADRs, source code, tickets, and tests were not read."
-        ],
-        "information_loss": [
-            "Native CaseSpace records are summarized into a bounded DDD review snapshot."
-        ]
-    })
-}
-
-fn normalize_source_boundary(boundary: &Value, case_space_path: &str) -> Value {
-    let id =
-        string_at(boundary, &["id"]).unwrap_or_else(|| "source_boundary:ddd-review".to_owned());
-    let included_sources = string_array_at(boundary, &["included_sources"]);
-    let excluded_sources = string_array_at(boundary, &["excluded_sources"]);
-    let adapters = {
-        let values = string_array_at(boundary, &["adapters"]);
-        if values.is_empty() {
-            vec!["casegraphen_case_space.v1".to_owned()]
-        } else {
-            values
-        }
-    };
-    json!({
-        "id": id,
-        "input_paths": [case_space_path],
-        "included_sources": if included_sources.is_empty() { vec![case_space_path.to_owned()] } else { included_sources },
-        "excluded_sources": excluded_sources,
-        "adapters": adapters,
-        "accepted_fact_boundaries": ["source_backed", "adapter_supplied"],
-        "inference_boundaries": ["ai_inference", "unreviewed_note"],
-        "omitted_material": string_array_at(boundary, &["information_loss"]),
-        "information_loss": string_array_at(boundary, &["information_loss"])
-    })
-}
-
-fn accepted_facts_from_case_space(case_space: &Value) -> Vec<Value> {
-    cells(case_space)
-        .into_iter()
-        .filter(|cell| !is_inferred(cell) && !is_completion(cell))
-        .filter(|cell| {
-            !matches!(
-                string_at(cell, &["cell_type"]).as_deref(),
-                Some("custom:constraint" | "review")
-            )
-        })
-        .filter_map(ddd_record_from_cell)
-        .collect()
-}
-
-fn records_by_type(case_space: &Value, cell_types: &[&str]) -> Vec<Value> {
-    cells(case_space)
-        .into_iter()
-        .filter(|cell| {
-            cell.get("cell_type")
-                .and_then(Value::as_str)
-                .is_some_and(|cell_type| cell_types.contains(&cell_type))
-        })
-        .filter_map(ddd_record_from_cell)
-        .collect()
-}
-
-fn accepted_relations_from_case_space(case_space: &Value) -> Vec<Value> {
-    relations(case_space)
-        .into_iter()
-        .filter(|relation| !is_inferred_relation(relation))
-        .filter_map(ddd_record_from_relation)
-        .collect()
-}
-
-fn inferred_relations_from_case_space(case_space: &Value) -> Vec<Value> {
-    relations(case_space)
-        .into_iter()
-        .filter(|relation| is_inferred_relation(relation))
-        .map(|relation| {
-            json!({
-                "id": string_at(relation, &["id"]).unwrap_or_else(|| "inference:ddd-relation".to_owned()),
-                "claim_type": claim_type_for_relation(relation),
-                "label": string_at(relation, &["relation_type"]).unwrap_or_else(|| "DDD inferred relation".to_owned()),
-                "source_ids": string_array_at(relation, &["source_ids"]),
-                "target_ids": relation_endpoint_ids(relation),
-                "confidence": number_at(relation, &["provenance", "confidence"]).unwrap_or(0.6),
-                "review_status": "unreviewed",
-                "evidence_boundary": "ai_inference"
-            })
-        })
-        .collect()
-}
-
-fn inferred_claims_from_case_space(case_space: &Value) -> Vec<Value> {
-    cells(case_space)
-        .into_iter()
-        .filter(|cell| is_inferred(cell))
-        .map(|cell| {
-            json!({
-                "id": string_at(cell, &["id"]).unwrap_or_else(|| "inference:ddd".to_owned()),
-                "claim_type": claim_type_for_cell(cell),
-                "label": string_at(cell, &["title"]).unwrap_or_else(|| "DDD inferred claim".to_owned()),
-                "source_ids": string_array_at(cell, &["source_ids"]),
-                "target_ids": string_array_at(cell, &["structure_ids"]),
-                "confidence": number_at(cell, &["provenance", "confidence"]).unwrap_or(0.6),
-                "review_status": "unreviewed",
-                "evidence_boundary": evidence_boundary(cell).unwrap_or("ai_inference".to_owned())
-            })
-        })
-        .collect()
-}
-
-fn completion_hints_from_case_space(case_space: &Value) -> Vec<Value> {
-    cells(case_space)
-        .into_iter()
-        .filter(|cell| is_completion(cell))
-        .map(|cell| {
-            json!({
-                "id": string_at(cell, &["id"]).unwrap_or_else(|| "completion:ddd".to_owned()),
-                "candidate_type": "boundary_mapping",
-                "target_ids": string_array_at(cell, &["structure_ids"]),
-                "source_ids": string_array_at(cell, &["source_ids"]),
-                "suggested_change": {
-                    "summary": string_at(cell, &["summary"]).unwrap_or_else(|| "Review the DDD completion candidate.".to_owned())
-                },
-                "confidence": number_at(cell, &["provenance", "confidence"]).unwrap_or(0.7),
-                "severity": string_at(cell, &["metadata", "severity"]).unwrap_or_else(|| "high".to_owned()),
-                "review_status": "unreviewed"
-            })
-        })
-        .collect()
-}
-
-fn projection_requests_from_case_space(case_space: &Value) -> Vec<Value> {
-    case_space
-        .get("projections")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .map(|projection| {
-            json!({
-                "id": string_at(projection, &["projection_id"]).unwrap_or_else(|| "projection:ddd".to_owned()),
-                "view": match string_at(projection, &["audience"]).as_deref() {
-                    Some("audit") => "audit_trace",
-                    Some("ai_agent") => "ai_view",
-                    Some("human_review") => "human_review",
-                    _ => "implementation_view"
-                },
-                "focus_ids": string_array_at(projection, &["represented_cell_ids"])
-            })
-        })
-        .collect()
 }
 
 fn ddd_record_from_cell(cell: &Value) -> Option<Value> {
@@ -924,145 +727,4 @@ fn audit_represented_ids(input: &Value) -> Vec<String> {
     ];
     ids.extend(ids_from_records(&interpretation_mappings(input)));
     ids
-}
-
-fn invariant_ids() -> Vec<&'static str> {
-    vec![
-        "invariant:context-language-preserved",
-        "invariant:cross-context-identity-not-collapsed",
-        "invariant:boundary-translation-explicit",
-        "invariant:review-gates-satisfied-before-close",
-        "invariant:inference-not-accepted-evidence",
-        "invariant:projection-declares-loss",
-        "invariant:context-ownership-explicit",
-    ]
-}
-
-fn required_actions() -> Vec<&'static str> {
-    vec![
-        "Review context-specific domain meanings before accepting a shared model.",
-        "Add accepted equivalence evidence or split the model by bounded context.",
-        "Review or implement anti-corruption mapping candidates before close.",
-    ]
-}
-
-fn source_ids_from_input(input: &Value) -> Vec<String> {
-    ids_from_values(
-        array_at(input, &["accepted_facts"])
-            .iter()
-            .chain(&array_at(input, &["constraints"]))
-            .chain(&array_at(input, &["reviews"]))
-            .chain(&array_at(input, &["inferred_claims"]))
-            .chain(&array_at(input, &["completion_hints"]))
-            .collect(),
-    )
-}
-
-fn context_ids_from_records(records: &[Value]) -> Vec<String> {
-    records
-        .iter()
-        .filter(|record| string_at(record, &["record_type"]).as_deref() == Some("bounded_context"))
-        .filter_map(|record| string_at(record, &["id"]))
-        .collect()
-}
-
-fn compact_records(records: &[Value], kind_field: &str) -> Vec<Value> {
-    records
-        .iter()
-        .filter_map(|record| {
-            Some(json!({
-                "id": string_at(record, &["id"])?,
-                kind_field: string_at(record, &[kind_field])?,
-                "review_status": string_at(record, &["review_status"]).unwrap_or_else(|| "unreviewed".to_owned())
-            }))
-        })
-        .collect()
-}
-
-fn cells(case_space: &Value) -> Vec<&Value> {
-    case_space
-        .get("case_cells")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .collect()
-}
-
-fn ids_from_records(records: &[Value]) -> Vec<String> {
-    records
-        .iter()
-        .filter_map(|record| string_at(record, &["id"]))
-        .collect()
-}
-
-fn ids_from_values(records: Vec<&Value>) -> Vec<String> {
-    records
-        .into_iter()
-        .filter_map(|record| string_at(record, &["id"]))
-        .collect()
-}
-
-fn id_tail(id: &str) -> String {
-    id.rsplit(':').next().unwrap_or(id).replace('_', "-")
-}
-
-fn domain_term(record: &Value) -> String {
-    string_at(record, &["label"])
-        .or_else(|| string_at(record, &["id"]))
-        .unwrap_or_default()
-        .split([':', '.', '-', '_', ' '])
-        .next_back()
-        .unwrap_or_default()
-        .to_ascii_lowercase()
-}
-
-fn array_at(value: &Value, path: &[&str]) -> Vec<Value> {
-    value_at(value, path)
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
-}
-
-fn relations(case_space: &Value) -> Vec<&Value> {
-    case_space
-        .get("case_relations")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .collect()
-}
-
-fn relation_endpoint_ids(relation: &Value) -> Vec<String> {
-    ["from_id", "to_id"]
-        .iter()
-        .filter_map(|field| string_at(relation, &[field]))
-        .collect()
-}
-
-fn string_array_at(value: &Value, path: &[&str]) -> Vec<String> {
-    value_at(value, path)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
-fn string_at(value: &Value, path: &[&str]) -> Option<String> {
-    value_at(value, path)
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-}
-
-fn number_at(value: &Value, path: &[&str]) -> Option<f64> {
-    value_at(value, path).and_then(Value::as_f64)
-}
-
-fn value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
-    let mut current = value;
-    for segment in path {
-        current = current.get(*segment)?;
-    }
-    Some(current)
 }
