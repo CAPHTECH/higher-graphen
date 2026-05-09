@@ -2,6 +2,7 @@
 
 pub mod coverage;
 pub mod graph_analytics;
+pub mod order;
 pub mod structural;
 pub mod traversal;
 
@@ -11,6 +12,7 @@ use std::collections::BTreeSet;
 
 pub use coverage::*;
 pub use graph_analytics::*;
+pub use order::*;
 pub use structural::*;
 pub use traversal::*;
 
