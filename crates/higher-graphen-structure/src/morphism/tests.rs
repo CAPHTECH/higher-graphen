@@ -369,6 +369,116 @@ fn preservation_check_sorts_and_deduplicates_selected_invariants() {
     assert_eq!(report.distortion, morphism.distortion);
 }
 
+#[test]
+fn explicit_pullback_candidate_extracts_common_mapped_substructure() {
+    let left = fixture_morphism(
+        "left",
+        "space/left",
+        "space/target",
+        [
+            ("cell/left-a", "cell/shared-a"),
+            ("cell/left-b", "cell/shared-b"),
+            ("cell/left-only", "cell/left-only-target"),
+        ],
+        [
+            ("rel/left-a", "rel/shared-a"),
+            ("rel/left-only", "rel/left-only-target"),
+        ],
+        ["invariant/shared"],
+    );
+    let right = fixture_morphism(
+        "right",
+        "space/right",
+        "space/target",
+        [
+            ("cell/right-a", "cell/shared-a"),
+            ("cell/right-b", "cell/shared-b"),
+            ("cell/right-only", "cell/right-only-target"),
+        ],
+        [
+            ("rel/right-a", "rel/shared-a"),
+            ("rel/right-only", "rel/right-only-target"),
+        ],
+        ["invariant/shared"],
+    );
+
+    let report = left.explicit_pullback_with(&right);
+
+    assert_eq!(report.target_space_id, Some(id("space/target")));
+    assert_eq!(
+        report.cell_matches,
+        vec![
+            PullbackCellMatch {
+                left_cell_id: id("cell/left-a"),
+                right_cell_id: id("cell/right-a"),
+                target_cell_id: id("cell/shared-a"),
+            },
+            PullbackCellMatch {
+                left_cell_id: id("cell/left-b"),
+                right_cell_id: id("cell/right-b"),
+                target_cell_id: id("cell/shared-b"),
+            },
+        ]
+    );
+    assert_eq!(
+        report.relation_matches,
+        vec![PullbackRelationMatch {
+            left_relation_id: id("rel/left-a"),
+            right_relation_id: id("rel/right-a"),
+            target_relation_id: id("rel/shared-a"),
+        }]
+    );
+    assert_eq!(report.unmatched_left_cell_ids, vec![id("cell/left-only")]);
+    assert_eq!(report.unmatched_right_cell_ids, vec![id("cell/right-only")]);
+    assert_eq!(
+        report.unmatched_left_relation_ids,
+        vec![id("rel/left-only")]
+    );
+    assert_eq!(
+        report.unmatched_right_relation_ids,
+        vec![id("rel/right-only")]
+    );
+    assert_eq!(
+        report.obstructions[0].obstruction_type,
+        PullbackObstructionType::PullbackIncomplete
+    );
+    assert!(!report.is_complete());
+
+    let roundtrip: ExplicitPullbackReport =
+        serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))
+            .expect("deserialize");
+    assert_eq!(roundtrip, report);
+}
+
+#[test]
+fn explicit_pullback_candidate_reports_incompatible_targets() {
+    let left = fixture_morphism(
+        "left",
+        "space/left",
+        "space/target-a",
+        [("cell/left-a", "cell/shared")],
+        [],
+        ["invariant/shared"],
+    );
+    let right = fixture_morphism(
+        "right",
+        "space/right",
+        "space/target-b",
+        [("cell/right-a", "cell/shared")],
+        [],
+        ["invariant/shared"],
+    );
+
+    let report = explicit_pullback_candidate(&left, &right);
+
+    assert_eq!(report.target_space_id, None);
+    assert_eq!(
+        report.obstructions[0].obstruction_type,
+        PullbackObstructionType::IncompatibleTargetSpace
+    );
+    assert!(!report.is_complete());
+}
+
 fn fixture_morphism<const C: usize, const R: usize, const I: usize>(
     morphism_id: &str,
     source_space_id: &str,
