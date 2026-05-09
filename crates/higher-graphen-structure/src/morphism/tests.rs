@@ -479,6 +479,139 @@ fn explicit_pullback_candidate_reports_incompatible_targets() {
     assert!(!report.is_complete());
 }
 
+#[test]
+fn diagram_commutativity_accepts_equivalent_explicit_paths() {
+    let direct = fixture_morphism(
+        "direct",
+        "space/a",
+        "space/c",
+        [("cell/a1", "cell/c1")],
+        [("rel/a1", "rel/c1")],
+        ["invariant/shared"],
+    );
+    let first = fixture_morphism(
+        "first",
+        "space/a",
+        "space/b",
+        [("cell/a1", "cell/b1")],
+        [("rel/a1", "rel/b1")],
+        ["invariant/shared"],
+    );
+    let second = fixture_morphism(
+        "second",
+        "space/b",
+        "space/c",
+        [("cell/b1", "cell/c1")],
+        [("rel/b1", "rel/c1")],
+        ["invariant/shared"],
+    );
+
+    let report = check_diagram_commutativity(&[direct], &[first, second]);
+
+    assert!(report.commutes);
+    assert!(report.non_commutative_witnesses.is_empty());
+    assert!(report.obstructions.is_empty());
+
+    let roundtrip: DiagramCommutativityReport =
+        serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))
+            .expect("deserialize");
+    assert_eq!(roundtrip, report);
+}
+
+#[test]
+fn diagram_commutativity_reports_mapping_disagreement() {
+    let direct = fixture_morphism(
+        "direct",
+        "space/a",
+        "space/c",
+        [("cell/a1", "cell/c2")],
+        [("rel/a1", "rel/c2")],
+        ["invariant/shared"],
+    );
+    let first = fixture_morphism(
+        "first",
+        "space/a",
+        "space/b",
+        [("cell/a1", "cell/b1")],
+        [("rel/a1", "rel/b1")],
+        ["invariant/shared"],
+    );
+    let second = fixture_morphism(
+        "second",
+        "space/b",
+        "space/c",
+        [("cell/b1", "cell/c1")],
+        [("rel/b1", "rel/c1")],
+        ["invariant/shared"],
+    );
+
+    let report = check_diagram_commutativity(&[direct], &[first, second]);
+
+    assert!(!report.commutes);
+    assert!(report.obstructions.iter().any(|obstruction| {
+        obstruction.obstruction_type == DiagramObstructionType::NonCommutativeDiagram
+    }));
+    assert_eq!(
+        report.non_commutative_witnesses,
+        vec![
+            NonCommutativeWitness {
+                element_kind: DiagramElementKind::Cell,
+                source_element_id: id("cell/a1"),
+                left_target_id: Some(id("cell/c2")),
+                right_target_id: Some(id("cell/c1")),
+            },
+            NonCommutativeWitness {
+                element_kind: DiagramElementKind::Relation,
+                source_element_id: id("rel/a1"),
+                left_target_id: Some(id("rel/c2")),
+                right_target_id: Some(id("rel/c1")),
+            },
+        ]
+    );
+}
+
+#[test]
+fn diagram_commutativity_reports_incomplete_and_incompatible_paths() {
+    let direct = fixture_morphism(
+        "direct",
+        "space/a",
+        "space/c",
+        [("cell/a1", "cell/c1")],
+        [],
+        ["invariant/shared"],
+    );
+    let first = fixture_morphism(
+        "first",
+        "space/a",
+        "space/b",
+        [("cell/a1", "cell/b1"), ("cell/a2", "cell/b2")],
+        [],
+        ["invariant/shared"],
+    );
+    let incompatible_second = fixture_morphism(
+        "second",
+        "space/x",
+        "space/c",
+        [("cell/b1", "cell/c1")],
+        [],
+        ["invariant/shared"],
+    );
+
+    let report = check_diagram_commutativity(&[direct], &[first, incompatible_second]);
+
+    assert!(!report.commutes);
+    assert!(report.obstructions.iter().any(|obstruction| {
+        obstruction.obstruction_type == DiagramObstructionType::IncompatiblePath
+    }));
+    assert!(report.obstructions.iter().any(|obstruction| {
+        obstruction.obstruction_type == DiagramObstructionType::IncompletePath
+    }));
+    assert_eq!(
+        report.right_path.coverage.unmapped_cell_intermediate_ids,
+        vec![id("cell/b2")]
+    );
+}
+
 fn fixture_morphism<const C: usize, const R: usize, const I: usize>(
     morphism_id: &str,
     source_space_id: &str,

@@ -262,6 +262,99 @@ impl ExplicitPullbackReport {
     }
 }
 
+/// Stable obstruction emitted by finite diagram commutativity checks.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagramObstructionType {
+    /// A path contains adjacent morphisms with incompatible spaces.
+    IncompatiblePath,
+    /// A path omits explicit mappings needed to compose fully.
+    IncompletePath,
+    /// The two paths do not have the same source and target spaces.
+    IncompatibleBoundary,
+    /// The two path mappings disagree.
+    NonCommutativeDiagram,
+}
+
+/// Structured diagram-check obstruction.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiagramObstruction {
+    /// Obstruction category.
+    pub obstruction_type: DiagramObstructionType,
+    /// Human-readable diagnostic.
+    pub reason: String,
+}
+
+/// Explicit element category compared by diagram commutativity.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagramElementKind {
+    /// Cell mapping mismatch.
+    Cell,
+    /// Relation mapping mismatch.
+    Relation,
+}
+
+/// Witness that two diagram paths disagree on an explicit source element.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct NonCommutativeWitness {
+    /// Element category.
+    pub element_kind: DiagramElementKind,
+    /// Source element being compared.
+    pub source_element_id: Id,
+    /// Target reached by the left path, when mapped.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left_target_id: Option<Id>,
+    /// Target reached by the right path, when mapped.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub right_target_id: Option<Id>,
+}
+
+/// Summary of one explicit path through a finite diagram.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiagramPathSummary {
+    /// Morphisms in path order.
+    pub morphism_ids: Vec<Id>,
+    /// Source space of the first morphism, when path is non-empty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_space_id: Option<Id>,
+    /// Target space of the last morphism, when path is non-empty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_space_id: Option<Id>,
+    /// Explicit cell mapping produced by path composition.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub cell_mapping: CellMapping,
+    /// Explicit relation mapping produced by path composition.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub relation_mapping: RelationMapping,
+    /// Explicit mapping coverage for this path.
+    pub coverage: CompositionCoverage,
+}
+
+/// Deterministic commutativity check for two explicit morphism paths.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiagramCommutativityReport {
+    /// Left path summary.
+    pub left_path: DiagramPathSummary,
+    /// Right path summary.
+    pub right_path: DiagramPathSummary,
+    /// True only when both paths are complete, boundary-compatible, and mapping-equivalent.
+    pub commutes: bool,
+    /// Explicit source elements where path targets differ.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub non_commutative_witnesses: Vec<NonCommutativeWitness>,
+    /// Obstructions found during checking.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub obstructions: Vec<DiagramObstruction>,
+    /// Explicit checking limitations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub information_loss: Vec<String>,
+}
+
 /// Result of an explicit two-morphism composition attempt.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -584,6 +677,68 @@ pub fn explicit_pullback_candidate(left: &Morphism, right: &Morphism) -> Explici
     }
 }
 
+/// Checks whether two explicit morphism paths commute.
+///
+/// This finite MVP compares only explicit cell and relation mappings produced
+/// by path composition. Missing mappings and incompatible path boundaries are
+/// retained as structured obstructions.
+pub fn check_diagram_commutativity(
+    left_path: &[Morphism],
+    right_path: &[Morphism],
+) -> DiagramCommutativityReport {
+    let left = compose_path_summary(left_path);
+    let right = compose_path_summary(right_path);
+    let mut obstructions = Vec::new();
+    obstructions.extend(path_boundary_obstructions("left", left_path));
+    obstructions.extend(path_boundary_obstructions("right", right_path));
+    obstructions.extend(path_obstructions("left", &left));
+    obstructions.extend(path_obstructions("right", &right));
+
+    if left.source_space_id != right.source_space_id
+        || left.target_space_id != right.target_space_id
+    {
+        obstructions.push(DiagramObstruction {
+            obstruction_type: DiagramObstructionType::IncompatibleBoundary,
+            reason: "left and right paths do not share the same source and target spaces"
+                .to_owned(),
+        });
+    }
+
+    let non_commutative_witnesses = mapping_witnesses(
+        DiagramElementKind::Cell,
+        &left.cell_mapping,
+        &right.cell_mapping,
+    )
+    .into_iter()
+    .chain(mapping_witnesses(
+        DiagramElementKind::Relation,
+        &left.relation_mapping,
+        &right.relation_mapping,
+    ))
+    .collect::<Vec<_>>();
+
+    if !non_commutative_witnesses.is_empty() {
+        obstructions.push(DiagramObstruction {
+            obstruction_type: DiagramObstructionType::NonCommutativeDiagram,
+            reason: "left and right path mappings disagree on explicit source elements".to_owned(),
+        });
+    }
+
+    let commutes = obstructions.is_empty();
+
+    DiagramCommutativityReport {
+        left_path: left,
+        right_path: right,
+        commutes,
+        non_commutative_witnesses,
+        obstructions,
+        information_loss: vec![
+            "only explicit morphism mappings are compared".to_owned(),
+            "unmapped source elements are reported as incomplete path coverage".to_owned(),
+        ],
+    }
+}
+
 struct ComposedMorphismSpec {
     composed_id: Id,
     name: String,
@@ -743,6 +898,106 @@ fn pullback_matches(left: &BTreeMap<Id, Id>, right: &BTreeMap<Id, Id>) -> Pullba
         unmatched_left_ids: unmatched_left_ids.into_iter().collect(),
         unmatched_right_ids: unmatched_right_ids.into_iter().collect(),
     }
+}
+
+fn compose_path_summary(path: &[Morphism]) -> DiagramPathSummary {
+    let morphism_ids = path.iter().map(|morphism| morphism.id.clone()).collect();
+    let Some(first) = path.first() else {
+        return DiagramPathSummary {
+            morphism_ids,
+            source_space_id: None,
+            target_space_id: None,
+            cell_mapping: BTreeMap::new(),
+            relation_mapping: BTreeMap::new(),
+            coverage: CompositionCoverage::default(),
+        };
+    };
+
+    let mut cell_mapping = first.cell_mapping.clone();
+    let mut relation_mapping = first.relation_mapping.clone();
+    let mut unmapped_cell_intermediate_ids = BTreeSet::new();
+    let mut unmapped_relation_intermediate_ids = BTreeSet::new();
+
+    for next in path.iter().skip(1) {
+        let cell_composition = compose_mapping_parts(&cell_mapping, &next.cell_mapping);
+        let relation_composition = compose_mapping_parts(&relation_mapping, &next.relation_mapping);
+        unmapped_cell_intermediate_ids.extend(unmapped_intermediate_ids(&cell_composition));
+        unmapped_relation_intermediate_ids.extend(unmapped_intermediate_ids(&relation_composition));
+        cell_mapping = cell_composition.mapping;
+        relation_mapping = relation_composition.mapping;
+    }
+
+    DiagramPathSummary {
+        morphism_ids,
+        source_space_id: Some(first.source_space_id.clone()),
+        target_space_id: path.last().map(|morphism| morphism.target_space_id.clone()),
+        cell_mapping,
+        relation_mapping,
+        coverage: CompositionCoverage {
+            unmapped_cell_intermediate_ids: unmapped_cell_intermediate_ids.into_iter().collect(),
+            unmapped_relation_intermediate_ids: unmapped_relation_intermediate_ids
+                .into_iter()
+                .collect(),
+        },
+    }
+}
+
+fn path_obstructions(label: &str, path: &DiagramPathSummary) -> Vec<DiagramObstruction> {
+    let mut obstructions = Vec::new();
+    if path.morphism_ids.is_empty() {
+        obstructions.push(DiagramObstruction {
+            obstruction_type: DiagramObstructionType::IncompatiblePath,
+            reason: format!("{label} path is empty"),
+        });
+    }
+    if !path.coverage.is_complete() {
+        obstructions.push(DiagramObstruction {
+            obstruction_type: DiagramObstructionType::IncompletePath,
+            reason: format!("{label} path has explicit mappings that cannot continue"),
+        });
+    }
+    obstructions
+}
+
+fn path_boundary_obstructions(label: &str, path: &[Morphism]) -> Vec<DiagramObstruction> {
+    path.windows(2)
+        .filter_map(|window| {
+            let first = &window[0];
+            let second = &window[1];
+            (first.target_space_id != second.source_space_id).then(|| DiagramObstruction {
+                obstruction_type: DiagramObstructionType::IncompatiblePath,
+                reason: format!(
+                    "{label} path morphism {} targets {}, but next morphism {} sources {}",
+                    first.id, first.target_space_id, second.id, second.source_space_id
+                ),
+            })
+        })
+        .collect()
+}
+
+fn mapping_witnesses(
+    element_kind: DiagramElementKind,
+    left: &BTreeMap<Id, Id>,
+    right: &BTreeMap<Id, Id>,
+) -> Vec<NonCommutativeWitness> {
+    let source_ids = left
+        .keys()
+        .chain(right.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    source_ids
+        .into_iter()
+        .filter_map(|source_element_id| {
+            let left_target_id = left.get(&source_element_id);
+            let right_target_id = right.get(&source_element_id);
+            (left_target_id != right_target_id).then(|| NonCommutativeWitness {
+                element_kind,
+                source_element_id,
+                left_target_id: left_target_id.cloned(),
+                right_target_id: right_target_id.cloned(),
+            })
+        })
+        .collect()
 }
 
 #[derive(Debug)]
