@@ -318,7 +318,7 @@ or compatibility risk.
 
 ## Core Extension Support Objects
 
-HigherGraphen v0.4.0 also exposes support objects used by the extension
+HigherGraphen v0.4.1 also exposes support objects used by the extension
 concepts above. These include object references, lifecycle states, review
 requirements, inference rules, verifiers, payload references, reachability
 records, scenario changes, validity intervals, policy rules, policy

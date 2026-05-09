@@ -1,10 +1,12 @@
 # Release Notes
 
-## Unreleased
+## v0.4.1
 
 Release scope:
 
-- Mathematics extension kernel work for the HigherGraphen Rust workspace.
+- Patch release for the HigherGraphen Rust workspace at `0.4.1`.
+- Cargo packages are published to crates.io for reusable crates and CLI tools.
+- Git tag and GitHub Release are published for the repository release.
 
 Highlights:
 
@@ -20,6 +22,21 @@ Highlights:
   mathematics kernel API surface.
 - Added batched diagram commutativity checks and mathematical kernel API
   examples.
+
+Publication decisions:
+
+- Publish reusable crates before dependent crates and CLI tools.
+- Example workspace packages remain unpublished validation fixtures.
+
+## v0.4.0
+
+Release scope:
+
+- Repository release for the HigherGraphen Rust workspace at `0.4.0`.
+
+Highlights:
+
+- Published the initial `0.4.0` Cargo package surface for reusable crates and CLI tools.
 
 ## v0.2.1
 
