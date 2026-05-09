@@ -207,9 +207,8 @@ fn validate_morphism_log(
             "case space morphism_log must not be empty",
         );
     }
-    let mut expected_sequence = 1;
     let mut previous_target_revision_id = None::<Id>;
-    for entry in &case_space.morphism_log {
+    for (expected_sequence, entry) in (1..).zip(case_space.morphism_log.iter()) {
         validate_log_entry_contract(case_space, entry, expected_sequence, violations);
         validate_morphism_contract(entry, previous_target_revision_id.as_ref(), violations);
         for changed_id in entry
@@ -223,7 +222,6 @@ fn validate_morphism_log(
         {
             require_id(ids, violations, &entry.entry_id, "morphism.ids", changed_id);
         }
-        expected_sequence += 1;
         previous_target_revision_id = Some(entry.target_revision_id.clone());
     }
     if let Some(last_revision_id) = previous_target_revision_id {
