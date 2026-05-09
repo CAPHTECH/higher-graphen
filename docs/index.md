@@ -18,30 +18,32 @@ The original proposal remains available as source material:
 9. [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md)
 10. [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md)
 11. [`specs/core-contracts.md`](specs/core-contracts.md)
-12. [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md)
-13. [`specs/math-extension-kernels.md`](specs/math-extension-kernels.md)
-14. [`specs/math-kernel-api-examples.md`](specs/math-kernel-api-examples.md)
-15. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
-16. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
-17. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
-18. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
-19. [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md)
-20. [`specs/ddd-review-cli-contract.md`](specs/ddd-review-cli-contract.md)
-21. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
-22. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
-23. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
-24. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
-25. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
-26. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
-27. [`cli/highergraphen.md`](cli/highergraphen.md)
-28. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
-29. [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md)
-30. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
-31. [`specs/rust-core-model.md`](specs/rust-core-model.md)
-32. [`specs/engine-traits.md`](specs/engine-traits.md)
-33. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
-34. [`product-packages/feed-product.md`](product-packages/feed-product.md)
-35. [`mvp-roadmap.md`](mvp-roadmap.md)
+12. [`adr/0002-ai-operated-structure-spine.md`](adr/0002-ai-operated-structure-spine.md)
+13. [`specs/core-extension-operation-contract.md`](specs/core-extension-operation-contract.md)
+14. [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md)
+15. [`specs/math-extension-kernels.md`](specs/math-extension-kernels.md)
+16. [`specs/math-kernel-api-examples.md`](specs/math-kernel-api-examples.md)
+17. [`specs/non-core-package-workplans.md`](specs/non-core-package-workplans.md)
+18. [`specs/runtime-cli-scope.md`](specs/runtime-cli-scope.md)
+19. [`specs/runtime-workflow-contract.md`](specs/runtime-workflow-contract.md)
+20. [`specs/agent-tooling-handoff.md`](specs/agent-tooling-handoff.md)
+21. [`specs/pr-review-target-report-contract.md`](specs/pr-review-target-report-contract.md)
+22. [`specs/ddd-review-cli-contract.md`](specs/ddd-review-cli-contract.md)
+23. [`specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md`](specs/intermediate-tools/casegraphen-workflow-reasoning-engine.md)
+24. [`specs/intermediate-tools/casegraphen-current-surface-inventory.md`](specs/intermediate-tools/casegraphen-current-surface-inventory.md)
+25. [`specs/intermediate-tools/casegraphen-workflow-contracts.md`](specs/intermediate-tools/casegraphen-workflow-contracts.md)
+26. [`specs/intermediate-tools/casegraphen-feature-completion-contract.md`](specs/intermediate-tools/casegraphen-feature-completion-contract.md)
+27. [`specs/intermediate-tools/casegraphen-native-case-management.md`](specs/intermediate-tools/casegraphen-native-case-management.md)
+28. [`../examples/casegraphen/ddd/domain-model-design/README.md`](../examples/casegraphen/ddd/domain-model-design/README.md)
+29. [`cli/highergraphen.md`](cli/highergraphen.md)
+30. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
+31. [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md)
+32. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
+33. [`specs/rust-core-model.md`](specs/rust-core-model.md)
+34. [`specs/engine-traits.md`](specs/engine-traits.md)
+35. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
+36. [`product-packages/feed-product.md`](product-packages/feed-product.md)
+37. [`mvp-roadmap.md`](mvp-roadmap.md)
 
 ## Document Set
 
@@ -66,6 +68,7 @@ The original proposal remains available as source material:
 | [`specs/ai-agent-integration.md`](specs/ai-agent-integration.md) | Defines how AI agents should use HigherGraphen through skills, plugins, MCP, schemas, and marketplace bundles. |
 | [`specs/static-analysis-policy.md`](specs/static-analysis-policy.md) | Defines formatting, linting, complexity, dependency, and package verification gates for implementation tasks. |
 | [`specs/core-contracts.md`](specs/core-contracts.md) | Defines the implementation contract for the shared `higher-graphen-core` primitives. |
+| [`specs/core-extension-operation-contract.md`](specs/core-extension-operation-contract.md) | Defines the operation contract matrix for core extension objects such as `EquivalenceClaim`, `Derivation`, `Witness`, `Scenario`, `Capability`, `Policy`, `Valuation`, and `SchemaMorphism`. |
 | [`specs/graph-traversal-api.md`](specs/graph-traversal-api.md) | Defines reusable reachability, path walking, and layer-pattern matching over `higher-graphen-structure::space`. |
 | [`specs/math-extension-kernels.md`](specs/math-extension-kernels.md) | Designs additional mathematical kernels for uncertainty, optimization, information loss, order reasoning, abstract interpretation, graph analytics, model checking, and categorical construction at HigherGraphen's current abstraction level. |
 | [`specs/math-kernel-api-examples.md`](specs/math-kernel-api-examples.md) | Provides short Rust examples for the implemented mathematical extension kernels. |
@@ -88,6 +91,7 @@ The original proposal remains available as source material:
 | [`mvp-roadmap.md`](mvp-roadmap.md) | Defines MVP scope, phases, success criteria, and recommended stack. |
 | [`source-trace.md`](source-trace.md) | Maps proposal sections to official documents. |
 | [`adr/0001-rust-first-polyglot-friendly.md`](adr/0001-rust-first-polyglot-friendly.md) | Records the Rust-first, polyglot-friendly technical decision. |
+| [`adr/0002-ai-operated-structure-spine.md`](adr/0002-ai-operated-structure-spine.md) | Records the AI-operated structure spine accepted after AdvisoryGraphen review. |
 
 ## Documentation Status
 
