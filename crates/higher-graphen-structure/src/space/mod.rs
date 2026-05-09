@@ -1,6 +1,7 @@
 //! Space, cell, incidence, complex, boundary, and storage abstractions for HigherGraphen.
 
 pub mod coverage;
+pub mod graph_analytics;
 pub mod structural;
 pub mod traversal;
 
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub use coverage::*;
+pub use graph_analytics::*;
 pub use structural::*;
 pub use traversal::*;
 

@@ -97,6 +97,17 @@ A Completion Candidate is a proposed missing structure.
 HigherGraphen does not silently fill missing structure as fact. It proposes a
 candidate with rationale, inferred sources, confidence, and review status.
 
+## Candidate Optimization
+
+Candidate Optimization compares reviewable candidates under explicit
+objectives, constraints, and measurements.
+
+Optimization helps rank completion candidates, repair plans, review targets, or
+scenario changes without accepting them. It may use Pareto frontiers,
+lexicographic ordering, hard-blocked candidates, infeasibility obstructions, or
+other bounded finite methods. Its output is a recommendation record with review
+status, not an applied change.
+
 ## Projection
 
 A Projection converts higher structure into a usable view for an audience and
@@ -112,6 +123,18 @@ Examples:
 - Query result
 
 Every projection should declare meaningful information loss.
+
+## Projection Loss Metric
+
+A Projection Loss Metric is a finite, reviewable measurement of what a
+projection collapses, omits, or makes ambiguous.
+
+Projection loss metrics make information loss inspectable instead of relying
+only on prose declarations. A metric can record source cardinality, projected
+cardinality, collapsed source distinctions, ambiguity, missing loss
+declarations, and source trace gaps. A metric does not prohibit lossy
+projection. It helps humans, agents, and policies decide whether the loss is
+declared, acceptable, and appropriate for the projection audience.
 
 ## Interpretation Package
 
@@ -206,6 +229,72 @@ use scalar scores, lexicographic order, partial order, Pareto frontiers,
 threshold acceptance, or qualitative ranking, and they can explicitly mark
 alternatives as incomparable.
 
+## Order Relation
+
+An Order Relation records that one structure is weaker, stronger, more
+abstract, more refined, more supported, or otherwise ordered relative to
+another structure under explicit criteria.
+
+Order relations are useful for requirement strength, evidence support,
+abstraction levels, policy precedence, and refinement checks. They are claims
+unless accepted by review. A reasoning kernel may check finite consequences
+such as comparability, cycles, meet or join candidates, and whether a morphism
+preserves the declared order.
+
+## Abstract State
+
+An Abstract State is a conservative approximation of a larger or more concrete
+space.
+
+Abstract states let HigherGraphen reason over large or partially known systems
+without pretending to know every concrete detail. An abstract state can mark an
+invariant as definitely satisfied, possibly violated, or unknown. Unknown or
+possible results are not accepted violations unless a concrete witness,
+accepted derivation, or reviewed concretization supports them.
+
+## Graph Analytic
+
+A Graph Analytic is a bounded structural measurement over a selected graph or
+incidence view.
+
+Graph analytics support impact analysis, review targeting, boundary detection,
+and dependency risk. Examples include impact cones, cut sets, articulation
+points, bridges, dominators, central cells, and cycle reduction candidates.
+These analytics produce prompts, rankings, and obstructions; they do not assign
+final review ownership or approve changes.
+
+## Temporal Property
+
+A Temporal Property is a checkable statement about states, transitions, traces,
+or event ordering.
+
+Temporal properties express behavior that cannot be reduced to a single static
+structure. Examples include forbidden reachability, required eventual actions,
+always-before ordering, and absence of dead-end states except accepted terminal
+states. Bounded temporal checks must report their bounds and counterexample
+traces when they find violations.
+
+## Diagram Construction
+
+A Diagram Construction is a finite structural operation over spaces and
+morphisms, such as a commutativity check, pullback candidate, or pushout
+candidate.
+
+Diagram constructions help compare structures, find common substructure, and
+propose merges. They are candidates unless the required equivalence claims,
+quotient losses, and invariant preservation checks have been reviewed and
+accepted.
+
+## Observation Action
+
+An Observation Action is a proposed evidence-gathering step for reducing
+uncertainty about claims, candidates, scenarios, or obstructions.
+
+Observation actions can record target claims, expected evidence kind,
+estimated cost, expected information gain, policy blockers, provenance, and
+review state. They recommend what to observe next. They do not execute the
+observation or accept the claim being investigated.
+
 ## Schema Morphism
 
 A Schema Morphism describes evolution between schemas, ontologies,
@@ -224,10 +313,11 @@ HigherGraphen v0.4.0 also exposes support objects used by the extension
 concepts above. These include object references, lifecycle states, review
 requirements, inference rules, verifiers, payload references, reachability
 records, scenario changes, validity intervals, policy rules, policy
-applicability, valuation criteria, trade-offs, schema mappings, and schema
-verification records.
+applicability, valuation criteria, trade-offs, projection loss metrics,
+optimization objectives, order relations, abstract states, graph analytics,
+temporal properties, observation actions, diagram constructions, schema
+mappings, and schema verification records.
 
 These support objects should be used when they carry validation, review,
 projection, or agent-operation meaning. They should not be added as decorative
 metadata.
-
