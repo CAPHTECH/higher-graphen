@@ -38,7 +38,7 @@ pub(super) fn case_new(
     let case_space = new_case_space(case_space_id, space_id, title, revision_id)?;
     let record = NativeCaseStore::new(store.to_path_buf()).import_case_space(&case_space)?;
     Ok(report(
-        "casegraphen case new",
+        "casegraphen space new",
         json!({ "record": record, "case_space": case_space }),
     ))
 }
@@ -52,9 +52,130 @@ pub(super) fn case_import(
     retarget_latest_revision(&mut case_space, revision_id)?;
     let record = NativeCaseStore::new(store.to_path_buf()).import_case_space(&case_space)?;
     Ok(report(
-        "casegraphen case import",
+        "casegraphen lift native",
         json!({ "record": record, "case_space": case_space }),
     ))
+}
+
+pub(super) fn lift_structured_source(
+    store: &Path,
+    input: &Path,
+    revision_id: &Id,
+    adapter: &str,
+) -> Result<Value, NativeCliError> {
+    let raw = std::fs::read_to_string(input).map_err(|source| NativeCliError::Io {
+        path: input.to_path_buf(),
+        source,
+    })?;
+    let value: Value = serde_json::from_str(&raw)?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| NativeCliError::invalid("lift input must be a JSON object"))?;
+    let source_schema = object
+        .get("schema")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let source_id = source_id_for_lift(adapter, object)?;
+    let space_id = object
+        .get("space_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeCliError::invalid("lift input must contain space_id"))?;
+    let case_space_id = Id::new(format!("case_space:{}", path_segment(&source_id)))?;
+    let mut case_space = new_case_space(
+        &case_space_id,
+        &Id::new(space_id.to_owned())?,
+        &format!("Lifted {source_schema}"),
+        revision_id,
+    )?;
+    let lift_source_id = Id::new(format!("source:{}", path_segment(&source_id)))?;
+    let source_boundary = source_boundary_value(
+        Id::new(format!("source_boundary:{}", path_segment(&case_space_id)))?,
+        std::slice::from_ref(&lift_source_id),
+        &[adapter],
+        "Structured source records are accepted as bounded lift input; generated records require review before they satisfy hard requirements.",
+        "Lift adapters preserve source identifiers and declare unsupported source fields as information loss.",
+        vec![json!({
+            "source_schema": source_schema,
+            "input": input.display().to_string(),
+            "note": "The first lift adapter records source identity and boundary metadata; full cell/relation materialization is handled by later morphism reducers."
+        })],
+    );
+    case_space
+        .metadata
+        .insert("source_boundary".to_owned(), source_boundary.clone());
+    case_space.metadata.insert(
+        "lift".to_owned(),
+        json!({
+            "adapter": adapter,
+            "source_schema": source_schema,
+            "source_id": source_id,
+            "input": input.display().to_string()
+        }),
+    );
+    if let Some(entry) = case_space.morphism_log.first_mut() {
+        entry.source_ids = vec![lift_source_id.clone()];
+        entry.morphism.source_ids = vec![lift_source_id.clone()];
+        entry
+            .morphism
+            .metadata
+            .insert("lift_semantics".to_owned(), json!(adapter));
+        entry
+            .morphism
+            .metadata
+            .insert("source_boundary".to_owned(), source_boundary);
+        entry
+            .morphism
+            .metadata
+            .insert("source_schema".to_owned(), json!(source_schema));
+        entry
+            .morphism
+            .metadata
+            .insert("input".to_owned(), json!(input.display().to_string()));
+    }
+    if let Some(cell) = case_space.case_cells.first_mut() {
+        cell.source_ids = vec![lift_source_id.clone()];
+        cell.metadata
+            .insert("lifted_from".to_owned(), json!(source_id));
+        cell.metadata
+            .insert("source_schema".to_owned(), json!(source_schema));
+    }
+    case_space.revision.source_ids = vec![lift_source_id];
+    case_space.revision.checksum.clear();
+    if let Some(entry) = case_space.morphism_log.first_mut() {
+        entry.replay_checksum.clear();
+    }
+    let checksum = case_space_checksum(&case_space)?;
+    case_space.revision.checksum = checksum.clone();
+    if let Some(entry) = case_space.morphism_log.first_mut() {
+        entry.replay_checksum = checksum;
+    }
+    let record = NativeCaseStore::new(store.to_path_buf()).import_case_space(&case_space)?;
+    Ok(report(
+        &format!("casegraphen lift {adapter}"),
+        json!({
+            "record": record,
+            "case_space": case_space,
+            "lift": {
+                "adapter": adapter,
+                "source_schema": source_schema,
+                "input": input.display().to_string()
+            }
+        }),
+    ))
+}
+
+fn source_id_for_lift(adapter: &str, object: &Map<String, Value>) -> Result<Id, NativeCliError> {
+    let field = match adapter {
+        "workflow" => "workflow_graph_id",
+        "case-graph" => "case_graph_id",
+        "native" => "case_space_id",
+        _ => "id",
+    };
+    let raw = object
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeCliError::invalid(format!("lift input must contain {field}")))?;
+    Ok(Id::new(raw.to_owned())?)
 }
 
 pub(super) fn case_reason(
@@ -67,27 +188,27 @@ pub(super) fn case_reason(
     let evaluation = evaluate_native_case(&replay.case_space)?;
     let (command, result) = match section {
         NativeReasonSection::Reason => (
-            "casegraphen case reason",
+            "casegraphen space reason",
             json!({ "evaluation": evaluation }),
         ),
         NativeReasonSection::Frontier => (
-            "casegraphen case frontier",
+            "casegraphen space frontier",
             json!({ "frontier_cell_ids": evaluation.frontier_cell_ids }),
         ),
         NativeReasonSection::Obstructions => (
-            "casegraphen case obstructions",
+            "casegraphen obstruction list",
             json!({ "obstructions": evaluation.obstructions }),
         ),
         NativeReasonSection::Completions => (
-            "casegraphen case completions",
+            "casegraphen completion candidates",
             json!({ "completion_candidates": evaluation.completion_candidates }),
         ),
         NativeReasonSection::Evidence => (
-            "casegraphen case evidence",
+            "casegraphen invariant evidence",
             json!({ "evidence_findings": evaluation.evidence_findings }),
         ),
         NativeReasonSection::Project => (
-            "casegraphen case project",
+            "casegraphen projection apply",
             json!({
                 "projections": replay.case_space.projections,
                 "projection_loss": evaluation.projection_loss,
@@ -95,6 +216,63 @@ pub(super) fn case_reason(
         ),
     };
     Ok(report(command, result))
+}
+
+pub(super) fn projection_apply(
+    store: &Path,
+    case_space_id: &Id,
+    projection: &Path,
+) -> Result<Value, NativeCliError> {
+    let raw = std::fs::read_to_string(projection).map_err(|source| NativeCliError::Io {
+        path: projection.to_path_buf(),
+        source,
+    })?;
+    let request: Value = serde_json::from_str(&raw)?;
+    let request_object = request
+        .as_object()
+        .ok_or_else(|| NativeCliError::invalid("projection request must be a JSON object"))?;
+    let projection_id = request_object
+        .get("projection_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeCliError::invalid("projection request must contain projection_id"))?;
+    let audience = request_object.get("audience").and_then(Value::as_str);
+    let replay =
+        NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
+    let evaluation = evaluate_native_case(&replay.case_space)?;
+    let matched_projections: Vec<_> = replay
+        .case_space
+        .projections
+        .iter()
+        .filter(|candidate| candidate.projection_id.as_str() == projection_id)
+        .filter(|candidate| {
+            audience.map_or(true, |value| audience_name(candidate.audience) == value)
+        })
+        .cloned()
+        .collect();
+    let projection_match_status = if matched_projections.is_empty() {
+        "not_found"
+    } else {
+        "matched"
+    };
+    Ok(report(
+        "casegraphen projection apply",
+        json!({
+            "projection_request": request,
+            "matched_projections": matched_projections,
+            "projection_loss": evaluation.projection_loss,
+            "projection_match_status": projection_match_status,
+        }),
+    ))
+}
+
+fn audience_name(audience: ProjectionAudience) -> &'static str {
+    match audience {
+        ProjectionAudience::HumanReview => "human_review",
+        ProjectionAudience::AiAgent => "ai_agent",
+        ProjectionAudience::Audit => "audit",
+        ProjectionAudience::System => "system",
+        ProjectionAudience::Migration => "migration",
+    }
 }
 
 pub(super) fn case_close_check(
@@ -120,7 +298,7 @@ pub(super) fn case_close_check(
     )?;
     let core_extensions = native_close_check_extensions(&replay.case_space, &check);
     Ok(report(
-        "casegraphen case close-check",
+        "casegraphen invariant close-check",
         native_close_check_result(check, core_extensions),
     ))
 }
@@ -153,7 +331,7 @@ pub(super) fn case_topology(
         topology_options,
     )?;
     Ok(report(
-        "casegraphen case history topology",
+        "casegraphen space topology",
         json!({ "topology": topology }),
     ))
 }
@@ -181,7 +359,7 @@ pub(super) fn case_topology_diff(
     )?;
     let topology_diff = crate::topology::topology_diff(&left_topology, &right_topology);
     Ok(report(
-        "casegraphen case history topology diff",
+        "casegraphen space topology diff",
         json!({
             "left_case_space_id": left_case_space_id,
             "right_case_space_id": right_case_space_id,

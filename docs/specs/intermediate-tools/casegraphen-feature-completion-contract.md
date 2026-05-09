@@ -175,27 +175,41 @@ and does not promote inferred records to accepted evidence.
 
 ## Target Completed Surface
 
-The completed surface must let an AI operator manage, reason about, project,
-patch, persist, and verify workflow cases end-to-end inside this repository.
+The completed surface must let an AI operator lift bounded sources into a case
+space, reason over higher-order structure, project lossy views, propose and
+review morphisms, detect obstructions and completions, compare equivalence, and
+verify invariants end-to-end inside this repository. The canonical command
+model is value-based: `lift`, `space`, `morphism`, `obstruction`,
+`completion`, `projection`, `equivalence`, and `invariant`.
+
+This is a destructive redesign target. Legacy file-based case graph commands
+remain useful as migration evidence and test fixtures, but they are no longer
+part of the canonical operator surface. Their value is preserved through
+`lift case-graph`, native `space` commands, obstruction/completion reports,
+projection commands, equivalence checks, and topology over replayed spaces.
 
 Required completed capabilities:
 
-1. Preserve all current `cg` workspace commands and `casegraphen` baseline
-   commands.
-2. Stabilize the workflow substrate APIs around strict JSON contracts,
+1. Preserve installed `cg` as the external `.casegraphen` workspace driver, but
+   do not mirror its command names in repo-owned `casegraphen`.
+2. Replace canonical top-level baseline commands with higher-order operation
+   namespaces; keep legacy graph support only through lift adapters or
+   transitional aliases.
+3. Stabilize the workflow substrate APIs around strict JSON contracts,
    deterministic reasoning, structured errors, and reusable Rust modules.
-3. Integrate workflow graph storage/history with the `.casegraphen` workspace
-   model instead of relying only on standalone JSON files.
-4. Expose a clear `cg`-compatible operator command path for creation,
-   validation, reasoning, review, patch application, projection, and close-time
-   verification.
-5. Split the aggregate `casegraphen workflow reason` report into focused
-   workflow commands.
-6. Add explicit review and patch workflows for completion candidates and other
-   suggested graph changes.
-7. Keep skill/operator documentation synchronized with the implemented command
+4. Integrate workflow graph storage/history into native case-space replay
+   instead of relying only on standalone JSON files or a `cg workflow` bridge.
+5. Expose clear operator commands for lift, replay, validation, reasoning,
+   morphism review/application, projection, equivalence, and close-time
+   invariant verification.
+6. Split aggregate reasoning into focused high-order namespaces instead of
+   encoding product value in low-level names such as `coverage`, `missing`, or
+   `conflicts`.
+7. Add explicit review and morphism workflows for completion candidates and
+   other suggested structural changes.
+8. Keep skill/operator documentation synchronized with the implemented command
    path and schemas.
-8. Prove the full feature surface through reference fixtures, schema checks,
+9. Prove the full feature surface through reference fixtures, schema checks,
    package tests, workspace validation, static analysis, bundle checks, and
    CaseGraphen case evidence.
 
@@ -203,11 +217,11 @@ Required completed capabilities:
 
 | Feature | Current status | Completion contract | Gap |
 | --- | --- | --- | --- |
-| `cg` case graph authoring | Present through `cg` workspace commands. | Keep CLI-only mutations for cases, nodes, edges, task states, decisions, events, and evidence. | Need bridge guidance so operators know when to use `cg` versus repo-owned `casegraphen`. |
-| `cg` readiness | Present through `frontier` and `blockers`. | Preserve readiness for workspace task graphs and expose it in operator workflows. | Need completed bridge between `cg` readiness and workflow reasoning reports. |
-| `cg` validation/history | Present through `validate`, storage validation, and history topology. | Keep validation before task close and use history/topology as diagnostics, not blockers by themselves. | Need final verification gate that combines workspace validation with package/report checks. |
-| Baseline `casegraphen` graph commands | Present. | Keep `create`, `inspect`, `list`, `validate`, `coverage`, `missing`, `conflicts`, `project`, and `compare` stable. | No breaking changes allowed; add regression tests when workflow commands change shared code. |
-| Workflow aggregate reasoning | Present as `casegraphen workflow reason`. | Keep as the umbrella command that emits full readiness, obstruction, completion, evidence, projection, correspondence, and evolution results. | Final E2E verification should confirm the aggregate report still matches the checked-in reference. |
+| `cg` case graph authoring | Present through `cg` workspace commands. | Keep installed `cg` as the external workspace task driver, not as a repo-owned command namespace to mirror. | Need bridge guidance so operators know `cg` is meta-workflow state and `casegraphen` is higher-order structure operation. |
+| `cg` readiness | Present through `frontier` and `blockers`. | Preserve external workspace readiness for `.casegraphen` cases; lift relevant snapshots into native case spaces when structural reasoning is needed. | Need completed lift path between `cg` readiness snapshots and native obstruction/completion reports. |
+| `cg` validation/history | Present through `validate`, storage validation, and history topology. | Keep as external workspace diagnostics and evidence for close-check, not as native CaseGraphen source of truth. | Need final verification gate that combines workspace validation with native space/invariant checks. |
+| Baseline `casegraphen` graph commands | Present. | Remove from the canonical surface or keep only as transitional aliases; preserve value through `lift case-graph`, `space validate`, `obstruction list`, `completion candidates`, `projection apply`, `equivalence check`, and `space topology`. | Migrate tests, fixtures, examples, and skills away from top-level baseline commands. |
+| Workflow aggregate reasoning | Present as `casegraphen workflow reason`. | Treat as transitional file-based reasoning; canonical equivalent is lift plus `space reason` and focused high-order commands. | Final E2E verification should confirm migrated native reports preserve the reference reasoning value. |
 | Workflow focused commands | Implemented as `workflow validate`, `readiness`, `obstructions`, `completions`, `evidence`, `project`, `correspond`, and `evolution`. | Keep focused commands read-only and derived from shared evaluator/report logic. | No standalone `casegraphen workflow transition check` exists; transition checks are bridge patch checks. |
 | Workflow schemas | Present for graph, aggregate report, and operation-specific report identifiers emitted by focused commands. | Keep strict v1 schemas and document focused report sections. | Final E2E verification should cover schema/example expectations for focused reports. |
 | Workflow package APIs | First slice present. | Expose stable model, validation, evaluator, report, store, and error APIs for later commands. | Need explicit `CaseResult` or equivalent error boundary and command-independent validation API. |
@@ -309,10 +323,35 @@ Dependency direction expectations:
 
 ## CLI Command Expectations
 
-### Must Preserve
+### Canonical Higher-Order Surface
 
-The completed feature surface must preserve all current `casegraphen` baseline
-commands and the current aggregate workflow command:
+The completed feature surface must expose the value of CaseGraphen through
+higher-order operation namespaces:
+
+```sh
+casegraphen lift workflow --input <workflow.graph.json> --store <dir> --revision-id <id> --format json [--output <path>]
+casegraphen lift case-graph --input <case.graph.json> --store <dir> --revision-id <id> --format json [--output <path>]
+casegraphen space new --store <dir> --case-space-id <id> --space-id <id> --title <text> --revision-id <id> --format json [--output <path>]
+casegraphen space list --store <dir> --format json [--output <path>]
+casegraphen space inspect --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen space replay --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen space validate --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen space reason --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen space topology --store <dir> --case-space-id <id> --format json [--higher-order] [--output <path>]
+casegraphen space topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order] [--output <path>]
+casegraphen morphism propose --store <dir> --case-space-id <id> --input <case_morphism.json> --format json [--output <path>]
+casegraphen morphism check --store <dir> --case-space-id <id> --morphism-id <id> --format json [--output <path>]
+casegraphen morphism apply --store <dir> --case-space-id <id> --morphism-id <id> --base-revision-id <id> --reviewer-id <id> --reason <text> --format json [--output <path>]
+casegraphen morphism reject --store <dir> --case-space-id <id> --morphism-id <id> --reviewer-id <id> --reason <text> --revision-id <id> --format json [--output <path>]
+casegraphen obstruction list --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen completion candidates --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen projection apply --store <dir> --case-space-id <id> --projection <projection.json> --format json [--output <path>]
+casegraphen equivalence check --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--output <path>]
+casegraphen invariant check --store <dir> --case-space-id <id> --format json [--output <path>]
+casegraphen invariant close-check --store <dir> --case-space-id <id> --base-revision-id <id> --validation-evidence-id <id> --format json [--output <path>]
+```
+
+Legacy top-level commands are not canonical:
 
 ```sh
 casegraphen create ...
@@ -324,12 +363,19 @@ casegraphen missing ...
 casegraphen conflicts ...
 casegraphen project ...
 casegraphen compare ...
-casegraphen workflow reason --input <workflow.graph.json> --format json [--output <path>]
+casegraphen history topology ...
 ```
 
-### Implemented Or Finalized Surface
+They should be removed or kept only as temporary aliases after downstream
+fixtures have been migrated. Compatibility is not a design constraint for this
+redesign; preserving the underlying value is.
 
-The completed workflow command suite includes:
+### Transitional Workflow Surface
+
+The current workflow command suite is transitional. It remains useful for
+file-based reasoning and migration, but its value should move under
+`lift workflow`, `space reason`, `obstruction list`, `completion candidates`,
+`projection apply`, `equivalence check`, and `space topology`:
 
 ```sh
 casegraphen workflow validate --input <workflow.graph.json> --format json [--output <path>]
@@ -343,20 +389,22 @@ casegraphen workflow evolution --input <workflow.graph.json> --format json [--ou
 ```
 
 There is no implemented standalone `casegraphen workflow transition check`
-command. Reviewable graph transitions are produced and checked through
-`casegraphen cg workflow completion patch` and
-`casegraphen cg workflow patch check`.
+command. Reviewable graph transitions are produced and checked through the
+current `casegraphen cg workflow completion patch` and `casegraphen cg workflow
+patch check` bridge, but the redesign should collapse that bridge into
+`morphism propose`, `morphism check`, and `morphism apply|reject` over a
+native case space.
 
 The completed `cg`-compatible operator path must cover:
 
 - installed `cg`: creating and editing native cases, state transitions,
   evidence records, frontier/blocker inspection, workspace validation, history
   topology, and final task evidence;
-- repo-owned `casegraphen cg workflow ...`: importing workflow graphs into a
-  workflow store, listing and inspecting stored workflow graphs, reading
-  workflow history, replaying the current graph, validating stored workflow
-  history, and running focused readiness reasoning over stored or file-based
-  workflow graphs;
+- repo-owned transitional `casegraphen cg workflow ...`: importing workflow
+  graphs into a workflow store, listing and inspecting stored workflow graphs,
+  reading workflow history, replaying the current graph, validating stored
+  workflow history, and running focused readiness reasoning over stored or
+  file-based workflow graphs until native lift/space commands replace it;
 - existing `casegraphen workflow ...`: aggregate and focused file-based
   workflow reports for readiness, obstructions, completions, evidence,
   projection, correspondence, and evolution;
@@ -366,9 +414,9 @@ The completed `cg`-compatible operator path must cover:
 - source and bundled skills: operator guidance for all of the above, including
   evidence/projection boundaries and validation-before-close.
 
-The exact command spelling can be implemented in `cg`, in `casegraphen`, or as
-a documented bridge between them, but the operator must not have to guess which
-surface is authoritative for each workflow step.
+The exact command spelling should converge in `casegraphen`. Installed `cg`
+remains the external workspace task driver; repo-owned `casegraphen` owns
+higher-order case-space operations.
 
 ### Command Invariants
 
@@ -551,12 +599,16 @@ These items are not part of this feature completion case:
 
 This case is complete only when the repository contains:
 
-- stable package APIs for baseline and workflow CaseGraphen reasoning;
-- preserved baseline `casegraphen` commands;
-- aggregate and focused workflow commands with JSON reports;
-- a clear `cg`-compatible operator path;
-- durable workflow storage/history integration;
-- explicit completion review and patch workflows;
+- stable package APIs for native case-space replay, lift adapters, workflow
+  reasoning, morphism checks, projections, equivalence, and invariants;
+- canonical higher-order `casegraphen` commands for `lift`, `space`,
+  `morphism`, `obstruction`, `completion`, `projection`, `equivalence`, and
+  `invariant`;
+- migrated workflow reasoning value with JSON reports;
+- a clear boundary between installed `cg` as external workspace driver and
+  repo-owned `casegraphen` as higher-order structure operator;
+- durable case-space storage/history integration;
+- explicit completion review and morphism workflows;
 - synchronized source and bundled skills;
 - reference examples for the full operator workflow;
 - validation gates recorded as case evidence;

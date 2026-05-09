@@ -132,10 +132,10 @@ Fields:
 | `inference_policy` | Rule for AI-generated, heuristic, or derived records. |
 | `information_loss` | Source text, events, payload fields, review detail, or external state omitted or summarized during the lift. |
 
-Native `case new` creates an empty case universe and records a minimal source
-boundary. Native `case import` and workflow migration inputs must record the
+Native `space new` creates an empty case universe and records a minimal source
+boundary. Native `lift native` and workflow migration inputs must record the
 input file, source schema, source revision or workflow graph ID, adapter name,
-and import loss. Native validation rejects case spaces whose top-level
+and lift loss. Native validation rejects case spaces whose top-level
 `metadata.source_boundary` is missing or underspecified, and the first
 `MorphismLogEntry` must preserve the lift boundary in
 `morphism.metadata.source_boundary` with `morphism.metadata.lift_semantics`.
@@ -285,7 +285,7 @@ The first materializing morphism in a case space should be interpreted as a
 lift morphism from a bounded source snapshot into a native case universe. In
 v1, this can be represented as:
 
-- `morphism_type: "create"` for empty `case new`;
+- `morphism_type: "create"` for empty `space new`;
 - `morphism_type: "migration"` for workflow graph or external case imports;
 - `morphism_type: "custom:lift"` when a downstream integration needs to make
   the lift explicit without waiting for a v2 enum.
@@ -626,26 +626,34 @@ All commands must accept `--format json`; `--output <path>` may write the same
 report envelope to disk. Domain findings exit successfully with structured
 reports. Tool failures use structured errors.
 
-Implemented native CLI surface:
+Canonical higher-order CLI target:
 
 ```sh
-casegraphen case new --store <dir> --case-space-id <id> --space-id <id> --title <text> --revision-id <id> --format json
-casegraphen case import --store <dir> --input <native.case.space.json> --revision-id <id> --format json
-casegraphen case list --store <dir> --format json
-casegraphen case inspect --store <dir> --case-space-id <id> --format json
-casegraphen case validate --store <dir> --case-space-id <id> --format json
-casegraphen case history --store <dir> --case-space-id <id> --format json
-casegraphen case history topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
-casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
-casegraphen case replay --store <dir> --case-space-id <id> --format json
-casegraphen case reason --store <dir> --case-space-id <id> --format json
-casegraphen case frontier --store <dir> --case-space-id <id> --format json
-casegraphen case obstructions --store <dir> --case-space-id <id> --format json
-casegraphen case completions --store <dir> --case-space-id <id> --format json
-casegraphen case evidence --store <dir> --case-space-id <id> --format json
-casegraphen case project --store <dir> --case-space-id <id> --format json
-casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <id> --validation-evidence-id <id> --format json
+casegraphen lift native --store <dir> --input <native.case.space.json> --revision-id <id> --format json
+casegraphen lift workflow --store <dir> --input <workflow.graph.json> --revision-id <id> --format json
+casegraphen lift case-graph --store <dir> --input <case.graph.json> --revision-id <id> --format json
+casegraphen space new --store <dir> --case-space-id <id> --space-id <id> --title <text> --revision-id <id> --format json
+casegraphen space list --store <dir> --format json
+casegraphen space inspect --store <dir> --case-space-id <id> --format json
+casegraphen space validate --store <dir> --case-space-id <id> --format json
+casegraphen space history --store <dir> --case-space-id <id> --format json
+casegraphen space topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen space topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>|--min-persistence-stages <n>]] [--output <path>]
+casegraphen space replay --store <dir> --case-space-id <id> --format json
+casegraphen space reason --store <dir> --case-space-id <id> --format json
+casegraphen space frontier --store <dir> --case-space-id <id> --format json
+casegraphen obstruction list --store <dir> --case-space-id <id> --format json
+casegraphen completion candidates --store <dir> --case-space-id <id> --format json
+casegraphen projection apply --store <dir> --case-space-id <id> --projection <projection.json> --format json
+casegraphen equivalence check --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json
+casegraphen invariant check --store <dir> --case-space-id <id> --format json
+casegraphen invariant close-check --store <dir> --case-space-id <id> --base-revision-id <id> --validation-evidence-id <id> --format json
 ```
+
+The implemented `casegraphen case ...` commands are transitional aliases for
+the native case-space operations above. They should not define the long-term
+product language: a case is a cell type, while `space`, `morphism`,
+`projection`, `equivalence`, and `invariant` are the structural operations.
 
 Morphism commands:
 
@@ -677,7 +685,7 @@ These `review ...` commands are not implemented in the current CLI. Until that
 surface exists, review state is represented through native morphism
 proposal/check/apply/reject flows and metadata-only review morphisms.
 
-`case history topology` emits a native CLI operation report with topology
+`space topology` emits a native CLI operation report with topology
 diagnostics under `result.topology`. Baseline output omits
 `result.topology.higher_order`. When `--higher-order` is supplied, output
 includes `result.topology.higher_order` with the options used
@@ -694,7 +702,7 @@ Higher-order topology remains a read-only diagnostic and does not mutate the
 case space or change frontier, obstruction, completion, evidence, close-check,
 or morphism semantics.
 
-`case history topology diff` replays two native case spaces from their stores,
+`space topology diff` replays two native case spaces from their stores,
 builds the same topology reports, and emits `result.topology_diff` with scalar
 topology deltas, source-mapping additions/removals, and optional higher-order
 summary deltas. It is a comparison surface only; it does not append morphisms.
@@ -807,9 +815,12 @@ Migration sequence:
 6. Compare native reports against current workflow reports until parity is
    sufficient.
 7. Move operator docs from `casegraphen cg workflow ...` bridge commands to
-   native `casegraphen case ...` and `casegraphen morphism ...` commands;
-   include `casegraphen review ...` only after that planned command surface is
-   implemented.
+   the canonical higher-order namespaces: `casegraphen lift ...`,
+   `casegraphen space ...`, `casegraphen obstruction ...`,
+   `casegraphen completion ...`, `casegraphen projection ...`,
+   `casegraphen equivalence ...`, `casegraphen invariant ...`, and
+   `casegraphen morphism ...`; include `casegraphen review ...` only after
+   that planned command surface is implemented.
 
 ## Verification Strategy And Implementation Sequence
 
@@ -849,10 +860,9 @@ Recommended implementation sequence and status:
 3. Implement derived readiness, obstruction, completion, evidence, projection,
    and evolution evaluators over the replayed space. Implemented.
 4. Implement native store operations and storage validation. Implemented.
-5. Add read-only CLI commands: `case list`, `case inspect`, `case history`,
-   `case replay`, `case validate`, `case reason`, `case frontier`,
-   `case obstructions`, `case completions`, `case evidence`, and
-   `case project`. Implemented.
+5. Add read-only CLI commands under the canonical `space`, `obstruction`,
+   `completion`, `projection`, `equivalence`, and `invariant` namespaces, with
+   `case ...` retained only as transitional aliases. Implemented.
 6. Add morphism proposal/check/apply/reject commands with conservative
    metadata-only materialization. Implemented.
 7. Add close-check. Implemented.
@@ -913,9 +923,9 @@ release gate run on 2026-04-26 passed `cargo fmt --all --check`,
 - Append-only logs need compaction or snapshot strategy once case spaces grow.
 - Content-addressed entries and revision checksums are useful, but they add
   compatibility constraints for future schema migrations.
-- Bridge commands may confuse operators if docs do not clearly distinguish
-  native `casegraphen case ...` from transitional
-  `casegraphen cg workflow ...`.
+- Transitional commands may confuse operators if docs do not clearly
+  distinguish canonical higher-order namespaces from compatibility aliases
+  such as `casegraphen case ...` and `casegraphen cg workflow ...`.
 - Close invariants are policy-sensitive; early implementation should keep the
   default policy strict and make waivers explicit review morphisms.
 - Projection `allowed_operations` can be misread as authorization unless

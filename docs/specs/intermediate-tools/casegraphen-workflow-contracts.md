@@ -40,7 +40,9 @@ The workflow reasoning slice must make these concepts explicit:
 - correspondence records for equivalent, similar, conflicting, and
   non-comparable workflows;
 - evolution, revision, and transition trace records;
-- CLI and report naming strategy that keeps existing commands compatible;
+- transitional CLI and report naming strategy, plus the migration path into
+  higher-order `lift`, `space`, `morphism`, `obstruction`, `completion`,
+  `projection`, `equivalence`, and `invariant` commands;
 - validation and test expectations for the later implementation slice.
 
 ## Versioning Strategy
@@ -92,10 +94,13 @@ but the first implementation should keep the contract simple:
 }
 ```
 
-Compatibility rules:
+Compatibility rules for the transitional workflow slice:
 
-- Existing `casegraphen` commands and report shapes keep their current
-  behavior.
+- Existing `casegraphen` workflow commands and report shapes keep their current
+  behavior until the higher-order command surface replaces them.
+- Existing legacy case-graph commands are not canonical in the redesign. Their
+  data value should be preserved through `lift case-graph` and native
+  case-space reports instead of preserving their command names.
 - Existing v1 schemas remain strict and are not overloaded with workflow
   fields.
 - New workflow reports use `highergraphen.case.workflow.<operation>.report.v1`.
@@ -869,7 +874,22 @@ review status, evidence status, inference boundary, and projection loss.
 
 ## CLI Naming Strategy
 
-Existing commands keep their current names and semantics:
+The canonical redesign names commands by the value they provide over
+higher-order structure:
+
+```sh
+casegraphen lift workflow ...
+casegraphen space reason ...
+casegraphen obstruction list ...
+casegraphen completion candidates ...
+casegraphen projection apply ...
+casegraphen equivalence check ...
+casegraphen invariant check ...
+casegraphen morphism check ...
+```
+
+Existing legacy commands are transitional and should not be used as the
+long-term operator language:
 
 ```sh
 casegraphen validate ...
@@ -880,8 +900,9 @@ casegraphen project ...
 casegraphen compare ...
 ```
 
-Workflow commands should live under a `workflow` namespace to avoid overloading
-current report contracts:
+Workflow commands currently live under a `workflow` namespace to avoid
+overloading current report contracts. This namespace is an input-adapter and
+file-reasoning surface, not the final product model:
 
 ```sh
 casegraphen workflow reason --input workflow.graph.json --format json [--output report.json]
@@ -896,8 +917,10 @@ casegraphen workflow evolution --input workflow.graph.json --format json [--outp
 ```
 
 There is no implemented standalone `casegraphen workflow transition check`
-command. Reviewable transition checks are handled by the repo-owned workflow
-bridge as `casegraphen cg workflow patch check`.
+command. Reviewable transition checks are currently handled by the repo-owned
+workflow bridge as `casegraphen cg workflow patch check`. The redesign should
+replace that bridge spelling with native `morphism check` over a lifted
+case-space revision.
 
 The implemented file-based workflow CLI surface is:
 

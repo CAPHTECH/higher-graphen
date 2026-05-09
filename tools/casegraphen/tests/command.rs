@@ -1519,7 +1519,7 @@ fn native_case_commands_create_import_list_inspect_history_and_replay() {
     let imported = import_native_case_space(&directory, "revision:native-cli-imported");
     assert_eq!(
         stdout_json(&imported)["metadata"]["command"],
-        json!("casegraphen case import")
+        json!("casegraphen lift native")
     );
 
     let list = run_cli(&[
@@ -1562,6 +1562,159 @@ fn native_case_commands_create_import_list_inspect_history_and_replay() {
         .expect("projections")
         .iter()
         .all(|projection| projection["revision_id"] == json!("revision:native-cli-imported")));
+
+    fs::remove_dir_all(directory).expect("remove temp directory");
+}
+
+#[test]
+fn canonical_higher_order_commands_route_to_native_reports() {
+    let directory = unique_temp_dir();
+    fs::create_dir_all(&directory).expect("create temp directory");
+
+    let created = run_cli(&[
+        "space",
+        "new",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        "case_space:canonical-cli-created",
+        "--space-id",
+        "space:canonical-cli",
+        "--title",
+        "Canonical CLI created space",
+        "--revision-id",
+        "revision:canonical-cli-created",
+        "--format",
+        "json",
+    ]);
+    assert!(created.status.success(), "stderr: {}", stderr(&created));
+    assert_eq!(
+        stdout_json(&created)["metadata"]["command"],
+        json!("casegraphen space new")
+    );
+
+    import_native_case_space(&directory, "revision:native-cli-imported");
+
+    let obstruction = run_cli(&[
+        "obstruction",
+        "list",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        obstruction.status.success(),
+        "stderr: {}",
+        stderr(&obstruction)
+    );
+    assert_eq!(
+        stdout_json(&obstruction)["metadata"]["command"],
+        json!("casegraphen obstruction list")
+    );
+
+    let completion = run_cli(&[
+        "completion",
+        "candidates",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        completion.status.success(),
+        "stderr: {}",
+        stderr(&completion)
+    );
+    assert_eq!(
+        stdout_json(&completion)["metadata"]["command"],
+        json!("casegraphen completion candidates")
+    );
+
+    let invariant = run_cli(&[
+        "invariant",
+        "check",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+    ]);
+    assert!(invariant.status.success(), "stderr: {}", stderr(&invariant));
+    assert_eq!(
+        stdout_json(&invariant)["metadata"]["command"],
+        json!("casegraphen invariant check")
+    );
+    assert_eq!(
+        stdout_json(&invariant)["result"]["validation"]["valid"],
+        json!(true)
+    );
+    assert!(stdout_json(&invariant)["result"]["evaluation"]
+        .as_object()
+        .expect("invariant evaluation")
+        .contains_key("evidence_findings"));
+    assert!(stdout_json(&invariant)["result"]["evidence_findings"]
+        .as_object()
+        .expect("invariant evidence findings")
+        .contains_key("unreviewed_inference_ids"));
+    assert!(stdout_json(&invariant)["result"]["projection_loss"]
+        .as_array()
+        .is_some());
+
+    let projection = run_cli(&[
+        "projection",
+        "apply",
+        "--store",
+        directory.to_str().expect("temp path"),
+        "--case-space-id",
+        native_case_space_id(),
+        "--projection",
+        projection_fixture().to_str().expect("projection path"),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        projection.status.success(),
+        "stderr: {}",
+        stderr(&projection)
+    );
+    assert_eq!(
+        stdout_json(&projection)["metadata"]["command"],
+        json!("casegraphen projection apply")
+    );
+    assert_eq!(
+        stdout_json(&projection)["result"]["projection_request"]["projection_id"],
+        json!("projection:ai-review")
+    );
+
+    let equivalence = run_cli(&[
+        "equivalence",
+        "check",
+        "--left-store",
+        directory.to_str().expect("temp path"),
+        "--left-case-space-id",
+        native_case_space_id(),
+        "--right-store",
+        directory.to_str().expect("temp path"),
+        "--right-case-space-id",
+        native_case_space_id(),
+        "--format",
+        "json",
+    ]);
+    assert!(
+        equivalence.status.success(),
+        "stderr: {}",
+        stderr(&equivalence)
+    );
+    assert_eq!(
+        stdout_json(&equivalence)["metadata"]["command"],
+        json!("casegraphen equivalence check")
+    );
 
     fs::remove_dir_all(directory).expect("remove temp directory");
 }
@@ -1770,10 +1923,14 @@ fn native_reasoning_commands_emit_domain_reports_and_output_file() {
             "{command} stderr: {}",
             stderr(&output)
         );
-        assert_eq!(
-            stdout_json(&output)["metadata"]["command"],
-            json!(format!("casegraphen case {command}"))
-        );
+        let expected = match command {
+            "obstructions" => "casegraphen obstruction list",
+            "completions" => "casegraphen completion candidates",
+            "evidence" => "casegraphen invariant evidence",
+            "project" => "casegraphen projection apply",
+            _ => unreachable!("test command set is fixed"),
+        };
+        assert_eq!(stdout_json(&output)["metadata"]["command"], json!(expected));
     }
 
     fs::remove_dir_all(directory).expect("remove temp directory");
@@ -1800,7 +1957,7 @@ fn native_case_topology_emits_domain_report() {
     let value = stdout_json(&output);
     assert_eq!(
         value["metadata"]["command"],
-        json!("casegraphen case history topology")
+        json!("casegraphen space topology")
     );
     assert_eq!(
         value["result"]["topology"]["topology"]["homology"]["coefficient_field"],
@@ -1890,7 +2047,7 @@ fn native_case_topology_diff_compares_store_replays() {
     let value = stdout_json(&output);
     assert_eq!(
         value["metadata"]["command"],
-        json!("casegraphen case history topology diff")
+        json!("casegraphen space topology diff")
     );
     assert_eq!(
         value["result"]["topology_diff"]["right_space_id"],

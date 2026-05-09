@@ -23,8 +23,9 @@ are defined in
 
 ## Target Definition
 
-`casegraphen` should become a higher-order workflow reasoning engine over
-HigherGraphen structures.
+`casegraphen` should become a higher-order structure operation engine over
+HigherGraphen case and workflow sources. Workflow reasoning is a transitional
+input surface that is lifted into the canonical operation model.
 
 The existing tool captures cases, scenarios, coverage goals, missing cases,
 conflicts, comparison, and projections. The next stage generalizes this into a
@@ -33,8 +34,10 @@ completions, decisions, evidence, and evolution.
 
 ```text
 casegraphen
-  = Case-centered HigherGraphen intermediate tool
-    + workflow reasoning model
+  = bounded source lift
+    + case-space replay
+    + morphism and invariant checks
+    + obstruction, completion, projection, and equivalence reports
     + CLI and skill surfaces for AI agents
 ```
 
@@ -42,7 +45,7 @@ It remains an intermediate tool, not a business product and not an MCP server.
 
 ## Current Baseline
 
-The current implementation already provides:
+The legacy implementation already provides compatibility commands:
 
 - `tools/casegraphen` Rust CLI package;
 - `casegraphen create`, `inspect`, `list`, `validate`, `coverage`, `missing`,
@@ -54,8 +57,10 @@ The current implementation already provides:
 - human, AI, and audit projections;
 - dependency on `higher-graphen-core` primitives.
 
-This baseline should be preserved. New workflow reasoning should extend it
-instead of replacing the existing case graph contract.
+These commands may remain as aliases or compatibility reports, but they no
+longer define the product surface. New workflow reasoning should migrate into
+the higher-order command model: `lift`, `space`, `morphism`, `obstruction`,
+`completion`, `projection`, `equivalence`, and `invariant`.
 
 ## HigherGraphen Concept Map
 

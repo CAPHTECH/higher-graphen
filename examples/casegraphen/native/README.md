@@ -1,7 +1,11 @@
 # Native CaseGraphen Reference Case
 
 This directory documents the reference native CaseGraphen flow for the
-`casegraphen case ...` and `casegraphen morphism ...` command namespaces.
+canonical higher-order command namespaces: `casegraphen lift ...`,
+`casegraphen space ...`, `casegraphen obstruction ...`,
+`casegraphen completion ...`, `casegraphen projection ...`,
+`casegraphen equivalence ...`, `casegraphen invariant ...`, and
+`casegraphen morphism ...`.
 Native CaseGraphen is a `CaseSpace` replayed from a `MorphismLog`; it is not a
 clone of installed `cg` task/event semantics.
 
@@ -14,16 +18,17 @@ The canonical native fixture currently lives at:
 
 Use a temporary store when exercising the fixture:
 
-With a local binary, the command spellings are `casegraphen case import`,
-`casegraphen case reason`, `casegraphen case frontier`,
-`casegraphen case history topology`, `casegraphen case history topology diff`,
-`casegraphen case close-check`, `casegraphen morphism propose`, and
+With a local binary, the command spellings are `casegraphen lift native`,
+`casegraphen space reason`, `casegraphen space frontier`,
+`casegraphen space topology`, `casegraphen space topology diff`,
+`casegraphen invariant close-check`, `casegraphen morphism propose`, and
 `casegraphen morphism apply`. The examples below use Cargo so they work from a
-fresh repository checkout.
+fresh repository checkout. The older `casegraphen case ...` spelling remains a
+transitional alias, not the product language.
 
 ```sh
 cargo run -q -p casegraphen -- \
-  case import \
+  lift native \
   --store /tmp/casegraphen-native-store \
   --input schemas/casegraphen/native.case.space.example.json \
   --revision-id revision:native-reference-imported \
@@ -34,13 +39,13 @@ Inspect and replay the stored native case space:
 
 ```sh
 cargo run -q -p casegraphen -- \
-  case inspect \
+  space inspect \
   --store /tmp/casegraphen-native-store \
   --case-space-id case_space:native-case-management-contract \
   --format json
 
 cargo run -q -p casegraphen -- \
-  case replay \
+  space replay \
   --store /tmp/casegraphen-native-store \
   --case-space-id case_space:native-case-management-contract \
   --format json
@@ -49,21 +54,21 @@ cargo run -q -p casegraphen -- \
 Derive read-only native reasoning views from replayed state:
 
 ```sh
-cargo run -q -p casegraphen -- case reason --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case frontier --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case history topology --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case history topology diff --left-store /tmp/casegraphen-native-store --left-case-space-id case_space:native-case-management-contract --right-store /tmp/casegraphen-native-store --right-case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case obstructions --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case completions --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case evidence --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
-cargo run -q -p casegraphen -- case project --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- space reason --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- space frontier --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- space topology --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- space topology diff --left-store /tmp/casegraphen-native-store --left-case-space-id case_space:native-case-management-contract --right-store /tmp/casegraphen-native-store --right-case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- obstruction list --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- completion candidates --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- invariant check --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --format json
+cargo run -q -p casegraphen -- projection apply --store /tmp/casegraphen-native-store --case-space-id case_space:native-case-management-contract --projection /tmp/projection.json --format json
 ```
 
 Run close checking against an explicit replay revision and validation evidence:
 
 ```sh
 cargo run -q -p casegraphen -- \
-  case close-check \
+  invariant close-check \
   --store /tmp/casegraphen-native-store \
   --case-space-id case_space:native-case-management-contract \
   --base-revision-id revision:native-reference-imported \
@@ -98,8 +103,9 @@ revision IDs from the local run.
 ## Verification Status
 
 `tools/casegraphen/tests/command.rs` covers the deterministic native CLI flow:
-create, import, list, inspect, history, replay, reason, frontier,
-obstructions, completions, evidence, project, close-check, and morphism
+lift, space list/inspect/history/replay/reason/frontier/topology,
+obstruction listing, completion candidates, projection application,
+equivalence checks, invariant checks, invariant close-check, and morphism
 propose/check/apply/reject. It also validates
 `schemas/casegraphen/native.case.space.example.json` and
 `schemas/casegraphen/native.case.report.example.json` against their JSON
@@ -112,12 +118,13 @@ higher-order topology smoke.
 
 ## Residual Limitations
 
-- Native `casegraphen case ...` commands currently operate on an explicit
-  repo-owned native store under the supplied `--store` path.
+- Native higher-order commands currently operate on an explicit repo-owned
+  native store under the supplied `--store` path.
 - Native morphism proposal/apply is conservative: it validates and appends
   metadata-only morphisms and rejects unmaterialized payload changes.
-- There is no native `case close` command yet; operators run
-  `case close-check` and record accepted close evidence in the owning workflow.
+- There is no native `invariant close` command yet; operators run
+  `invariant close-check` and record accepted close evidence in the owning
+  workflow.
 - Installed `cg` is only the meta workflow driver for `.casegraphen/` cases in
   this repository. Do not treat installed `cg` task states as the native
   CaseGraphen product model.

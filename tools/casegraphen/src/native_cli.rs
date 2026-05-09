@@ -1,3 +1,4 @@
+use crate::native_eval::evaluate_native_case;
 use crate::native_model::ProjectionAudience;
 use crate::native_store::{NativeCaseStore, NativeStoreError};
 use crate::topology::TopologyReportOptions;
@@ -18,7 +19,8 @@ mod path_helpers;
 mod reporting;
 use ops::{
     case_close_check, case_import, case_new, case_reason, case_topology, case_topology_diff,
-    morphism_apply, morphism_check, morphism_propose, morphism_reject, NativeCloseGateOptions,
+    lift_structured_source, morphism_apply, morphism_check, morphism_propose, morphism_reject,
+    projection_apply, NativeCloseGateOptions,
 };
 use options::{required_segment, NativeOptions};
 use reporting::report;
@@ -37,6 +39,13 @@ pub(crate) enum NativeCliCommand {
         store: PathBuf,
         input: PathBuf,
         revision_id: Id,
+        output: Option<PathBuf>,
+    },
+    LiftStructuredSource {
+        store: PathBuf,
+        input: PathBuf,
+        revision_id: Id,
+        adapter: String,
         output: Option<PathBuf>,
     },
     CaseList {
@@ -63,10 +72,21 @@ pub(crate) enum NativeCliCommand {
         case_space_id: Id,
         output: Option<PathBuf>,
     },
+    InvariantCheck {
+        store: PathBuf,
+        case_space_id: Id,
+        output: Option<PathBuf>,
+    },
     CaseReason {
         store: PathBuf,
         case_space_id: Id,
         section: NativeReasonSection,
+        output: Option<PathBuf>,
+    },
+    ProjectionApply {
+        store: PathBuf,
+        case_space_id: Id,
+        projection: PathBuf,
         output: Option<PathBuf>,
     },
     CaseCloseCheck {
@@ -84,6 +104,14 @@ pub(crate) enum NativeCliCommand {
         output: Option<PathBuf>,
     },
     CaseTopologyDiff {
+        left_store: PathBuf,
+        left_case_space_id: Id,
+        right_store: PathBuf,
+        right_case_space_id: Id,
+        topology_options: TopologyReportOptions,
+        output: Option<PathBuf>,
+    },
+    EquivalenceCheck {
         left_store: PathBuf,
         left_case_space_id: Id,
         right_store: PathBuf,
@@ -141,6 +169,23 @@ impl NativeCliCommand {
         let mut args = args.into_iter();
         match namespace {
             "case" => Self::parse_case(required_segment(&mut args, "case operation")?, args),
+            "space" => Self::parse_space(required_segment(&mut args, "space operation")?, args),
+            "lift" => Self::parse_lift(required_segment(&mut args, "lift adapter")?, args),
+            "obstruction" => {
+                Self::parse_obstruction(required_segment(&mut args, "obstruction operation")?, args)
+            }
+            "completion" => {
+                Self::parse_completion(required_segment(&mut args, "completion operation")?, args)
+            }
+            "projection" => {
+                Self::parse_projection(required_segment(&mut args, "projection operation")?, args)
+            }
+            "equivalence" => {
+                Self::parse_equivalence(required_segment(&mut args, "equivalence operation")?, args)
+            }
+            "invariant" => {
+                Self::parse_invariant(required_segment(&mut args, "invariant operation")?, args)
+            }
             "morphism" => {
                 Self::parse_morphism(required_segment(&mut args, "morphism operation")?, args)
             }
@@ -152,15 +197,19 @@ impl NativeCliCommand {
         match self {
             Self::CaseNew { output, .. }
             | Self::CaseImport { output, .. }
+            | Self::LiftStructuredSource { output, .. }
             | Self::CaseList { output, .. }
             | Self::CaseInspect { output, .. }
             | Self::CaseHistory { output, .. }
             | Self::CaseReplay { output, .. }
             | Self::CaseValidate { output, .. }
+            | Self::InvariantCheck { output, .. }
             | Self::CaseReason { output, .. }
+            | Self::ProjectionApply { output, .. }
             | Self::CaseCloseCheck { output, .. }
             | Self::CaseTopology { output, .. }
             | Self::CaseTopologyDiff { output, .. }
+            | Self::EquivalenceCheck { output, .. }
             | Self::MorphismPropose { output, .. }
             | Self::MorphismCheck { output, .. }
             | Self::MorphismApply { output, .. }
@@ -176,15 +225,19 @@ impl NativeCliCommand {
         match self {
             Self::CaseNew { .. }
             | Self::CaseImport { .. }
+            | Self::LiftStructuredSource { .. }
             | Self::CaseList { .. }
             | Self::CaseInspect { .. }
             | Self::CaseHistory { .. }
             | Self::CaseReplay { .. }
             | Self::CaseValidate { .. }
+            | Self::InvariantCheck { .. }
             | Self::CaseReason { .. }
+            | Self::ProjectionApply { .. }
             | Self::CaseCloseCheck { .. }
             | Self::CaseTopology { .. }
-            | Self::CaseTopologyDiff { .. } => self.run_case_value(),
+            | Self::CaseTopologyDiff { .. }
+            | Self::EquivalenceCheck { .. } => self.run_case_value(),
             Self::MorphismPropose { .. }
             | Self::MorphismCheck { .. }
             | Self::MorphismApply { .. }
@@ -208,6 +261,13 @@ impl NativeCliCommand {
                 revision_id,
                 ..
             } => case_import(store, input, revision_id)?,
+            Self::LiftStructuredSource {
+                store,
+                input,
+                revision_id,
+                adapter,
+                ..
+            } => lift_structured_source(store, input, revision_id, adapter)?,
             Self::CaseList { store, .. } => case_list(store)?,
             Self::CaseInspect {
                 store,
@@ -229,12 +289,23 @@ impl NativeCliCommand {
                 case_space_id,
                 ..
             } => case_validate(store, case_space_id)?,
+            Self::InvariantCheck {
+                store,
+                case_space_id,
+                ..
+            } => invariant_check(store, case_space_id)?,
             Self::CaseReason {
                 store,
                 case_space_id,
                 section,
                 ..
             } => case_reason(store, case_space_id, *section)?,
+            Self::ProjectionApply {
+                store,
+                case_space_id,
+                projection,
+                ..
+            } => projection_apply(store, case_space_id, projection)?,
             Self::CaseCloseCheck {
                 store,
                 case_space_id,
@@ -263,6 +334,20 @@ impl NativeCliCommand {
                 topology_options,
                 ..
             } => case_topology_diff(
+                left_store,
+                left_case_space_id,
+                right_store,
+                right_case_space_id,
+                *topology_options,
+            )?,
+            Self::EquivalenceCheck {
+                left_store,
+                left_case_space_id,
+                right_store,
+                right_case_space_id,
+                topology_options,
+                ..
+            } => equivalence_check(
                 left_store,
                 left_case_space_id,
                 right_store,
@@ -387,6 +472,188 @@ impl NativeCliCommand {
             "project" => Self::parse_reason(options, NativeReasonSection::Project),
             "close-check" => Self::parse_close_check(options),
             _ => Err(NativeCliError::usage("unsupported native case command")),
+        }
+    }
+
+    fn parse_space(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        let operation = operation
+            .to_str()
+            .ok_or_else(|| NativeCliError::usage("space operation must be UTF-8"))?;
+        let mut args = args.into_iter().collect::<Vec<_>>();
+        let topology = operation == "topology";
+        let topology_diff = topology
+            && args
+                .first()
+                .and_then(|argument| argument.to_str())
+                .is_some_and(|argument| argument == "diff");
+        if topology_diff {
+            args.remove(0);
+        }
+        let options = NativeOptions::parse(args)?;
+        match operation {
+            "new" | "create" => Ok(Self::CaseNew {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                space_id: options.require_id("--space-id")?,
+                title: options.require_string("--title")?,
+                revision_id: options.require_id("--revision-id")?,
+                output: options.output,
+            }),
+            "import" => Ok(Self::CaseImport {
+                store: options.require_store()?,
+                input: options.require_path("--input")?,
+                revision_id: options.require_id("--revision-id")?,
+                output: options.output,
+            }),
+            "list" => Ok(Self::CaseList {
+                store: options.require_store()?,
+                output: options.output,
+            }),
+            "inspect" => Ok(Self::CaseInspect {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            "history" => Ok(Self::CaseHistory {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            "replay" => Ok(Self::CaseReplay {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            "validate" => Ok(Self::CaseValidate {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            "reason" => Self::parse_reason(options, NativeReasonSection::Reason),
+            "frontier" => Self::parse_reason(options, NativeReasonSection::Frontier),
+            "topology" if topology_diff => Ok(Self::CaseTopologyDiff {
+                left_store: options.require_path("--left-store")?,
+                left_case_space_id: options.require_id("--left-case-space-id")?,
+                right_store: options.require_path("--right-store")?,
+                right_case_space_id: options.require_id("--right-case-space-id")?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            }),
+            "topology" => Ok(Self::CaseTopology {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            }),
+            _ => Err(NativeCliError::usage("unsupported native space command")),
+        }
+    }
+
+    fn parse_lift(
+        adapter: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        let adapter = adapter
+            .to_str()
+            .ok_or_else(|| NativeCliError::usage("lift adapter must be UTF-8"))?;
+        let options = NativeOptions::parse(args)?;
+        match adapter {
+            "native" => Ok(Self::CaseImport {
+                store: options.require_store()?,
+                input: options.require_path("--input")?,
+                revision_id: options.require_id("--revision-id")?,
+                output: options.output,
+            }),
+            "workflow" | "case-graph" => Ok(Self::LiftStructuredSource {
+                store: options.require_store()?,
+                input: options.require_path("--input")?,
+                revision_id: options.require_id("--revision-id")?,
+                adapter: adapter.to_owned(),
+                output: options.output,
+            }),
+            _ => Err(NativeCliError::usage("unsupported lift adapter")),
+        }
+    }
+
+    fn parse_obstruction(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        match operation.to_str() {
+            Some("list") => Self::parse_reason(
+                NativeOptions::parse(args)?,
+                NativeReasonSection::Obstructions,
+            ),
+            Some(_) | None => Err(NativeCliError::usage("unsupported obstruction command")),
+        }
+    }
+
+    fn parse_completion(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        match operation.to_str() {
+            Some("candidates") => Self::parse_reason(
+                NativeOptions::parse(args)?,
+                NativeReasonSection::Completions,
+            ),
+            Some(_) | None => Err(NativeCliError::usage("unsupported completion command")),
+        }
+    }
+
+    fn parse_projection(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        let options = NativeOptions::parse(args)?;
+        match operation.to_str() {
+            Some("apply") => {
+                let projection = options.require_path("--projection")?;
+                Ok(Self::ProjectionApply {
+                    store: options.require_store()?,
+                    case_space_id: options.require_id("--case-space-id")?,
+                    projection,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(NativeCliError::usage("unsupported projection command")),
+        }
+    }
+
+    fn parse_equivalence(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        let options = NativeOptions::parse(args)?;
+        match operation.to_str() {
+            Some("check") => Ok(Self::EquivalenceCheck {
+                left_store: options.require_path("--left-store")?,
+                left_case_space_id: options.require_id("--left-case-space-id")?,
+                right_store: options.require_path("--right-store")?,
+                right_case_space_id: options.require_id("--right-case-space-id")?,
+                topology_options: options.topology_options(),
+                output: options.output,
+            }),
+            Some(_) | None => Err(NativeCliError::usage("unsupported equivalence command")),
+        }
+    }
+
+    fn parse_invariant(
+        operation: OsString,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Result<Self, NativeCliError> {
+        let options = NativeOptions::parse(args)?;
+        match operation.to_str() {
+            Some("check") => Ok(Self::InvariantCheck {
+                store: options.require_store()?,
+                case_space_id: options.require_id("--case-space-id")?,
+                output: options.output,
+            }),
+            Some("close-check") => Self::parse_close_check(options),
+            Some(_) | None => Err(NativeCliError::usage("unsupported invariant command")),
         }
     }
 
@@ -518,7 +785,7 @@ pub(super) fn parse_projection_audience(value: &str) -> Result<ProjectionAudienc
 fn case_list(store: &Path) -> Result<Value, NativeCliError> {
     let records = NativeCaseStore::new(store.to_path_buf()).list_case_spaces()?;
     Ok(report(
-        "casegraphen case list",
+        "casegraphen space list",
         json!({ "case_spaces": records }),
     ))
 }
@@ -526,7 +793,7 @@ fn case_list(store: &Path) -> Result<Value, NativeCliError> {
 fn case_inspect(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
     let record = NativeCaseStore::new(store.to_path_buf()).inspect_case_space(case_space_id)?;
     Ok(report(
-        "casegraphen case inspect",
+        "casegraphen space inspect",
         json!({ "record": record }),
     ))
 }
@@ -534,7 +801,7 @@ fn case_inspect(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliErro
 fn case_history(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
     let entries = NativeCaseStore::new(store.to_path_buf()).history_entries(case_space_id)?;
     Ok(report(
-        "casegraphen case history",
+        "casegraphen space history",
         json!({ "entries": entries }),
     ))
 }
@@ -543,7 +810,7 @@ fn case_replay(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError
     let replay =
         NativeCaseStore::new(store.to_path_buf()).replay_current_case_space(case_space_id)?;
     Ok(report(
-        "casegraphen case replay",
+        "casegraphen space replay",
         json!({ "replay": replay }),
     ))
 }
@@ -552,8 +819,64 @@ fn case_validate(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliErr
     let validation =
         NativeCaseStore::new(store.to_path_buf()).validate_case_space(case_space_id)?;
     Ok(report(
-        "casegraphen case validate",
+        "casegraphen space validate",
         json!({ "validation": validation }),
+    ))
+}
+
+fn invariant_check(store: &Path, case_space_id: &Id) -> Result<Value, NativeCliError> {
+    let store = NativeCaseStore::new(store.to_path_buf());
+    let validation = store.validate_case_space(case_space_id)?;
+    let replay = store.replay_current_case_space(case_space_id)?;
+    let evaluation = evaluate_native_case(&replay.case_space)?;
+    let evidence_findings = evaluation.evidence_findings.clone();
+    let projection_loss = evaluation.projection_loss.clone();
+    let obstructions = evaluation.obstructions.clone();
+    let completion_candidates = evaluation.completion_candidates.clone();
+    let review_gaps = evaluation.review_gaps.clone();
+    Ok(report(
+        "casegraphen invariant check",
+        json!({
+            "validation": validation,
+            "evaluation": evaluation,
+            "evidence_findings": evidence_findings,
+            "projection_loss": projection_loss,
+            "obstructions": obstructions,
+            "completion_candidates": completion_candidates,
+            "review_gaps": review_gaps,
+        }),
+    ))
+}
+
+fn equivalence_check(
+    left_store: &Path,
+    left_case_space_id: &Id,
+    right_store: &Path,
+    right_case_space_id: &Id,
+    topology_options: TopologyReportOptions,
+) -> Result<Value, NativeCliError> {
+    let left_replay = NativeCaseStore::new(left_store.to_path_buf())
+        .replay_current_case_space(left_case_space_id)?;
+    let right_replay = NativeCaseStore::new(right_store.to_path_buf())
+        .replay_current_case_space(right_case_space_id)?;
+    let left_topology = crate::topology::native_case_topology_with_history(
+        &left_replay.case_space,
+        &left_replay.history,
+        topology_options,
+    )?;
+    let right_topology = crate::topology::native_case_topology_with_history(
+        &right_replay.case_space,
+        &right_replay.history,
+        topology_options,
+    )?;
+    let topology_diff = crate::topology::topology_diff(&left_topology, &right_topology);
+    Ok(report(
+        "casegraphen equivalence check",
+        json!({
+            "left_case_space_id": left_case_space_id,
+            "right_case_space_id": right_case_space_id,
+            "topology_diff": topology_diff
+        }),
     ))
 }
 
@@ -635,3 +958,204 @@ impl fmt::Display for NativeCliError {
 }
 
 impl std::error::Error for NativeCliError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<OsString> {
+        values.iter().map(OsString::from).collect()
+    }
+
+    #[test]
+    fn parses_space_commands_as_canonical_native_surface() {
+        let command = NativeCliCommand::parse(
+            "space",
+            args(&[
+                "reason",
+                "--store",
+                "store",
+                "--case-space-id",
+                "case_space:demo",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("space reason command");
+
+        assert!(matches!(
+            command,
+            NativeCliCommand::CaseReason {
+                section: NativeReasonSection::Reason,
+                ..
+            }
+        ));
+
+        let topology = NativeCliCommand::parse(
+            "space",
+            args(&[
+                "topology",
+                "diff",
+                "--left-store",
+                "left",
+                "--left-case-space-id",
+                "case_space:left",
+                "--right-store",
+                "right",
+                "--right-case-space-id",
+                "case_space:right",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("space topology diff command");
+
+        assert!(matches!(
+            topology,
+            NativeCliCommand::CaseTopologyDiff { .. }
+        ));
+    }
+
+    #[test]
+    fn parses_value_namespaces_to_existing_native_operations() {
+        let obstruction = NativeCliCommand::parse(
+            "obstruction",
+            args(&[
+                "list",
+                "--store",
+                "store",
+                "--case-space-id",
+                "case_space:demo",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("obstruction list command");
+        assert!(matches!(
+            obstruction,
+            NativeCliCommand::CaseReason {
+                section: NativeReasonSection::Obstructions,
+                ..
+            }
+        ));
+
+        let completion = NativeCliCommand::parse(
+            "completion",
+            args(&[
+                "candidates",
+                "--store",
+                "store",
+                "--case-space-id",
+                "case_space:demo",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("completion candidates command");
+        assert!(matches!(
+            completion,
+            NativeCliCommand::CaseReason {
+                section: NativeReasonSection::Completions,
+                ..
+            }
+        ));
+
+        let projection = NativeCliCommand::parse(
+            "projection",
+            args(&[
+                "apply",
+                "--store",
+                "store",
+                "--case-space-id",
+                "case_space:demo",
+                "--projection",
+                "projection.json",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("projection apply command");
+        assert!(matches!(
+            projection,
+            NativeCliCommand::ProjectionApply { .. }
+        ));
+
+        let invariant = NativeCliCommand::parse(
+            "invariant",
+            args(&[
+                "check",
+                "--store",
+                "store",
+                "--case-space-id",
+                "case_space:demo",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("invariant check command");
+        assert!(matches!(invariant, NativeCliCommand::InvariantCheck { .. }));
+
+        let equivalence = NativeCliCommand::parse(
+            "equivalence",
+            args(&[
+                "check",
+                "--left-store",
+                "left",
+                "--left-case-space-id",
+                "case_space:left",
+                "--right-store",
+                "right",
+                "--right-case-space-id",
+                "case_space:right",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("equivalence check command");
+        assert!(matches!(
+            equivalence,
+            NativeCliCommand::EquivalenceCheck { .. }
+        ));
+    }
+
+    #[test]
+    fn parses_lift_adapters() {
+        let workflow = NativeCliCommand::parse(
+            "lift",
+            args(&[
+                "workflow",
+                "--store",
+                "store",
+                "--input",
+                "workflow.graph.json",
+                "--revision-id",
+                "revision:lifted",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("workflow lift command");
+
+        assert!(matches!(
+            workflow,
+            NativeCliCommand::LiftStructuredSource { adapter, .. } if adapter == "workflow"
+        ));
+
+        let native = NativeCliCommand::parse(
+            "lift",
+            args(&[
+                "native",
+                "--store",
+                "store",
+                "--input",
+                "native.case.space.json",
+                "--revision-id",
+                "revision:lifted",
+                "--format",
+                "json",
+            ]),
+        )
+        .expect("native lift command");
+        assert!(matches!(native, NativeCliCommand::CaseImport { .. }));
+    }
+}

@@ -14,6 +14,7 @@ pub(super) struct NativeOptions {
     pub(super) left_store: Option<PathBuf>,
     pub(super) right_store: Option<PathBuf>,
     pub(super) input: Option<PathBuf>,
+    pub(super) projection: Option<PathBuf>,
     pub(super) output: Option<PathBuf>,
     pub(super) case_space_id: Option<Id>,
     pub(super) left_case_space_id: Option<Id>,
@@ -66,6 +67,7 @@ impl NativeOptions {
             Some("--left-store") => self.left_store = Some(require_path(args, "--left-store")?),
             Some("--right-store") => self.right_store = Some(require_path(args, "--right-store")?),
             Some("--input") => self.input = Some(require_path(args, "--input")?),
+            Some("--projection") => self.projection = Some(require_path(args, "--projection")?),
             Some("--output") => self.output = Some(require_path(args, "--output")?),
             Some("--case-space-id") => {
                 self.case_space_id = Some(require_id(args, "--case-space-id")?)
@@ -140,6 +142,7 @@ impl NativeOptions {
     pub(super) fn require_path(&self, flag: &str) -> Result<PathBuf, NativeCliError> {
         match flag {
             "--input" => self.input.clone(),
+            "--projection" => self.projection.clone(),
             "--left-store" => self.left_store.clone(),
             "--right-store" => self.right_store.clone(),
             _ => None,

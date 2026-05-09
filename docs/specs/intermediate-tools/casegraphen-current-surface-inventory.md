@@ -37,6 +37,12 @@ services, or the external CaseGraphen repository.
 
 ## Current CLI Commands
 
+This section describes the implemented surface at the time of inventory. It is
+not the canonical target. The value-based redesign treats the legacy top-level
+commands as migration inputs or temporary aliases and moves durable operation
+language to `lift`, `space`, `morphism`, `obstruction`, `completion`,
+`projection`, `equivalence`, and `invariant`.
+
 | Command | Current behavior | Workflow reasoning relevance |
 | --- | --- | --- |
 | `casegraphen create` | Creates an empty `highergraphen.case.graph.v1` graph in a local directory. | Provides a file-based graph creation seed, but not a workflow state transition. |
@@ -51,13 +57,41 @@ services, or the external CaseGraphen repository.
 | `casegraphen history topology` | Emits lifted first-order topology diagnostics for a case graph. `--higher-order` adds optional persistence diagnostics with `--max-dimension` and `--min-persistence` / `--min-persistence-stages`. | Provides a read-only structural signal over the graph. Higher-order persistence is opt-in and diagnostic; baseline output omits `result.higher_order`. |
 | `casegraphen history topology diff` | Compares two lifted topology reports and emits scalar topology deltas plus source-mapping added/removed IDs. `--higher-order` adds summary deltas when both sides include higher-order summaries. | Provides topology-specific pairwise change detection without overloading raw case `compare` or workflow correspondence. |
 | `casegraphen cg workflow history topology` | Replays a stored workflow graph and, with `--higher-order`, orders filtration stages from workflow revision history. | Store-backed topology can expose `filtration_source: workflow_history` and `stage_sources` for revision-aware diagnostics. |
-| `casegraphen case history topology diff` | Replays two native case spaces and compares their topology reports. | Native topology diff uses morphism-log-aware topology reports and emits `result.topology_diff` without mutating either store. |
+| `casegraphen space topology diff` | Replays two native case spaces and compares their topology reports. | Native topology diff uses morphism-log-aware topology reports and emits `result.topology_diff` without mutating either store. The old `casegraphen case history topology diff` spelling is a transitional alias. |
 
 All commands require `--format json`. `--output` writes pretty JSON to a file
 and suppresses stdout. Domain findings such as missing cases, conflicts, and
 partial coverage are successful command results. Malformed input, unsupported
 schema identifiers, invalid primitive values, unsupported options, and I/O
 failures are CLI failures.
+
+## Destructive Redesign Mapping
+
+The following mapping preserves product value while allowing command names to
+break:
+
+| Current command or concept | Canonical target |
+| --- | --- |
+| `casegraphen create` | `casegraphen space new` |
+| `casegraphen inspect` / `casegraphen list` | `casegraphen space inspect` / `casegraphen space list` |
+| `casegraphen validate` | `casegraphen space validate` or `casegraphen invariant check` |
+| `casegraphen coverage` | `casegraphen invariant check` plus `casegraphen projection apply` |
+| `casegraphen missing` | `casegraphen completion candidates` |
+| `casegraphen conflicts` | `casegraphen obstruction list` |
+| `casegraphen project` | `casegraphen projection apply` |
+| `casegraphen compare` | `casegraphen equivalence check` |
+| `casegraphen history topology` | `casegraphen space topology` |
+| `casegraphen workflow reason` | `casegraphen lift workflow` followed by `casegraphen space reason` |
+| `casegraphen workflow obstructions` | `casegraphen obstruction list` |
+| `casegraphen workflow completions` | `casegraphen completion candidates` |
+| `casegraphen workflow evidence` | `casegraphen invariant check` or a future evidence-focused projection |
+| `casegraphen workflow project` | `casegraphen projection apply` |
+| `casegraphen workflow correspond` | `casegraphen equivalence check` |
+| `casegraphen cg workflow patch check/apply/reject` | `casegraphen morphism check/apply/reject` |
+| `casegraphen case ...` | Transitional alias for `casegraphen space ...` and related high-order namespaces |
+
+The old `highergraphen.case.graph.v1` schema can remain as an importable source
+format, but it should not force a permanent top-level command family.
 
 ## Current Schemas And Fixtures
 
@@ -154,13 +188,15 @@ global agent instructions outside this repository.
     should decide whether to preserve string extension points, tighten only new
     schemas, or version stricter v2 contracts.
 
-## Compatibility Constraints For The Next Contract Task
+## Transitional Compatibility Constraints
 
 - Keep `highergraphen.case.graph.v1`, `highergraphen.case.coverage_policy.v1`,
   `highergraphen.case.projection.v1`, and existing
-  `highergraphen.case.<operation>.report.v1` outputs valid.
-- Keep current commands and flags working, especially `--format json` and
-  `--output`.
+  `highergraphen.case.<operation>.report.v1` outputs valid long enough to
+  migrate fixtures into lift adapters.
+- Keep `--format json` and `--output` behavior for report-producing commands.
+  Current legacy command names may break once their values have canonical
+  higher-order replacements.
 - Add workflow reasoning reports with additive schema identifiers instead of
   overloading existing coverage, missing, conflicts, project, or compare
   result shapes.

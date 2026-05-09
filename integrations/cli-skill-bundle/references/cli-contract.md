@@ -208,19 +208,27 @@ casegraphen cg workflow patch reject \
   --format json
 ```
 
-Native CaseGraphen case commands also live in the repo-owned `casegraphen`
-binary. They operate on a `CaseSpace` plus `MorphismLog` store supplied by
-`--store`; they are not installed `cg` task events and they are not
-`casegraphen cg workflow ...` bridge commands:
+Native CaseGraphen higher-order commands also live in the repo-owned
+`casegraphen` binary. They operate on a `CaseSpace` plus `MorphismLog` store
+supplied by `--store`; they are not installed `cg` task events and they are
+not `casegraphen cg workflow ...` bridge commands. The older
+`casegraphen case ...` spellings are transitional aliases only:
 
 ```sh
-casegraphen case import --store casegraphen-native-store --input native.case.space.json --revision-id revision:initial --format json
-casegraphen case validate --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case reason --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case frontier --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case history topology --store casegraphen-native-store --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
+casegraphen lift native --store casegraphen-native-store --input native.case.space.json --revision-id revision:initial --format json
+casegraphen lift workflow --store casegraphen-native-store --input workflow.graph.json --revision-id revision:initial --format json
+casegraphen lift case-graph --store casegraphen-native-store --input case.graph.json --revision-id revision:initial --format json
+casegraphen space validate --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen space reason --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen space frontier --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen space topology --store casegraphen-native-store --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen space topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen obstruction list --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen completion candidates --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen projection apply --store casegraphen-native-store --case-space-id <id> --projection projection.json --format json
+casegraphen equivalence check --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json
+casegraphen invariant check --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen invariant close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
 casegraphen morphism propose --store casegraphen-native-store --case-space-id <id> --input case_morphism.json --format json
 casegraphen morphism check --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --format json
 casegraphen morphism apply --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --base-revision-id <revision-id> --reviewer-id <reviewer-id> --reason <text> --format json
@@ -248,16 +256,16 @@ native CaseGraphen report surface. The reference fixture is:
 examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json
 ```
 
-It is exercised with the standard native commands:
+It is exercised with the standard native higher-order commands:
 
 ```sh
-casegraphen case import --store casegraphen-ddd-store --input examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json --revision-id revision:ddd-sales-billing-imported --format json
-casegraphen case reason --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-casegraphen case obstructions --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-casegraphen case completions --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-casegraphen case evidence --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-casegraphen case project --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --base-revision-id revision:ddd-sales-billing-imported --validation-evidence-id evidence:workshop-notes --format json
+casegraphen lift native --store casegraphen-ddd-store --input examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json --revision-id revision:ddd-sales-billing-imported --format json
+casegraphen space reason --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+casegraphen obstruction list --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+casegraphen completion candidates --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+casegraphen invariant check --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+casegraphen projection apply --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --projection projection.json --format json
+casegraphen invariant close-check --store casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --base-revision-id revision:ddd-sales-billing-imported --validation-evidence-id evidence:workshop-notes --format json
 ```
 
 ## Stable Files
@@ -331,9 +339,9 @@ casegraphen case close-check --store casegraphen-ddd-store --case-space-id case_
 - The bridge does not append native `.casegraphen` events and does not replace
   `cg frontier` or `cg blockers`. Completion review and patch review commands
   write only to the explicit `WorkflowWorkspaceStore`.
-- Native `casegraphen case ...` reports derive readiness, frontier,
-  obstructions, evidence boundaries, projection loss, close checks, and
-  morphism history from replayed `CaseSpace` plus `MorphismLog`.
+- Native higher-order reports derive readiness, frontier, obstructions,
+  evidence boundaries, projection loss, close checks, and morphism history from
+  replayed `CaseSpace` plus `MorphismLog`.
 - Native morphism application is currently metadata-only. Unmaterialized case
   payload changes are residual limitations and must be reported instead of
   described as accepted native product behavior.

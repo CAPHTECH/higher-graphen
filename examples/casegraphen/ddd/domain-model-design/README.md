@@ -40,7 +40,7 @@ Use a temporary native store:
 
 ```sh
 cargo run -q -p casegraphen -- \
-  case import \
+  lift native \
   --store /tmp/casegraphen-ddd-store \
   --input examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json \
   --revision-id revision:ddd-sales-billing-imported \
@@ -49,25 +49,25 @@ cargo run -q -p casegraphen -- \
 
 Inspect focused diagnostic views:
 
-Command shorthand: `casegraphen case reason`,
-`casegraphen case obstructions`, `casegraphen case completions`,
-`casegraphen case evidence`, `casegraphen case project`, and
-`casegraphen case close-check`.
+Command shorthand: `casegraphen space reason`,
+`casegraphen obstruction list`, `casegraphen completion candidates`,
+`casegraphen invariant check`, `casegraphen projection apply`, and
+`casegraphen invariant close-check`.
 
 ```sh
-cargo run -q -p casegraphen -- case validate --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- case reason --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- case obstructions --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- case completions --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- case evidence --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- case project --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- space validate --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- space reason --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- obstruction list --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- completion candidates --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- invariant check --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
+cargo run -q -p casegraphen -- projection apply --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --projection schemas/casegraphen/projection.example.json --format json
 ```
 
 Run the close gate:
 
 ```sh
 cargo run -q -p casegraphen -- \
-  case close-check \
+  invariant close-check \
   --store /tmp/casegraphen-ddd-store \
   --case-space-id case_space:ddd-sales-billing-demo \
   --base-revision-id revision:ddd-sales-billing-imported \
@@ -79,19 +79,19 @@ cargo run -q -p casegraphen -- \
 
 Expected report data after import:
 
-- `case validate` returns `valid: true`.
-- `case reason` returns `result.evaluation.status == "blocked"`.
-- `case obstructions` includes:
+- `space validate` returns `valid: true`.
+- `space reason` returns `result.evaluation.status == "blocked"`.
+- `obstruction list` includes:
   - `contradiction` for `relation:risk-blocks-unified-customer`;
   - `missing_evidence` for `evidence:customer-equivalence-proof`;
   - `review_required` for `review:domain-model-acceptance`.
-- `case completions` includes
+- `completion candidates` includes
   `completion:missing-sales-billing-acl` and generated candidates for evidence,
   review, and contradiction resolution.
-- `case evidence` separates accepted workshop evidence from unreviewed AI
+- `invariant check` separates accepted workshop evidence from unreviewed AI
   inference.
-- `case project` reports information loss for `projection:implementation-view`.
-- `case close-check` returns `closeable: false`.
+- `projection apply` reports information loss for requested projections.
+- `invariant close-check` returns `closeable: false`.
 
 These findings are successful domain report data. They do not mean the CLI
 failed.

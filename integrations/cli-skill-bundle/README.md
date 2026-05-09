@@ -34,10 +34,10 @@ The bundled `casegraphen` skill is copied from `skills/casegraphen/SKILL.md`.
 It covers installed `cg` workspace operation, the repo-owned
 `casegraphen workflow ...` report surface, and the repo-owned
 `casegraphen cg workflow ...` bridge. It also covers native CaseGraphen
-`casegraphen case ...` and `casegraphen morphism ...` commands for CaseSpace
-plus MorphismLog operation without introducing MCP or provider SDK
-integrations. Installed `cg` is the meta `.casegraphen` workflow driver, not
-the native CaseGraphen product model.
+canonical higher-order commands for lift, space replay, obstruction detection,
+completion proposal, projection, equivalence, invariants, and morphisms
+without introducing MCP or provider SDK integrations. Installed `cg` is the
+meta `.casegraphen` workflow driver, not the native CaseGraphen product model.
 
 The bundled `highergraphen-ddd` skill is copied from
 `skills/highergraphen-ddd/SKILL.md`. It guides agents through the bounded
@@ -141,37 +141,44 @@ casegraphen cg workflow patch reject --store casegraphen-workflow-store --workfl
 Installed `cg` remains the native `.casegraphen` workspace surface for case
 creation, evidence, frontier, blockers, topology, and `cg validate --case`.
 
-The native CaseGraphen case store, reasoning, close-check, and morphism
-commands are:
+The native CaseGraphen CaseSpace plus MorphismLog store, reasoning,
+close-check, and morphism commands use the canonical higher-order surface:
 
 ```sh
-casegraphen case import --store casegraphen-native-store --input native.case.space.json --revision-id revision:initial --format json
-casegraphen case reason --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case frontier --store casegraphen-native-store --case-space-id <id> --format json
-casegraphen case history topology --store casegraphen-native-store --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
+casegraphen lift native --store casegraphen-native-store --input native.case.space.json --revision-id revision:initial --format json
+casegraphen space reason --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen space frontier --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen space topology --store casegraphen-native-store --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen space topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen obstruction list --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen completion candidates --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen projection apply --store casegraphen-native-store --case-space-id <id> --projection projection.json --format json
+casegraphen equivalence check --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json
+casegraphen invariant check --store casegraphen-native-store --case-space-id <id> --format json
+casegraphen invariant close-check --store casegraphen-native-store --case-space-id <id> --base-revision-id <revision-id> --validation-evidence-id <evidence-id> --format json
 casegraphen morphism propose --store casegraphen-native-store --case-space-id <id> --input case_morphism.json --format json
 casegraphen morphism check --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --format json
 casegraphen morphism apply --store casegraphen-native-store --case-space-id <id> --morphism-id <morphism-id> --base-revision-id <revision-id> --reviewer-id <reviewer-id> --reason "<reason>" --format json
 ```
+
+The older `casegraphen case ...` spellings are transitional aliases only.
 
 The native reference examples live at `examples/casegraphen/native/README.md`.
 They document the current residual limitations: metadata-only morphism
 application and close-check without a native close command.
 Native case-space and morphism metadata can supply
 `metadata.higher_graphen_extensions`. Blocked supplied extensions make
-`casegraphen case close-check` emit `core_extension_blocked: true` with
+`casegraphen invariant close-check` emit `core_extension_blocked: true` with
 `closeable: false`, and make `casegraphen morphism check` report `valid: true`
 with `applicable: false`.
 
 The DDD diagnostic reference example lives at
 `examples/casegraphen/ddd/domain-model-design/README.md`. It uses
-`sales-billing-customer.case.space.json` to show how `casegraphen case reason`,
-`casegraphen case obstructions`, `casegraphen case completions`,
-`casegraphen case evidence`, `casegraphen case project`, and
-`casegraphen case close-check` can flag a blocked domain model decision without
-turning domain findings into CLI failures.
+`sales-billing-customer.case.space.json` to show how `casegraphen space reason`,
+`casegraphen obstruction list`, `casegraphen completion candidates`,
+`casegraphen invariant check`, `casegraphen projection apply`, and
+`casegraphen invariant close-check` can flag a blocked domain model decision
+without turning domain findings into CLI failures.
 
 The repository-owned validation path is:
 

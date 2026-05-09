@@ -87,8 +87,8 @@ Decision-gate effects:
 
 - `casegraphen workflow reason` sets `result.status` to `review_required` when
   supplied core extensions are blocked.
-- `casegraphen case close-check` emits `result.core_extension_blocked`; when it
-  is true, `result.close_check.closeable` is false.
+- `casegraphen invariant close-check` emits `result.core_extension_blocked`;
+  when it is true, `result.close_check.closeable` is false.
 - `casegraphen morphism check` keeps malformed-shape validation separate from
   policy/valuation gating: a structurally valid morphism can report
   `valid: true` and `applicable: false` when supplied core extensions are
@@ -96,37 +96,43 @@ Decision-gate effects:
 
 ### Native CaseGraphen
 
-Use native repo-owned `casegraphen case ...` and `casegraphen morphism ...`
-commands for CaseSpace plus MorphismLog work. Native CaseGraphen is not a
-`cg` clone: task-like work is only one `CaseCell` type, readiness/frontier are
-derived by replay, and accepted evidence or review state requires explicit
-native records or morphisms.
+Use native repo-owned high-order commands for CaseSpace plus MorphismLog work:
+`casegraphen lift ...`, `casegraphen space ...`, `casegraphen morphism ...`,
+`casegraphen obstruction ...`, `casegraphen completion ...`,
+`casegraphen projection ...`, `casegraphen equivalence ...`, and
+`casegraphen invariant ...`. Native CaseGraphen is not a `cg` clone: task-like
+work is only one `CaseCell` type, readiness/frontier are derived by replay, and
+accepted evidence or review state requires explicit native records or
+morphisms.
 
-Create or import a native case space:
+Lift sources or create a native case space:
 
 ```sh
-casegraphen case new --store <dir> --case-space-id <id> --space-id <id> --title "<title>" --revision-id <revision_id> --format json
-casegraphen case import --store <dir> --input native.case.space.json --revision-id <revision_id> --format json
-casegraphen case list --store <dir> --format json
-casegraphen case inspect --store <dir> --case-space-id <id> --format json
-casegraphen case history --store <dir> --case-space-id <id> --format json
-casegraphen case history topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case history topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen case replay --store <dir> --case-space-id <id> --format json
-casegraphen case validate --store <dir> --case-space-id <id> --format json
+casegraphen lift native --store <dir> --input native.case.space.json --revision-id <revision_id> --format json
+casegraphen lift workflow --store <dir> --input workflow.graph.json --revision-id <revision_id> --format json
+casegraphen lift case-graph --store <dir> --input case.graph.json --revision-id <revision_id> --format json
+casegraphen space new --store <dir> --case-space-id <id> --space-id <id> --title "<title>" --revision-id <revision_id> --format json
+casegraphen space list --store <dir> --format json
+casegraphen space inspect --store <dir> --case-space-id <id> --format json
+casegraphen space history --store <dir> --case-space-id <id> --format json
+casegraphen space topology --store <dir> --case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen space topology diff --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
+casegraphen space replay --store <dir> --case-space-id <id> --format json
+casegraphen space validate --store <dir> --case-space-id <id> --format json
 ```
 
 Reason over replayed native state:
 
 ```sh
-casegraphen case reason --store <dir> --case-space-id <id> --format json
-casegraphen case frontier --store <dir> --case-space-id <id> --format json
-casegraphen case obstructions --store <dir> --case-space-id <id> --format json
-casegraphen case completions --store <dir> --case-space-id <id> --format json
-casegraphen case evidence --store <dir> --case-space-id <id> --format json
-casegraphen case project --store <dir> --case-space-id <id> --format json
-casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
-casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --close-policy-id <policy_id> --actor-id <actor_id> --capability-id <capability_id> --operation-scope-id <case_space_id> --audience audit --source-boundary-id <source_boundary_id> --validation-evidence-id <evidence_id> --format json
+casegraphen space reason --store <dir> --case-space-id <id> --format json
+casegraphen space frontier --store <dir> --case-space-id <id> --format json
+casegraphen obstruction list --store <dir> --case-space-id <id> --format json
+casegraphen completion candidates --store <dir> --case-space-id <id> --format json
+casegraphen projection apply --store <dir> --case-space-id <id> --projection projection.json --format json
+casegraphen equivalence check --left-store <dir> --left-case-space-id <id> --right-store <dir> --right-case-space-id <id> --format json
+casegraphen invariant check --store <dir> --case-space-id <id> --format json
+casegraphen invariant close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
+casegraphen invariant close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --close-policy-id <policy_id> --actor-id <actor_id> --capability-id <capability_id> --operation-scope-id <case_space_id> --audience audit --source-boundary-id <source_boundary_id> --validation-evidence-id <evidence_id> --format json
 ```
 
 Propose, check, apply, or reject native morphisms:
@@ -140,12 +146,13 @@ casegraphen morphism reject --store <dir> --case-space-id <id> --morphism-id <mo
 
 Native CLI limitations are part of the contract. Current morphism mutation is
 metadata-only; unmaterialized payload changes are rejected instead of silently
-rewriting a case space. There is `case close-check`, but no native `case close`
-command yet. Document residual limitations when publishing examples or
-operator reports.
+rewriting a case space. There is `invariant close-check`, but no native
+`invariant close` command yet. Legacy `casegraphen case ...` commands remain
+transitional aliases; do not use them as the canonical operator language.
+Document residual limitations when publishing examples or operator reports.
 
 Native case spaces and morphism proposal metadata can carry
-`metadata.higher_graphen_extensions`. `case close-check` merges supplied
+`metadata.higher_graphen_extensions`. `invariant close-check` merges supplied
 extensions from the case-space metadata with generated close-check extensions.
 `morphism check` merges supplied extensions from the case-space metadata and the
 candidate morphism metadata with generated scenario/schema/equivalence/valuation
@@ -156,7 +163,7 @@ check not applicable without treating the JSON shape itself as invalid.
 Native case spaces must preserve their bounded source boundary. In v1, expect
 it under `metadata.source_boundary`; use it to distinguish accepted input facts
 from AI inference and to report import or projection loss. Treat initial
-`case new`, `case import`, and migration records as source-snapshot-to-CaseSpace
+`space new`, `lift native`, and migration records as source-snapshot-to-CaseSpace
 lift morphisms, and expect the first morphism to carry
 `morphism.metadata.source_boundary` plus `morphism.metadata.lift_semantics`.
 Projection `allowed_operations` is only an operation view: mutating, approving,
@@ -277,14 +284,14 @@ topology, or shape changes across history. Baseline topology reports omit
 - File-based `history topology` and `workflow history topology` use
   `filtration_source: "deterministic_cell_order"` because the input is a
   snapshot without durable revision history.
-- Store-backed `casegraphen cg workflow history topology` uses
+- Store-backed transitional `casegraphen cg workflow history topology` uses
   `filtration_source: "workflow_history"` and maps stages to workflow
   revisions.
-- Native `casegraphen case history topology` uses
+- Native `casegraphen space topology` uses
   `filtration_source: "native_morphism_log"` and maps stages to morphism log
   entries.
 - `history topology diff`, `workflow history topology diff`, and native
-  `case history topology diff` compare lifted topology summaries and
+  `space topology diff` compare lifted topology summaries and
   source-mapping deltas. They are diagnostic comparison reports, not JSON
   patches and not blockers by themselves.
 
@@ -377,22 +384,16 @@ free-form payloads into full workflow records.
 
 ## Legacy Commands
 
-Existing non-workflow commands keep their compatibility surface:
+Existing non-workflow commands are transitional compatibility aliases. Prefer
+the higher-order surface above for new operator guidance:
 
-```sh
-casegraphen version
-casegraphen create --case-graph-id <id> --space-id <id> --store <dir> --format json
-casegraphen inspect --input <case.graph.json> --format json
-casegraphen list --store <dir> --format json
-casegraphen validate --input <case.graph.json> --format json
-casegraphen coverage --input <case.graph.json> --coverage <coverage.policy.json> --format json
-casegraphen missing --input <case.graph.json> --coverage <coverage.policy.json> --format json
-casegraphen conflicts --input <case.graph.json> --format json
-casegraphen project --input <case.graph.json> --projection <projection.json> --format json
-casegraphen compare --left <case.graph.json> --right <case.graph.json> --format json
-casegraphen history topology --input <case.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-casegraphen history topology diff --left <left.case.graph.json> --right <right.case.graph.json> --format json [--higher-order [--max-dimension <n>] [--min-persistence <n>]]
-```
+- legacy create/inspect/list/validate -> `space new/inspect/list/validate`
+- legacy coverage -> `invariant check`
+- legacy missing -> `completion candidates`
+- legacy conflicts -> `obstruction list`
+- legacy project -> `projection apply`
+- legacy compare -> `equivalence check`
+- legacy history topology -> `space topology`
 
 ## Evidence And Projection Boundaries
 
@@ -438,13 +439,13 @@ casegraphen cg workflow history --store <dir> --workflow-graph-id <id> --format 
 casegraphen cg workflow replay --store <dir> --workflow-graph-id <id> --format json
 ```
 
-For native CaseSpace stores, run:
+For native CaseSpace stores, run the canonical checks:
 
 ```sh
-casegraphen case validate --store <dir> --case-space-id <id> --format json
-casegraphen case history --store <dir> --case-space-id <id> --format json
-casegraphen case replay --store <dir> --case-space-id <id> --format json
-casegraphen case close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
+casegraphen invariant check --store <dir> --case-space-id <id> --format json
+casegraphen space history --store <dir> --case-space-id <id> --format json
+casegraphen space replay --store <dir> --case-space-id <id> --format json
+casegraphen invariant close-check --store <dir> --case-space-id <id> --base-revision-id <revision_id> --validation-evidence-id <evidence_id> --format json
 ```
 
 After CLI or model changes, prefer:
@@ -474,8 +475,9 @@ cargo check -p casegraphen
 - Do not treat `casegraphen cg workflow ...` history as native `.casegraphen`
   event history.
 - Do not treat installed `cg` as the native CaseGraphen product model.
-- Native `casegraphen case ...` reports derive readiness/frontier/blockers from
-  replayed `CaseSpace` plus `MorphismLog`, not stored task state.
+- Native higher-order reports derive readiness/frontier/blockers from replayed
+  `CaseSpace` plus `MorphismLog`, not stored task state. The old
+  `casegraphen case ...` spelling is a transitional alias.
 
 ## Agent Output Shape
 

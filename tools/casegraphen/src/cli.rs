@@ -199,6 +199,27 @@ impl Command {
             Some("project") => Self::parse_project(args),
             Some("compare") => Self::parse_compare(args),
             Some("workflow") => Self::parse_workflow(args),
+            Some("lift") => NativeCliCommand::parse("lift", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("space") => NativeCliCommand::parse("space", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("obstruction") => NativeCliCommand::parse("obstruction", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("completion") => NativeCliCommand::parse("completion", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("projection") => NativeCliCommand::parse("projection", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("equivalence") => NativeCliCommand::parse("equivalence", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
+            Some("invariant") => NativeCliCommand::parse("invariant", args)
+                .map(Self::Native)
+                .map_err(CliError::from),
             Some("case") => NativeCliCommand::parse("case", args)
                 .map(Self::Native)
                 .map_err(CliError::from),
