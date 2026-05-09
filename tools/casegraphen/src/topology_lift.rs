@@ -1,6 +1,9 @@
 use crate::{native_model, topology::TopologyReportOptions, workflow_model::WorkflowCaseGraph};
 use higher_graphen_core::{CoreError, Id};
-use higher_graphen_structure::space::{Cell, ComplexType, InMemorySpaceStore, Space};
+use higher_graphen_structure::space::{
+    Cell, ComplexType, GraphAnalyticsInput, InMemorySpaceStore, Incidence, IncidenceOrientation,
+    Space, TraversalDirection,
+};
 use higher_graphen_structure::topology::summarize_complex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -49,6 +52,7 @@ pub(super) struct LiftBuilder {
     cell_ids: Vec<Id>,
     source_cell_ids: BTreeMap<Id, Id>,
     source_mapping: TopologyLiftSummary,
+    incidence_ids: Vec<Id>,
 }
 
 impl LiftBuilder {
@@ -68,6 +72,7 @@ impl LiftBuilder {
             cell_ids: Vec::new(),
             source_cell_ids: BTreeMap::new(),
             source_mapping: TopologyLiftSummary::default(),
+            incidence_ids: Vec::new(),
         })
     }
 
@@ -121,12 +126,33 @@ impl LiftBuilder {
         .with_boundary_cell(self.source_cell_ids[to_id].clone());
         self.store.insert_cell(cell)?;
         self.cell_ids.push(generated_id.clone());
+        self.insert_graph_incidence(source_id, relation_type, from_id, to_id)?;
         self.source_mapping.relations.push(SourceCellMapping {
             source_type: source_type.to_owned(),
             source_id: source_id.clone(),
             cell_id: generated_id,
             dimension: 1,
         });
+        Ok(())
+    }
+
+    fn insert_graph_incidence(
+        &mut self,
+        source_id: &Id,
+        relation_type: &str,
+        from_id: &Id,
+        to_id: &Id,
+    ) -> Result<(), CoreError> {
+        let incidence_id = cell_id("incidence", "topology_relation", source_id)?;
+        self.store.insert_incidence(Incidence::new(
+            incidence_id.clone(),
+            self.space_id.clone(),
+            self.source_cell_ids[from_id].clone(),
+            self.source_cell_ids[to_id].clone(),
+            relation_type,
+            IncidenceOrientation::Directed,
+        ))?;
+        self.incidence_ids.push(incidence_id);
         Ok(())
     }
 
@@ -149,9 +175,12 @@ impl LiftBuilder {
             self.name.clone(),
             ComplexType::CellComplex,
             self.cell_ids.clone(),
-            Vec::new(),
+            self.incidence_ids.clone(),
         )?;
         let topology = summarize_complex(&self.store, &self.complex_id)?;
+        let graph_analytics = self.store.analyze_graph(
+            &GraphAnalyticsInput::new(self.space_id.clone()).in_direction(TraversalDirection::Both),
+        )?;
         let complex = self.complex()?;
         let higher_order = if options.include_higher_order {
             let plan = filtration_plan_from_input(
@@ -170,6 +199,7 @@ impl LiftBuilder {
             space_id: self.space_id,
             complex_id: self.complex_id,
             topology,
+            graph_analytics,
             source_mapping: self.source_mapping,
             higher_order,
         })
@@ -213,6 +243,7 @@ impl LiftBuilder {
             .skipped_relations
             .sort_by(|left, right| left.source_id.cmp(&right.source_id));
         self.cell_ids.sort();
+        self.incidence_ids.sort();
     }
 
     fn complex(&self) -> Result<&higher_graphen_structure::space::Complex, CoreError> {

@@ -2115,6 +2115,17 @@ fn native_close_check_uses_metadata_core_extensions_as_close_gate() {
         value["result"]["close_check"]["operation_gate"]["source_boundary_id"],
         json!("source_boundary:native-case-management-contract")
     );
+    let temporal_checks = value["result"]["mathematical_diagnostics"]["temporal_checks"]
+        .as_array()
+        .expect("temporal checks");
+    assert!(temporal_checks.iter().any(|check| check["id"]
+        == json!(
+            "temporal:no-dead-end-except-current-revision:case_space:native-case-management-contract"
+        )));
+    assert!(temporal_checks.iter().any(|check| check["id"]
+        == json!(
+            "temporal:validation-evidence-eventual:case_space:native-case-management-contract"
+        )));
 }
 
 #[test]
@@ -2318,6 +2329,17 @@ fn native_morphism_check_uses_metadata_core_extensions_as_applicability_gate() {
         value["result"]["core_extensions"]["validation"]["blocked_count"],
         json!(1)
     );
+    let temporal_checks = value["result"]["mathematical_diagnostics"]["temporal_checks"]
+        .as_array()
+        .expect("temporal checks");
+    assert!(temporal_checks.iter().any(|check| check["id"]
+        == json!(
+            "temporal:morphism-transition-eventual:case_space:native-case-management-contract"
+        )
+        && check["report"]["status"] == json!("satisfied")));
+    assert!(temporal_checks.iter().any(|check| check["id"]
+        == json!("temporal:morphism-target-terminal:case_space:native-case-management-contract")
+        && check["report"]["status"] == json!("satisfied")));
 }
 
 #[test]

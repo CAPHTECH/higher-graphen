@@ -8,6 +8,7 @@ use crate::{
         native_close_check_extensions, native_close_check_result, native_morphism_check_extensions,
         native_morphism_check_result,
     },
+    math_diagnostics::{native_close_temporal_diagnostics, native_morphism_temporal_diagnostics},
     native_eval::evaluate_native_case,
     native_model::{
         CaseCell, CaseCellLifecycle, CaseCellType, CaseMorphism, CaseMorphismType, CaseSpace,
@@ -149,10 +150,12 @@ pub(super) fn case_close_check(
         },
     )?;
     let core_extensions = native_close_check_extensions(&replay.case_space, &check);
-    Ok(report(
-        "casegraphen invariant close-check",
-        native_close_check_result(check, core_extensions),
-    ))
+    let mut result = native_close_check_result(check, core_extensions);
+    result["mathematical_diagnostics"] = json!(native_close_temporal_diagnostics(
+        &replay.case_space,
+        validation_evidence_ids
+    )?);
+    Ok(report("casegraphen invariant close-check", result))
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -252,10 +255,11 @@ pub(super) fn morphism_check(
     let morphism = read_proposal(store, case_space_id, morphism_id)?;
     validate_candidate_morphism(&replay.case_space, &morphism)?;
     let core_extensions = native_morphism_check_extensions(&replay.case_space, &morphism);
-    Ok(report(
-        "casegraphen morphism check",
-        native_morphism_check_result(morphism, core_extensions),
-    ))
+    let mathematical_diagnostics =
+        native_morphism_temporal_diagnostics(&replay.case_space, &morphism)?;
+    let mut result = native_morphism_check_result(morphism, core_extensions);
+    result["mathematical_diagnostics"] = json!(mathematical_diagnostics);
+    Ok(report("casegraphen morphism check", result))
 }
 
 pub(super) fn morphism_apply(

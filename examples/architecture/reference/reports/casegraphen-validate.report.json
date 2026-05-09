@@ -391,6 +391,195 @@
       ],
       "topology_diagnostics": {
         "complex_id": "complex:casegraphen:case_graph:case_graph:architecture-reference",
+        "graph_analytics": {
+          "articulation_cell_ids": [
+            "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+          ],
+          "bridge_incidence_ids": [
+            "incidence:casegraphen:topology_relation:relation:end-to-end-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:input-lift-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:review-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:smoke-covers-reference"
+          ],
+          "centrality_scores": [
+            {
+              "cell_id": "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end",
+              "outgoing_degree": 4
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:architecture-reference-input-lift",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:completion-review-accept",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:direct-db-access-smoke",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:completion-review",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary",
+              "outgoing_degree": 0
+            }
+          ],
+          "connected_components": [
+            {
+              "cell_ids": [
+                "cell:casegraphen:case:case:architecture-reference-end-to-end",
+                "cell:casegraphen:case:case:architecture-reference-input-lift",
+                "cell:casegraphen:case:case:completion-review-accept",
+                "cell:casegraphen:case:case:direct-db-access-smoke",
+                "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+              ],
+              "representative_cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:review-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:review_record:review:architecture-reference-completion"
+              ],
+              "representative_cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:completion-review"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:completion-review"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:direct-db-boundary"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary"
+            }
+          ],
+          "cut_cell_candidate_ids": [
+            "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "strongly_connected_components": [
+            {
+              "cell_ids": [
+                "cell:casegraphen:case:case:architecture-reference-end-to-end",
+                "cell:casegraphen:case:case:architecture-reference-input-lift",
+                "cell:casegraphen:case:case:completion-review-accept",
+                "cell:casegraphen:case:case:direct-db-access-smoke",
+                "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+              ],
+              "representative_cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:review-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:review_record:review:architecture-reference-completion"
+              ],
+              "representative_cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:completion-review"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:completion-review"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:direct-db-boundary"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary"
+            }
+          ]
+        },
         "source_mapping": {
           "nodes": [
             {
@@ -590,6 +779,195 @@
       ],
       "topology_diagnostics": {
         "complex_id": "complex:casegraphen:case_graph:case_graph:architecture-reference",
+        "graph_analytics": {
+          "articulation_cell_ids": [
+            "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+          ],
+          "bridge_incidence_ids": [
+            "incidence:casegraphen:topology_relation:relation:end-to-end-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:input-lift-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:review-covers-reference",
+            "incidence:casegraphen:topology_relation:relation:smoke-covers-reference"
+          ],
+          "centrality_scores": [
+            {
+              "cell_id": "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end",
+              "outgoing_degree": 4
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:architecture-reference-input-lift",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:completion-review-accept",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case:case:direct-db-access-smoke",
+              "outgoing_degree": 1
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:completion-review",
+              "outgoing_degree": 0
+            },
+            {
+              "cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary",
+              "outgoing_degree": 0
+            }
+          ],
+          "connected_components": [
+            {
+              "cell_ids": [
+                "cell:casegraphen:case:case:architecture-reference-end-to-end",
+                "cell:casegraphen:case:case:architecture-reference-input-lift",
+                "cell:casegraphen:case:case:completion-review-accept",
+                "cell:casegraphen:case:case:direct-db-access-smoke",
+                "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+              ],
+              "representative_cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:review-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:review_record:review:architecture-reference-completion"
+              ],
+              "representative_cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:completion-review"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:completion-review"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:direct-db-boundary"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary"
+            }
+          ],
+          "cut_cell_candidate_ids": [
+            "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+          ],
+          "space_id": "space:architecture-product-reference",
+          "strongly_connected_components": [
+            {
+              "cell_ids": [
+                "cell:casegraphen:case:case:architecture-reference-end-to-end",
+                "cell:casegraphen:case:case:architecture-reference-input-lift",
+                "cell:casegraphen:case:case:completion-review-accept",
+                "cell:casegraphen:case:case:direct-db-access-smoke",
+                "cell:casegraphen:coverage_goal:coverage:architecture-reference-end-to-end"
+              ],
+              "representative_cell_id": "cell:casegraphen:case:case:architecture-reference-end-to-end"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:end-to-end-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:input-lift-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:review-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:review-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+              ],
+              "representative_cell_id": "cell:casegraphen:case_relation:relation:smoke-covers-reference"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:review_record:review:architecture-reference-completion"
+              ],
+              "representative_cell_id": "cell:casegraphen:review_record:review:architecture-reference-completion"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:architecture-reference-workflow"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:completion-review"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:completion-review"
+            },
+            {
+              "cell_ids": [
+                "cell:casegraphen:scenario:scenario:direct-db-boundary"
+              ],
+              "representative_cell_id": "cell:casegraphen:scenario:scenario:direct-db-boundary"
+            }
+          ]
+        },
         "source_mapping": {
           "nodes": [
             {

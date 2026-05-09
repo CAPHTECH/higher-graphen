@@ -8,6 +8,7 @@ version = "0.4.1"
 dependencies = [
  "higher-graphen-core",
  "higher-graphen-projection",
+ "higher-graphen-reasoning",
  "higher-graphen-structure",
  "serde",
  "serde_json",

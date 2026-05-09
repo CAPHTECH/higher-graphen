@@ -5,7 +5,7 @@ use crate::{
     workflow_workspace::WorkflowHistoryEntry,
 };
 use higher_graphen_core::{CoreError, Id};
-use higher_graphen_structure::space::Dimension;
+use higher_graphen_structure::space::{Dimension, GraphAnalyticsReport};
 use higher_graphen_structure::topology::TopologySummary;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -34,6 +34,8 @@ pub struct CaseTopologyReport {
     pub complex_id: Id,
     /// Shared finite topology summary over the lifted complex.
     pub topology: TopologySummary,
+    /// Finite graph analytics over the lifted incidence view.
+    pub graph_analytics: GraphAnalyticsReport,
     /// Deterministic mapping from source records to generated cells.
     pub source_mapping: TopologyLiftSummary,
     /// Optional higher-order persistence summary for opt-in CLI diagnostics.

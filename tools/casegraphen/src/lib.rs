@@ -4,6 +4,7 @@
 pub mod cli;
 pub mod core_extension_bridge;
 pub mod eval;
+pub mod math_diagnostics;
 pub mod model;
 pub mod native_cli;
 pub mod native_eval;
