@@ -8,3 +8,4 @@ pub mod completion;
 pub mod invariant;
 pub mod model_checking;
 pub mod obstruction;
+pub mod uncertainty;
