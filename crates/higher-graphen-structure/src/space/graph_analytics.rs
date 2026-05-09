@@ -119,6 +119,26 @@ pub struct GraphAnalyticsComponent {
     pub cell_ids: Vec<Id>,
 }
 
+/// Degree-style bounded centrality score in the selected graph view.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphCentralityScore {
+    /// Cell scored.
+    pub cell_id: Id,
+    /// Number of selected outgoing neighbor steps from this cell.
+    pub outgoing_degree: usize,
+}
+
+/// Dominator-style candidate computed from a single seed cell.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GraphDominatorCandidate {
+    /// Cell whose removal disconnects downstream reachable cells from the seed.
+    pub dominator_cell_id: Id,
+    /// Reachable cells that become unreachable from the seed after removing the dominator.
+    pub dominated_cell_ids: Vec<Id>,
+}
+
 /// Finite graph analytics report.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -143,6 +163,15 @@ pub struct GraphAnalyticsReport {
     /// Strongly connected components in the selected directed traversal view.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub strongly_connected_components: Vec<GraphAnalyticsComponent>,
+    /// Cells ranked by selected outgoing degree.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub centrality_scores: Vec<GraphCentralityScore>,
+    /// Cell cut candidates in the selected traversal view.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cut_cell_candidate_ids: Vec<Id>,
+    /// Dominator candidates from a single seed cell when exactly one seed is supplied.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dominator_candidates: Vec<GraphDominatorCandidate>,
 }
 
 impl InMemorySpaceStore {
@@ -180,6 +209,9 @@ impl InMemorySpaceStore {
         let strongly_connected_components = strongly_connected_components(&view);
         let articulation_cell_ids = articulation_cells(&view);
         let bridge_incidence_ids = bridge_incidences(&view);
+        let centrality_scores = centrality_scores(&view);
+        let cut_cell_candidate_ids = articulation_cell_ids.clone();
+        let dominator_candidates = dominator_candidates(&view, &input.seed_cell_ids);
 
         Ok(GraphAnalyticsReport {
             space_id: input.space_id,
@@ -189,6 +221,9 @@ impl InMemorySpaceStore {
             bridge_incidence_ids,
             connected_components,
             strongly_connected_components,
+            centrality_scores,
+            cut_cell_candidate_ids,
+            dominator_candidates,
         })
     }
 }
@@ -401,6 +436,55 @@ fn bridge_incidences(view: &GraphView) -> Vec<Id> {
         .collect()
 }
 
+fn centrality_scores(view: &GraphView) -> Vec<GraphCentralityScore> {
+    let mut scores = view
+        .adjacency
+        .iter()
+        .map(|(cell_id, edges)| GraphCentralityScore {
+            cell_id: cell_id.clone(),
+            outgoing_degree: edges.len(),
+        })
+        .collect::<Vec<_>>();
+    scores.sort_by(|left, right| {
+        right
+            .outgoing_degree
+            .cmp(&left.outgoing_degree)
+            .then_with(|| left.cell_id.cmp(&right.cell_id))
+    });
+    scores
+}
+
+fn dominator_candidates(view: &GraphView, seed_cell_ids: &[Id]) -> Vec<GraphDominatorCandidate> {
+    let [seed_cell_id] = seed_cell_ids else {
+        return Vec::new();
+    };
+    let baseline = reachable_cells(view, seed_cell_id);
+    let mut candidates = Vec::new();
+    for candidate_id in baseline.iter().filter(|cell_id| *cell_id != seed_cell_id) {
+        let reduced = remove_cell(view, candidate_id);
+        let reachable_without_candidate = reachable_cells(&reduced, seed_cell_id);
+        let dominated_cell_ids = baseline
+            .difference(&reachable_without_candidate)
+            .filter(|cell_id| *cell_id != candidate_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        if !dominated_cell_ids.is_empty() {
+            candidates.push(GraphDominatorCandidate {
+                dominator_cell_id: candidate_id.clone(),
+                dominated_cell_ids,
+            });
+        }
+    }
+    candidates.sort_by(|left, right| {
+        right
+            .dominated_cell_ids
+            .len()
+            .cmp(&left.dominated_cell_ids.len())
+            .then_with(|| left.dominator_cell_id.cmp(&right.dominator_cell_id))
+    });
+    candidates
+}
+
 fn remove_cell(view: &GraphView, removed_cell_id: &Id) -> GraphView {
     let adjacency = view
         .adjacency
@@ -516,6 +600,21 @@ mod tests {
             vec![id("edge-ab"), id("edge-bc"), id("edge-cd")]
         );
         assert_eq!(report.connected_components.len(), 1);
+        assert_eq!(report.cut_cell_candidate_ids, vec![id("b"), id("c")]);
+        assert_eq!(report.centrality_scores[0].cell_id, id("b"));
+        assert_eq!(
+            report.dominator_candidates,
+            vec![
+                GraphDominatorCandidate {
+                    dominator_cell_id: id("b"),
+                    dominated_cell_ids: vec![id("c"), id("d")],
+                },
+                GraphDominatorCandidate {
+                    dominator_cell_id: id("c"),
+                    dominated_cell_ids: vec![id("d")],
+                },
+            ]
+        );
 
         let json = serde_json::to_string(&report).expect("serialize");
         let roundtrip: GraphAnalyticsReport = serde_json::from_str(&json).expect("deserialize");

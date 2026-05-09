@@ -535,6 +535,10 @@ fn explicit_pushout_candidate_identifies_targets_from_shared_sources() {
         report.obstructions[0].obstruction_type,
         PushoutObstructionType::PushoutIncomplete
     );
+    let shell = report.candidate_space_shell("Pushout candidate");
+    assert_eq!(shell.id, id("space/pushout-candidate"));
+    assert_eq!(shell.name, "Pushout candidate");
+    assert!(shell.cell_ids.is_empty());
 
     let roundtrip: ExplicitPushoutReport =
         serde_json::from_str(&serde_json::to_string(&report).expect("serialize"))

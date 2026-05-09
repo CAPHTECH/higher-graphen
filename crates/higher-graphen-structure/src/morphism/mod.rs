@@ -345,6 +345,16 @@ impl ExplicitPushoutReport {
     pub fn is_complete(&self) -> bool {
         self.obstructions.is_empty()
     }
+
+    /// Creates an empty candidate space shell for this pushout report.
+    ///
+    /// The shell carries the candidate identifier and name only. Cells,
+    /// incidences, quotient losses, and inclusion morphisms remain reviewable
+    /// report data and are not silently materialized as accepted structure.
+    #[must_use]
+    pub fn candidate_space_shell(&self, name: impl Into<String>) -> crate::space::Space {
+        crate::space::Space::new(self.candidate_space_id.clone(), name)
+    }
 }
 
 /// Stable obstruction emitted by finite diagram commutativity checks.

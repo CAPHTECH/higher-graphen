@@ -1,5 +1,22 @@
 # Release Notes
 
+## Unreleased
+
+Release scope:
+
+- Mathematics extension kernel work for the HigherGraphen Rust workspace.
+
+Highlights:
+
+- Expanded graph analytics with strongly connected components, degree-style
+  centrality, cut-cell candidates, and single-seed dominator candidates.
+- Expanded bounded model checking with finite exhaustive markers and temporal
+  property descriptors.
+- Added binary likelihood posterior calculation and multi-claim
+  value-of-information scoring.
+- Added relation-mapping monotonicity checks and documented the implemented
+  mathematics kernel API surface.
+
 ## v0.2.1
 
 Release scope:

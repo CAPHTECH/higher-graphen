@@ -396,6 +396,43 @@ pub fn check_order_monotonicity(
         });
     }
 
+    check_order_monotonicity_with_mapping(source, target, &morphism.cell_mapping, &morphism.id)
+}
+
+/// Checks whether a morphism preserves implied order relations over relation identifiers.
+pub fn check_relation_order_monotonicity(
+    source: &FiniteOrderRelationSet,
+    target: &FiniteOrderRelationSet,
+    morphism: &Morphism,
+) -> Result<OrderMonotonicityReport> {
+    if source.space_id != morphism.source_space_id {
+        return Err(CoreError::MalformedField {
+            field: "morphism.source_space_id".to_owned(),
+            reason: format!(
+                "morphism source space {} does not match source order space {}",
+                morphism.source_space_id, source.space_id
+            ),
+        });
+    }
+    if target.space_id != morphism.target_space_id {
+        return Err(CoreError::MalformedField {
+            field: "morphism.target_space_id".to_owned(),
+            reason: format!(
+                "morphism target space {} does not match target order space {}",
+                morphism.target_space_id, target.space_id
+            ),
+        });
+    }
+
+    check_order_monotonicity_with_mapping(source, target, &morphism.relation_mapping, &morphism.id)
+}
+
+fn check_order_monotonicity_with_mapping(
+    source: &FiniteOrderRelationSet,
+    target: &FiniteOrderRelationSet,
+    mapping: &BTreeMap<Id, Id>,
+    morphism_id: &Id,
+) -> Result<OrderMonotonicityReport> {
     let source_closure = OrderClosure::build(source)?;
     let target_closure = OrderClosure::build(target)?;
     let mut unmapped_source_ids = BTreeSet::new();
@@ -406,11 +443,11 @@ pub fn check_order_monotonicity(
             if lesser_id == greater_id || !source_closure.leq(lesser_id, greater_id) {
                 continue;
             }
-            let Some(target_lesser_id) = morphism.cell_mapping.get(lesser_id) else {
+            let Some(target_lesser_id) = mapping.get(lesser_id) else {
                 unmapped_source_ids.insert(lesser_id.clone());
                 continue;
             };
-            let Some(target_greater_id) = morphism.cell_mapping.get(greater_id) else {
+            let Some(target_greater_id) = mapping.get(greater_id) else {
                 unmapped_source_ids.insert(greater_id.clone());
                 continue;
             };
@@ -442,7 +479,7 @@ pub fn check_order_monotonicity(
     Ok(OrderMonotonicityReport {
         source_relation_set_id: source.id.clone(),
         target_relation_set_id: target.id.clone(),
-        morphism_id: morphism.id.clone(),
+        morphism_id: morphism_id.clone(),
         unmapped_source_ids: unmapped_source_ids.into_iter().collect(),
         violations,
         obstructions,
@@ -655,8 +692,9 @@ fn unique_text(values: impl IntoIterator<Item = String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_order_monotonicity, FiniteOrderRelationSet, OrderBoundCandidates, OrderCheckReport,
-        OrderCheckStatus, OrderMonotonicityReport, OrderObstructionType, OrderPair, OrderRelation,
+        check_order_monotonicity, check_relation_order_monotonicity, FiniteOrderRelationSet,
+        OrderBoundCandidates, OrderCheckReport, OrderCheckStatus, OrderMonotonicityReport,
+        OrderObstructionType, OrderPair, OrderRelation,
     };
     use crate::morphism::{Morphism, MorphismType};
     use higher_graphen_core::{Confidence, Id, Provenance, ReviewStatus, SourceKind, SourceRef};
@@ -841,6 +879,32 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&monotone).expect("serialize"))
                 .expect("deserialize");
         assert_eq!(roundtrip, monotone);
+    }
+
+    #[test]
+    fn relation_mapping_monotonicity_uses_relation_mapping() {
+        let source = order_set(
+            "order/source-rel",
+            "space/source",
+            ["rel/a", "rel/b"],
+            [("rel-a-to-b", "rel/a", "rel/b")],
+        );
+        let target = order_set(
+            "order/target-rel",
+            "space/target",
+            ["rel/x", "rel/y"],
+            [("rel-x-to-y", "rel/x", "rel/y")],
+        );
+        let mut morphism = morphism([]);
+        morphism.relation_mapping = [(id("rel/a"), id("rel/x")), (id("rel/b"), id("rel/y"))]
+            .into_iter()
+            .collect();
+
+        let report =
+            check_relation_order_monotonicity(&source, &target, &morphism).expect("monotone");
+
+        assert!(report.is_monotone());
+        assert!(report.unmapped_source_ids.is_empty());
     }
 
     fn order_set<const E: usize, const R: usize>(

@@ -241,7 +241,7 @@ unless accepted by review. A reasoning kernel may check finite consequences
 such as comparability, cycles, meet or join candidates, and whether a morphism
 preserves the declared order. The current finite kernel exposes selected
 relation analysis, accepted-relation filtering, meet/join candidates, and
-morphism monotonicity reports.
+morphism monotonicity reports for cell and relation mappings.
 
 ## Abstract State
 
@@ -277,6 +277,7 @@ states. Bounded temporal checks must report their bounds and counterexample
 traces when they find violations. The current bounded kernel supports forbidden
 state reachability, required-event checks, always-before checks, and dead-end
 checks.
+Reports distinguish bounded unknowns from finite exhaustive passes.
 
 ## Diagram Construction
 
@@ -300,7 +301,8 @@ estimated cost, expected information gain, policy blockers, provenance, and
 review state. They recommend what to observe next. They do not execute the
 observation or accept the claim being investigated. The current uncertainty
 kernel can score one claim or aggregate a shared observation action across
-multiple claims.
+multiple claims, and can derive posterior confidence from a binary likelihood
+model when that model is supplied explicitly.
 
 ## Schema Morphism
 

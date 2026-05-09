@@ -182,6 +182,36 @@ pub struct ObservationAction {
     pub provenance: Option<Provenance>,
 }
 
+/// Binary likelihood model for one evidence observation.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceLikelihoodModel {
+    /// Probability of observing the evidence if the claim is true.
+    pub likelihood_given_true: Confidence,
+    /// Probability of observing the evidence if the claim is false.
+    pub likelihood_given_false: Confidence,
+}
+
+impl EvidenceLikelihoodModel {
+    /// Creates a binary likelihood model.
+    #[must_use]
+    pub fn new(likelihood_given_true: Confidence, likelihood_given_false: Confidence) -> Self {
+        Self {
+            likelihood_given_true,
+            likelihood_given_false,
+        }
+    }
+
+    /// Computes a posterior confidence using Bayes' rule.
+    pub fn posterior(&self, prior: Confidence) -> Result<Confidence> {
+        posterior_from_likelihood(
+            prior,
+            self.likelihood_given_true,
+            self.likelihood_given_false,
+        )
+    }
+}
+
 impl ObservationAction {
     /// Creates an observation action with no expected posterior model yet.
     pub fn new(
@@ -252,6 +282,24 @@ impl ObservationAction {
         )?;
         Ok(())
     }
+}
+
+/// Computes posterior confidence from a binary likelihood model.
+pub fn posterior_from_likelihood(
+    prior: Confidence,
+    likelihood_given_true: Confidence,
+    likelihood_given_false: Confidence,
+) -> Result<Confidence> {
+    let true_weight = likelihood_given_true.value() * prior.value();
+    let false_weight = likelihood_given_false.value() * (1.0 - prior.value());
+    let denominator = true_weight + false_weight;
+    if denominator == 0.0 {
+        return Err(CoreError::MalformedField {
+            field: "likelihood_model".to_owned(),
+            reason: "likelihood model assigns zero probability to the observation".to_owned(),
+        });
+    }
+    Confidence::new(true_weight / denominator)
 }
 
 /// Options for deterministic value-of-information scoring.
@@ -701,9 +749,9 @@ fn unique_ids(ids: impl IntoIterator<Item = Id>) -> Vec<Id> {
 #[cfg(test)]
 mod tests {
     use super::{
-        score_information_gain, score_multi_claim_information_gain, InformationGainOptions,
-        InformationGainReport, MultiClaimInformationGainReport, ObservationAction,
-        UncertaintyMeasure, UncertaintyObstructionType, UncertaintyState,
+        score_information_gain, score_multi_claim_information_gain, EvidenceLikelihoodModel,
+        InformationGainOptions, InformationGainReport, MultiClaimInformationGainReport,
+        ObservationAction, UncertaintyMeasure, UncertaintyObstructionType, UncertaintyState,
     };
     use higher_graphen_core::{Confidence, Id};
     use serde::{Deserialize, Serialize};
@@ -869,12 +917,27 @@ mod tests {
     }
 
     #[test]
+    fn likelihood_model_computes_posterior_confidence() {
+        let model = EvidenceLikelihoodModel::new(confidence(0.8), confidence(0.2));
+        let posterior = model.posterior(confidence(0.5)).expect("posterior");
+
+        assert!((posterior.value() - 0.8).abs() < 0.000_000_1);
+        assert!(super::posterior_from_likelihood(
+            confidence(0.5),
+            confidence(0.0),
+            confidence(0.0)
+        )
+        .is_err());
+    }
+
+    #[test]
     fn public_types_implement_serde_contracts() {
         assert_serde_contract::<UncertaintyMeasure>();
         assert_serde_contract::<super::InformationGainCalculationKind>();
         assert_serde_contract::<UncertaintyObstructionType>();
         assert_serde_contract::<super::UncertaintyObstruction>();
         assert_serde_contract::<UncertaintyState>();
+        assert_serde_contract::<EvidenceLikelihoodModel>();
         assert_serde_contract::<ObservationAction>();
         assert_serde_contract::<InformationGainOptions>();
         assert_serde_contract::<super::ScoredObservationAction>();

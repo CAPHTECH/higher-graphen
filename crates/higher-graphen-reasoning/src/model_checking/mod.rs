@@ -162,6 +162,32 @@ pub enum TemporalObstructionType {
     StateSpaceLimitExceeded,
 }
 
+/// Bounded temporal property kinds supported by the finite model-checking API.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TemporalPropertyKind {
+    /// No forbidden state should be reachable.
+    ForbiddenReachability,
+    /// At least one selected transition should eventually occur.
+    RequiredEventualTransition,
+    /// Any after-state must be preceded by a before-state on the trace.
+    AlwaysBefore,
+    /// Reachable dead-end states must be explicitly declared terminal.
+    NoDeadEndExceptTerminal,
+}
+
+/// Minimal reviewable temporal property descriptor.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TemporalProperty {
+    /// Stable property identifier.
+    pub id: Id,
+    /// Property kind.
+    pub property_kind: TemporalPropertyKind,
+    /// Human-readable bounded scope.
+    pub scope: String,
+}
+
 /// Structured temporal-check obstruction.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -305,6 +331,8 @@ pub struct TemporalCheckReport {
     pub space_id: Id,
     /// Final temporal-property classification.
     pub status: TemporalCheckStatus,
+    /// True when the finite reachable state space was exhausted under the supplied options.
+    pub exhaustive: bool,
     /// Maximum explored witness depth when a bound was supplied.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_depth: Option<usize>,
@@ -342,6 +370,8 @@ pub struct ModelCheckingReport {
     pub forbidden_cell_ids: Vec<Id>,
     /// Final safety classification.
     pub status: SafetyStatus,
+    /// True when the finite reachable state space was exhausted under the supplied options.
+    pub exhaustive: bool,
     /// Maximum explored witness depth when a bound was supplied.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_depth: Option<usize>,
@@ -752,6 +782,7 @@ impl<'a> Search<'a> {
             initial_cell_ids: self.query.initial_cell_ids.clone(),
             forbidden_cell_ids: self.query.forbidden_cell_ids.clone(),
             status: SafetyStatus::Unsafe,
+            exhaustive: false,
             max_depth: self.query.max_depth,
             witness: Some(witness),
             visited_cell_ids,
@@ -767,6 +798,7 @@ impl<'a> Search<'a> {
             initial_cell_ids: self.query.initial_cell_ids.clone(),
             forbidden_cell_ids: self.query.forbidden_cell_ids.clone(),
             status: SafetyStatus::Unknown,
+            exhaustive: false,
             max_depth: self.query.max_depth,
             witness: None,
             visited_cell_ids: self.visited_cell_ids.clone(),
@@ -784,6 +816,7 @@ impl<'a> Search<'a> {
             initial_cell_ids: self.query.initial_cell_ids.clone(),
             forbidden_cell_ids: self.query.forbidden_cell_ids.clone(),
             status: SafetyStatus::Safe,
+            exhaustive: true,
             max_depth: self.query.max_depth,
             witness: None,
             visited_cell_ids: self.visited_cell_ids.clone(),
@@ -1014,6 +1047,9 @@ impl<'a> TemporalSearch<'a> {
         TemporalCheckReport {
             space_id: self.query.space_id.clone(),
             status,
+            exhaustive: matches!(status, TemporalCheckStatus::Satisfied)
+                && witness.is_none()
+                && self.frontier_cell_ids.is_empty(),
             max_depth: self.query.max_depth,
             witness,
             visited_cell_ids: self.visited_cell_ids.clone(),
@@ -1220,6 +1256,7 @@ mod tests {
 
         assert!(report.is_safe());
         assert_eq!(report.status, SafetyStatus::Safe);
+        assert!(report.exhaustive);
         assert!(report.witness.is_none());
         assert!(report.frontier_cell_ids.is_empty());
         assert_eq!(report.visited_cell_ids, vec![id("ok")]);
@@ -1241,6 +1278,7 @@ mod tests {
 
         assert!(report.is_unknown());
         assert_eq!(report.status, SafetyStatus::Unknown);
+        assert!(!report.exhaustive);
         assert_eq!(report.max_depth, Some(1));
         assert!(report.witness.is_none());
         assert_eq!(
@@ -1355,6 +1393,7 @@ mod tests {
 
         assert!(report.is_satisfied());
         assert_eq!(report.status, TemporalCheckStatus::Satisfied);
+        assert!(!report.exhaustive);
         assert_eq!(
             report.witness.as_ref().expect("event witness").steps[0].relation_type,
             "transition"
@@ -1379,6 +1418,7 @@ mod tests {
             .expect("check ordering");
 
         assert_eq!(report.status, TemporalCheckStatus::Violated);
+        assert!(!report.exhaustive);
         assert_eq!(
             report.obstructions[0].obstruction_type,
             TemporalObstructionType::OrderingViolation

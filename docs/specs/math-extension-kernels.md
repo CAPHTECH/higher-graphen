@@ -99,6 +99,7 @@ Implemented MVP surface:
 
 - `higher_graphen_reasoning::uncertainty::score_information_gain`
 - `score_multi_claim_information_gain`
+- `posterior_from_likelihood` and `EvidenceLikelihoodModel`
 - `UncertaintyState`, `ObservationAction`, `InformationGainReport`
 - `MultiClaimInformationGainReport`
 
@@ -297,6 +298,7 @@ Implemented MVP surface:
 - `higher_graphen_structure::space::FiniteOrderRelationSet::analyze`
 - `accepted_relations` and `selected_by_review_statuses`
 - `check_order_monotonicity`
+- `check_relation_order_monotonicity`
 - `OrderCheckReport` with comparability, meet/join candidates, selected
   relation identifiers, and obstructions.
 
@@ -422,7 +424,8 @@ Implemented MVP surface:
 - `InMemorySpaceStore::analyze_graph`
 - `GraphAnalyticsInput` and `GraphAnalyticsReport`
 - impact cone, articulation cells, bridge incidences, connected components,
-  and strongly connected components.
+  strongly connected components, degree-style centrality scores, cut-cell
+  candidates, and single-seed dominator candidates.
 
 ### Obstructions
 
@@ -491,6 +494,7 @@ Implemented MVP surface:
 - `check_always_before`
 - `check_dead_ends`
 - `ModelCheckingReport` and `TemporalCheckReport`
+- exhaustive finite-pass markers and `TemporalPropertyKind`
 
 ### Obstructions
 
@@ -568,6 +572,8 @@ Implemented MVP surface:
 - `check_diagram_commutativity`
 - `ExplicitPullbackReport`, `ExplicitPushoutReport`, and
   `DiagramCommutativityReport`
+- `ExplicitPushoutReport::candidate_space_shell` for an empty reviewable
+  candidate `Space` shell.
 
 ### Obstructions
 
