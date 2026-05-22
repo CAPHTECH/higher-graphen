@@ -17,6 +17,7 @@ const ORDER_SERVICE: &str = "cell:order-service";
 const BILLING_DB: &str = "cell:billing-db";
 const ORDER_READS_BILLING_DB: &str = "incidence:order-service-reads-billing-db";
 const ORDER_CALLS_BILLING_STATUS_API: &str = "incidence:order-service-calls-billing-status-api";
+const BILLING_OWNS_BILLING_STATUS_API: &str = "incidence:billing-service-owns-billing-status-api";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api-input";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
 
@@ -194,7 +195,7 @@ fn resolved_billing_boundary_fixture_promotes_api_as_accepted_fact() {
 
     assert_eq!(report.schema, REPORT_SCHEMA);
     assert_eq!(report.result.status, ArchitectureInputLiftStatus::Lifted);
-    assert_eq!(report.result.accepted_fact_ids.len(), 7);
+    assert_eq!(report.result.accepted_fact_ids.len(), 8);
     assert!(report
         .result
         .accepted_fact_ids
@@ -203,6 +204,10 @@ fn resolved_billing_boundary_fixture_promotes_api_as_accepted_fact() {
         .result
         .accepted_fact_ids
         .contains(&id(ORDER_CALLS_BILLING_STATUS_API)));
+    assert!(report
+        .result
+        .accepted_fact_ids
+        .contains(&id(BILLING_OWNS_BILLING_STATUS_API)));
     assert!(!report
         .result
         .accepted_fact_ids
@@ -212,7 +217,7 @@ fn resolved_billing_boundary_fixture_promotes_api_as_accepted_fact() {
     assert!(report
         .projection
         .summary
-        .contains("Lifted 7 accepted facts"));
+        .contains("Lifted 8 accepted facts"));
 
     let relation_types = report
         .scenario
@@ -222,6 +227,7 @@ fn resolved_billing_boundary_fixture_promotes_api_as_accepted_fact() {
         .collect::<Vec<_>>();
     assert!(relation_types.contains(&"calls_api"));
     assert!(relation_types.contains(&"exposes_api"));
+    assert!(relation_types.contains(&"owns_api"));
     assert!(!relation_types.contains(&"reads_database"));
 }
 

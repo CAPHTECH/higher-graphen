@@ -80,6 +80,15 @@
       "confidence": 0.94
     },
     {
+      "id": "incidence:billing-service-owns-billing-status-api",
+      "type": "owns_api",
+      "from": "cell:billing-service",
+      "to": "cell:billing-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.billing_owns_billing_status_api",
+      "confidence": 0.95
+    },
+    {
       "id": "incidence:billing-service-owns-billing-db",
       "type": "owns_database",
       "from": "cell:billing-service",

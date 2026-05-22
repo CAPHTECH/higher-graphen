@@ -113,6 +113,7 @@ Cells:
 Incidences:
   Order Service -> Billing Status API
   Billing Service -> Billing Status API
+  Billing Service owns Billing Status API
   Billing Service -> Billing DB
 
 Removed:
@@ -123,7 +124,8 @@ The checked-in resolved fixture is
 `schemas/inputs/architecture-lift.resolved.input.example.json`. It represents
 `cell:billing-status-api` as an accepted architecture fact, with no
 `candidate:billing-status-api-input` and no
-`incidence:order-service-reads-billing-db`.
+`incidence:order-service-reads-billing-db`. The API ownership is explicit via
+`incidence:billing-service-owns-billing-status-api`.
 
 ## MVP Validation Goal
 

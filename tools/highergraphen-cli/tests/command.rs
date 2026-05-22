@@ -210,6 +210,10 @@ fn input_lift_command_reads_resolved_billing_boundary_fixture() {
         .as_array()
         .expect("accepted facts")
         .contains(&json!("incidence:order-service-calls-billing-status-api")));
+    assert!(value["result"]["accepted_fact_ids"]
+        .as_array()
+        .expect("accepted facts")
+        .contains(&json!("incidence:billing-service-owns-billing-status-api")));
     assert!(!value["result"]["accepted_fact_ids"]
         .as_array()
         .expect("accepted facts")
