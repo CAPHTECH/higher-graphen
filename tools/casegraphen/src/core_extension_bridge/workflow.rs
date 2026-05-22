@@ -146,7 +146,9 @@ fn workflow_witness_status(review_status: ReviewStatus) -> WitnessStatus {
     match review_status {
         ReviewStatus::Accepted => WitnessStatus::Accepted,
         ReviewStatus::Rejected => WitnessStatus::Rejected,
-        ReviewStatus::Unreviewed | ReviewStatus::Reviewed => WitnessStatus::Candidate,
+        ReviewStatus::Candidate | ReviewStatus::Unreviewed | ReviewStatus::Reviewed => {
+            WitnessStatus::Candidate
+        }
     }
 }
 

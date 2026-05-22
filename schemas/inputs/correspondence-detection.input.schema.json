@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.correspondence.detection.input.v1",
+  "title": "HigherGraphen Correspondence Detection Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "context",
+    "provenance",
+    "scope",
+    "subjects"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.correspondence.detection.input.v1"
+    },
+    "context": {
+      "$ref": "#/$defs/id"
+    },
+    "provenance": {
+      "$ref": "#/$defs/id"
+    },
+    "scope": {
+      "enum": [
+        "all",
+        "cells",
+        "claims",
+        "evidence",
+        "invariants"
+      ]
+    },
+    "subjects": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/subject"
+      }
+    },
+    "semanticSignals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/semanticSignal"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "participantRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "cell",
+                "complex",
+                "context",
+                "projection",
+                "claim",
+                "evidence",
+                "invariant",
+                "obstruction",
+                "completionCandidate"
+              ]
+            },
+            "id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "typedRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "relation",
+        "object"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "normalizedClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "relation",
+        "object"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modality": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temporalScope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "semanticSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "participants",
+        "source",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/participantRef"
+          }
+        },
+        "source": {
+          "enum": [
+            "llm",
+            "embedding",
+            "human",
+            "tool",
+            "import"
+          ]
+        },
+        "polarity": {
+          "enum": [
+            "Agreeing",
+            "Conflicting",
+            "Refining",
+            "Projecting",
+            "Ambiguous",
+            "Unknown"
+          ]
+        },
+        "normalizedClaim": {
+          "$ref": "#/$defs/normalizedClaim"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/feature"
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "embeddingScore": {
+          "$ref": "#/$defs/confidence"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant"
+      ],
+      "properties": {
+        "participant": {
+          "$ref": "#/$defs/participantRef"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalizedLabel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modality": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contexts": {
+          "$ref": "#/$defs/idArray"
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "invariants": {
+          "$ref": "#/$defs/idArray"
+        },
+        "invariantStates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/invariantState"
+          }
+        },
+        "typedRelations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typedRelation"
+          }
+        }
+      }
+    },
+    "invariantState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invariant",
+        "satisfaction"
+      ],
+      "properties": {
+        "invariant": {
+          "$ref": "#/$defs/id"
+        },
+        "satisfaction": {
+          "enum": [
+            "satisfied",
+            "failed",
+            "unknown",
+            "not_applicable"
+          ]
+        }
+      }
+    }
+  }
+}

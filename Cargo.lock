@@ -109,6 +109,8 @@ name = "highergraphen-cli"
 version = "0.4.1"
 dependencies = [
  "higher-graphen-core",
+ "higher-graphen-projection",
+ "higher-graphen-reasoning",
  "higher-graphen-runtime",
  "higher-graphen-structure",
  "serde",

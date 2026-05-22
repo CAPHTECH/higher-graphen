@@ -103,6 +103,94 @@ and record explicit accept/reject/waive decisions in a separate review system
 or later explicit workflow.
 
 ```sh
+highergraphen overlap candidates --input <path> --format json [--output <path>]
+```
+
+This command reads a bounded
+`highergraphen.correspondence.detection.input.v1` snapshot and emits
+deterministic `CorrespondenceCell` candidates. The current detector only uses
+reviewable exact signals: same identifier, same normalized label, shared
+evidence reference, shared invariant reference, and same typed relation triple.
+It also extracts deterministic difference witnesses for modality mismatch,
+evidence mismatch, invariant satisfaction mismatch, and context mismatch when
+there is an explicit overlap. Generated correspondences and witnesses are
+always candidates.
+
+The input may also include bounded `semanticSignals` produced by an external
+LLM, embedding, tool, import, or human adapter. The CLI does not call those
+systems itself. It converts supplied signals into `SemanticOverlap` candidates
+with explicit witnesses, calibrated confidence, embedding-assisted ranking, and
+candidate review status. This command does not promote semantic candidates or
+run gluing.
+
+```sh
+highergraphen overlap explain --input <path> --format json [--output <path>]
+```
+
+This command reads one `highergraphen.correspondence.cell.v1` cell and emits a
+structured `highergraphen.correspondence.explanation.v1` projection. The
+projection includes participants, overlap witnesses, difference witnesses,
+evidence, confidence, review status, gluing result, failed-gluing obstruction
+when present, and declared projection loss. The first implementation emits all
+available witnesses, evidence, contexts, and statuses, so `projectionLoss`
+should be empty unless a later audience-specific projection intentionally
+omits information.
+
+```sh
+highergraphen correspondence validate --input <path> --format json [--output <path>]
+```
+
+This command reads one `highergraphen.correspondence.cell.v1` cell and emits a
+multi-finding validation report for the Phase 1 correspondence invariants:
+participant count, accepted evidence, conflict shared structure, accepted
+semantic witness, gluing preservation report, and blocking-difference silent
+merge prevention.
+
+```sh
+highergraphen correspondence project --input <path> --audience <name> [--purpose <name>] --format json|markdown [--output <path>]
+```
+
+This command reads one `highergraphen.correspondence.cell.v1` cell and emits an
+audience-specific projection. Supported audiences are `human-reviewer`,
+`ai-agent`, `ai`, `audit`, `developer`, `architect`, `executive`, `operator`,
+and `external-system`. The default purpose is `review`; other accepted values
+include `explanation`, `report`, `dashboard`, `action-plan`, `query-result`,
+and `api-response`.
+
+`--format json` emits `highergraphen.correspondence.projection.v1`.
+`--format markdown` renders the same projection for CLI review. The projection
+keeps review status visible, so `candidate` correspondence is never rendered as
+accepted fact. It includes participants, shared structure, differences,
+evidence, confidence, review status, gluing result, obstruction when present,
+and projection loss declarations.
+
+```sh
+highergraphen correspondence review accept|reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
+```
+
+This command applies an explicit human review decision to one semantic
+`CorrespondenceCell` candidate. It only applies to `SemanticOverlap`
+correspondences whose current status is `candidate` or `reviewed`. Accepting a
+candidate still runs the correspondence invariants, so a semantic candidate
+without evidence or without an explicit `NormalizedClaim`, `PredicateSet`, or
+`FeatureSet` witness cannot be silently promoted.
+
+```sh
+highergraphen gluing check --input <path> --format json [--output <path>]
+```
+
+This command reads one `highergraphen.correspondence.cell.v1` cell and emits a
+deterministic `highergraphen.gluing.attempt.v1`-shaped `GluingAttempt`. It
+checks participant count, explicit overlap presence, evidence presence, major
+and blocking difference witnesses, invariant mismatch results, and preserved
+structures. Blocking differences or failed invariant checks produce a failure
+with an obstruction identifier. Major differences, missing overlap, missing
+evidence, or rejected correspondence status produce a candidate that requires
+review. A success always includes a non-empty preservation report. The command
+does not perform semantic merge inference, pushout construction, completion
+synthesis, or automatic review promotion.
+
+```sh
 highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
 ```
 

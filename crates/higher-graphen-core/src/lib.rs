@@ -1,6 +1,7 @@
 //! Shared primitive types and contracts for HigherGraphen.
 
 mod confidence;
+mod correspondence;
 mod error;
 mod extension;
 mod id;
@@ -10,6 +11,16 @@ mod source;
 mod text;
 
 pub use confidence::Confidence;
+pub use correspondence::{
+    BoundaryPattern, CausalPattern, ContextRestriction, CorrespondenceCell, CorrespondenceKind,
+    CorrespondenceParticipant, CorrespondencePolarity, CorrespondenceValidationCode,
+    CorrespondenceValidationFinding, CorrespondenceValidationReport, DifferenceKind,
+    DifferenceSeverity, DifferenceWitness, DifferingStructure, Feature, GluingAttempt,
+    GluingResult, InvariantCheckResult, NormalizedClaim, OverlapWitness, OverlapWitnessKind,
+    ParticipantMapping, ParticipantRef, Predicate, PreservationReport, ProjectionLoss,
+    ProjectionTrace, ReviewStatusCollapse, Scope, SharedStructure, SubcomplexPattern,
+    SubgraphPattern,
+};
 pub use error::{CoreError, Result};
 pub use extension::{
     Capability, CapabilityOperation, CapabilityStatus, CriterionDirection, CriterionValue,

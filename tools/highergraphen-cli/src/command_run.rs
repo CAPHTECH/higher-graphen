@@ -1,10 +1,22 @@
 use crate::{
-    cli_error::CliError, command::Command, pr_review_git, rust_test_semantics,
-    semantic_proof_artifact, semantic_proof_attach_artifact, semantic_proof_backend,
-    semantic_proof_reinput, test_gap_evidence, test_gap_git, test_semantics_gap,
-    test_semantics_interpretation, test_semantics_review, test_semantics_verification,
+    cli_error::CliError,
+    command::{Command, OutputFormat},
+    pr_review_git, rust_test_semantics, semantic_proof_artifact, semantic_proof_attach_artifact,
+    semantic_proof_backend, semantic_proof_reinput, test_gap_evidence, test_gap_git,
+    test_semantics_gap, test_semantics_interpretation, test_semantics_review,
+    test_semantics_verification,
 };
-use higher_graphen_core::Id;
+use higher_graphen_core::{CorrespondenceCell, Id};
+use higher_graphen_projection::{
+    explain_correspondence, project_correspondence, render_correspondence_projection_markdown,
+};
+use higher_graphen_reasoning::{
+    correspondence::{
+        derive_correspondence_candidates, review_semantic_correspondence,
+        CorrespondenceDetectionInput, SemanticCorrespondenceReviewRequest,
+    },
+    gluing::attempt_gluing,
+};
 use higher_graphen_runtime::{
     ddd_input_from_case_space, run_architecture_direct_db_access_smoke,
     run_architecture_input_lift, run_completion_review, run_ddd_review, run_feed_reader,
@@ -29,6 +41,13 @@ macro_rules! serialize_json {
 }
 
 impl Command {
+    pub(crate) fn run_output(&self) -> Result<String, CliError> {
+        match self {
+            Self::CorrespondenceProject { .. } => self.run_correspondence_project_output(),
+            _ => self.run_json(),
+        }
+    }
+
     pub(crate) fn run_json(&self) -> Result<String, CliError> {
         match self {
             Self::Version => unreachable!("version command is handled before JSON execution"),
@@ -38,7 +57,13 @@ impl Command {
             | Self::DddInputFromCaseSpace { .. }
             | Self::DddReview { .. }
             | Self::PrReviewInputFromGit { .. }
-            | Self::PrReviewTargetsRecommend { .. } => self.run_primary_json(),
+            | Self::PrReviewTargetsRecommend { .. }
+            | Self::OverlapCandidates { .. }
+            | Self::OverlapExplain { .. }
+            | Self::CorrespondenceValidate { .. }
+            | Self::CorrespondenceProject { .. }
+            | Self::CorrespondenceReview { .. }
+            | Self::GluingCheck { .. } => self.run_primary_json(),
             Self::TestGapDetect { .. }
             | Self::TestGapInputFromGit { .. }
             | Self::TestGapInputFromPath { .. }
@@ -70,6 +95,24 @@ impl Command {
                 repo, base, head, ..
             } => pr_review_input_from_git_json(repo, base, head),
             Self::PrReviewTargetsRecommend { input, .. } => pr_review_targets_json(input),
+            Self::OverlapCandidates { input, .. } => overlap_candidates_json(input),
+            Self::OverlapExplain { input, .. } => overlap_explain_json(input),
+            Self::CorrespondenceValidate { input, .. } => correspondence_validate_json(input),
+            Self::CorrespondenceProject {
+                input,
+                audience,
+                purpose,
+                ..
+            } => correspondence_project_json(input, *audience, *purpose),
+            Self::CorrespondenceReview {
+                decision,
+                input,
+                candidate_id,
+                reviewer_id,
+                reason,
+                ..
+            } => correspondence_review_json(decision, input, candidate_id, reviewer_id, reason),
+            Self::GluingCheck { input, .. } => gluing_check_json(input),
             _ => unreachable!("primary dispatch helper received another variant"),
         }
     }
@@ -177,6 +220,19 @@ impl Command {
             _ => unreachable!("completion review dispatch helper received another variant"),
         }
     }
+
+    fn run_correspondence_project_output(&self) -> Result<String, CliError> {
+        match self {
+            Self::CorrespondenceProject {
+                input,
+                audience,
+                purpose,
+                format,
+                ..
+            } => correspondence_project_output(input, *audience, *purpose, *format),
+            _ => unreachable!("correspondence project output helper received another variant"),
+        }
+    }
 }
 
 fn architecture_smoke_json() -> Result<String, CliError> {
@@ -222,6 +278,82 @@ fn pr_review_targets_json(input: &Path) -> Result<String, CliError> {
     let document = read_pr_review_target_input_document(input)?;
     let report = run_pr_review_target_recommend(document)?;
     serialize_json!(&report)
+}
+
+fn overlap_candidates_json(input: &Path) -> Result<String, CliError> {
+    let document = read_correspondence_detection_input(input)?;
+    let result = derive_correspondence_candidates(document)?;
+    serialize_json!(&result)
+}
+
+fn correspondence_validate_json(input: &Path) -> Result<String, CliError> {
+    let correspondence = read_correspondence_cell(input)?;
+    let report = correspondence.validate_report();
+    serialize_json!(&report)
+}
+
+fn overlap_explain_json(input: &Path) -> Result<String, CliError> {
+    let correspondence = read_correspondence_cell(input)?;
+    let explanation = explain_correspondence(&correspondence);
+    serialize_json!(&explanation)
+}
+
+fn gluing_check_json(input: &Path) -> Result<String, CliError> {
+    let correspondence = read_correspondence_cell(input)?;
+    let attempt = attempt_gluing(&correspondence)?;
+    serialize_json!(&attempt)
+}
+
+fn correspondence_project_output(
+    input: &Path,
+    audience: higher_graphen_projection::ProjectionAudience,
+    purpose: higher_graphen_projection::ProjectionPurpose,
+    format: OutputFormat,
+) -> Result<String, CliError> {
+    match format {
+        OutputFormat::Json => correspondence_project_json(input, audience, purpose),
+        OutputFormat::Markdown => correspondence_project_markdown(input, audience, purpose),
+    }
+}
+
+fn correspondence_project_json(
+    input: &Path,
+    audience: higher_graphen_projection::ProjectionAudience,
+    purpose: higher_graphen_projection::ProjectionPurpose,
+) -> Result<String, CliError> {
+    let correspondence = read_correspondence_cell(input)?;
+    let projection = project_correspondence(&correspondence, audience, purpose);
+    serialize_json!(&projection)
+}
+
+fn correspondence_project_markdown(
+    input: &Path,
+    audience: higher_graphen_projection::ProjectionAudience,
+    purpose: higher_graphen_projection::ProjectionPurpose,
+) -> Result<String, CliError> {
+    let correspondence = read_correspondence_cell(input)?;
+    let projection = project_correspondence(&correspondence, audience, purpose);
+    Ok(render_correspondence_projection_markdown(&projection))
+}
+
+fn correspondence_review_json(
+    decision: &higher_graphen_reasoning::correspondence::SemanticReviewDecision,
+    input: &Path,
+    candidate_id: &str,
+    reviewer_id: &str,
+    reason: &str,
+) -> Result<String, CliError> {
+    let candidate = read_correspondence_cell(input)?;
+    let reviewed = review_semantic_correspondence(
+        &candidate,
+        SemanticCorrespondenceReviewRequest::new(
+            Id::new(candidate_id.to_owned())?,
+            Id::new(reviewer_id.to_owned())?,
+            *decision,
+            reason.to_owned(),
+        )?,
+    )?;
+    serialize_json!(&reviewed)
 }
 
 fn test_gap_detect_json(input: &Path) -> Result<String, CliError> {
@@ -508,6 +640,24 @@ fn read_completion_review_snapshot(path: &Path) -> Result<CompletionReviewSnapsh
     snapshot_from_report_value(path, &value)
 }
 
+fn read_correspondence_detection_input(
+    path: &Path,
+) -> Result<CorrespondenceDetectionInput, CliError> {
+    let value = read_json_value_without_envelope(path, &["schema"])?;
+    serde_json::from_value(value).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn read_correspondence_cell(path: &Path) -> Result<CorrespondenceCell, CliError> {
+    let value = read_json_value_without_envelope(path, &["schema", "kind"])?;
+    serde_json::from_value(value).map_err(|source| CliError::InputParse {
+        path: path.to_owned(),
+        source,
+    })
+}
+
 fn read_json_value(path: &Path) -> Result<Value, CliError> {
     let text = fs::read_to_string(path).map_err(|source| CliError::InputRead {
         path: path.to_owned(),
@@ -517,6 +667,19 @@ fn read_json_value(path: &Path) -> Result<Value, CliError> {
         path: path.to_owned(),
         source,
     })
+}
+
+fn read_json_value_without_envelope(
+    path: &Path,
+    envelope_keys: &[&str],
+) -> Result<Value, CliError> {
+    let mut value = read_json_value(path)?;
+    if let Value::Object(object) = &mut value {
+        for key in envelope_keys {
+            object.remove(*key);
+        }
+    }
+    Ok(value)
 }
 
 fn snapshot_from_report_value(

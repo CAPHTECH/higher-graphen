@@ -1,4 +1,11 @@
 use super::*;
+use higher_graphen_core::{
+    Confidence, CorrespondenceCell, CorrespondenceKind, CorrespondenceParticipant,
+    CorrespondencePolarity, DifferenceKind, DifferenceSeverity, DifferenceWitness,
+    DifferingStructure, GluingAttempt, GluingResult, InvariantCheckResult, NormalizedClaim,
+    OverlapWitness, OverlapWitnessKind, ParticipantRef, ReviewStatus, Scope, SharedStructure,
+};
+use std::collections::BTreeMap;
 
 fn id(value: &str) -> Id {
     Id::new(value).expect("test id should be valid")
@@ -223,4 +230,175 @@ fn deserialization_rejects_projection_result_schema_mismatch() {
     });
 
     assert!(serde_json::from_value::<ProjectionResult>(value).is_err());
+}
+
+#[test]
+fn correspondence_explanation_includes_witnesses_gluing_and_empty_loss() {
+    let correspondence = correspondence_fixture();
+    let explanation = explain_correspondence(&correspondence);
+
+    assert_eq!(explanation.schema, CORRESPONDENCE_EXPLANATION_SCHEMA);
+    assert_eq!(
+        explanation.correspondence_id,
+        id("corr:order-service-billing-db-access")
+    );
+    assert_eq!(explanation.overlap_witnesses.len(), 1);
+    assert_eq!(explanation.difference_witnesses.len(), 1);
+    assert_eq!(
+        explanation
+            .gluing
+            .as_ref()
+            .and_then(|gluing| gluing.obstruction.as_ref()),
+        Some(&id("obstruction:direct-db-access-violates-boundary"))
+    );
+    assert!(explanation
+        .projection_loss
+        .omitted_overlap_witnesses
+        .is_empty());
+    assert!(explanation
+        .projection_loss
+        .omitted_difference_witnesses
+        .is_empty());
+    assert!(explanation.projection_loss.omitted_evidence.is_empty());
+    assert!(explanation.projection_loss.omitted_contexts.is_empty());
+}
+
+#[test]
+fn correspondence_projection_keeps_candidate_status_and_declares_no_loss_when_complete() {
+    let correspondence = correspondence_fixture();
+    let projection = project_correspondence(
+        &correspondence,
+        ProjectionAudience::Human,
+        ProjectionPurpose::Review,
+    );
+
+    assert_eq!(projection.schema, CORRESPONDENCE_PROJECTION_SCHEMA);
+    assert_eq!(projection.audience, ProjectionAudience::Human);
+    assert_eq!(projection.purpose, ProjectionPurpose::Review);
+    assert_eq!(projection.renderer, RendererKind::Markdown);
+    assert_eq!(projection.review_status, ReviewStatus::Candidate);
+    assert_eq!(projection.provenance, id("provenance:architecture-review"));
+    assert!(projection.projection_loss.omitted_evidence.is_empty());
+    assert!(projection.projection_loss.collapsed_statuses.is_empty());
+}
+
+#[test]
+fn correspondence_projection_markdown_shows_review_gluing_and_loss() {
+    let correspondence = correspondence_fixture();
+    let projection = project_correspondence(
+        &correspondence,
+        ProjectionAudience::Human,
+        ProjectionPurpose::Review,
+    );
+    let markdown = render_correspondence_projection_markdown(&projection);
+
+    assert!(markdown.contains("# Correspondence corr:order-service-billing-db-access"));
+    assert!(markdown.contains("Review status: candidate"));
+    assert!(markdown.contains("witness:shared-order-billing-access"));
+    assert!(markdown.contains("diff:observed-vs-forbidden"));
+    assert!(markdown.contains("Result: failure"));
+    assert!(markdown.contains("Obstruction: obstruction:direct-db-access-violates-boundary"));
+    assert!(markdown.contains("## Projection Loss"));
+    assert!(markdown.contains("- none"));
+}
+
+#[test]
+fn correspondence_projection_supports_audit_profile_with_provenance() {
+    let correspondence = correspondence_fixture();
+    let projection = project_correspondence(
+        &correspondence,
+        ProjectionAudience::Audit,
+        ProjectionPurpose::Report,
+    );
+
+    assert_eq!(projection.audience, ProjectionAudience::Audit);
+    assert_eq!(projection.renderer, RendererKind::Structured);
+    assert_eq!(projection.provenance, id("provenance:architecture-review"));
+    assert_eq!(projection.review_status, ReviewStatus::Candidate);
+    assert_eq!(
+        projection
+            .gluing
+            .as_ref()
+            .and_then(|gluing| gluing.obstruction.as_ref()),
+        Some(&id("obstruction:direct-db-access-violates-boundary"))
+    );
+}
+
+fn correspondence_fixture() -> CorrespondenceCell {
+    CorrespondenceCell {
+        id: id("corr:order-service-billing-db-access"),
+        participants: vec![
+            CorrespondenceParticipant::new(
+                "observed_claim",
+                ParticipantRef::Claim(id("claim:architecture-doc-order-billing-access")),
+            )
+            .expect("participant"),
+            CorrespondenceParticipant::new(
+                "constraint",
+                ParticipantRef::Invariant(id("invariant:no-cross-context-db-access")),
+            )
+            .expect("participant"),
+        ],
+        correspondence_kind: CorrespondenceKind::ConstraintOverlap,
+        polarity: CorrespondencePolarity::Conflicting,
+        overlap_witnesses: vec![OverlapWitness {
+            id: id("witness:shared-order-billing-access"),
+            witness_kind: OverlapWitnessKind::NormalizedClaim,
+            shared_structure: SharedStructure::NormalizedClaim(NormalizedClaim {
+                subject: "OrderService".to_owned(),
+                relation: "accesses".to_owned(),
+                object: "BillingDB".to_owned(),
+                modality: None,
+                temporal_scope: None,
+            }),
+            participant_mappings: Vec::new(),
+            scope: Scope::default(),
+            context: id("ctx:architecture-review"),
+            evidence: vec![id("evidence:architecture-doc")],
+            confidence: Confidence::new(0.91).expect("confidence"),
+            status: ReviewStatus::Candidate,
+        }],
+        difference_witnesses: vec![DifferenceWitness {
+            id: id("diff:observed-vs-forbidden"),
+            difference_kind: DifferenceKind::ModalityMismatch,
+            differing_structure: DifferingStructure::ModalityMismatch(BTreeMap::from([
+                ("observed_claim".to_owned(), "observed".to_owned()),
+                ("constraint".to_owned(), "forbidden".to_owned()),
+            ])),
+            participant_mappings: Vec::new(),
+            severity: DifferenceSeverity::Blocking,
+            context: id("ctx:architecture-review"),
+            evidence: vec![id("evidence:architecture-doc")],
+            confidence: Confidence::new(0.93).expect("confidence"),
+            status: ReviewStatus::Candidate,
+        }],
+        context: id("ctx:architecture-review"),
+        evidence: vec![id("evidence:architecture-doc")],
+        provenance: id("provenance:architecture-review"),
+        confidence: Confidence::new(0.9).expect("confidence"),
+        review_status: ReviewStatus::Candidate,
+        gluing: Some(GluingAttempt {
+            id: id("glue:order-service-billing-db-access"),
+            participants: vec![
+                ParticipantRef::Claim(id("claim:architecture-doc-order-billing-access")),
+                ParticipantRef::Invariant(id("invariant:no-cross-context-db-access")),
+            ],
+            overlap_witnesses: vec![id("witness:shared-order-billing-access")],
+            difference_witnesses: vec![id("diff:observed-vs-forbidden")],
+            context: id("ctx:architecture-review"),
+            invariant_checks: vec![InvariantCheckResult {
+                invariant: id("invariant:no-cross-context-db-access"),
+                result: "failed".to_owned(),
+                detail: None,
+            }],
+            preservation_report: higher_graphen_core::PreservationReport::default(),
+            result: GluingResult::Failure {
+                obstruction: id("obstruction:direct-db-access-violates-boundary"),
+            },
+            evidence: vec![id("evidence:architecture-doc")],
+            confidence: Confidence::new(0.9).expect("confidence"),
+            status: ReviewStatus::Candidate,
+            override_review: None,
+        }),
+    }
 }

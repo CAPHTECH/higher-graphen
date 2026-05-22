@@ -1,0 +1,509 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.correspondence.cell.v1",
+  "title": "HigherGraphen Correspondence Cell v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "kind",
+    "participants",
+    "correspondenceKind",
+    "polarity",
+    "context",
+    "confidence",
+    "reviewStatus"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.correspondence.cell.v1"
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "kind": {
+      "const": "CorrespondenceCell"
+    },
+    "participants": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "ref"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ref": {
+            "$ref": "#/$defs/participantRef"
+          }
+        }
+      }
+    },
+    "correspondenceKind": {
+      "$ref": "#/$defs/correspondenceKind"
+    },
+    "polarity": {
+      "$ref": "#/$defs/correspondencePolarity"
+    },
+    "overlapWitnesses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/overlapWitness"
+      }
+    },
+    "differenceWitnesses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/differenceWitness"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/id"
+    },
+    "evidence": {
+      "$ref": "#/$defs/idArray"
+    },
+    "provenance": {
+      "$ref": "#/$defs/id"
+    },
+    "confidence": {
+      "$ref": "#/$defs/confidence"
+    },
+    "reviewStatus": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "gluing": {
+      "$ref": "#/$defs/gluingAttempt"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reviewStatus": {
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "reviewStatus"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence"
+        ],
+        "properties": {
+          "evidence": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "polarity": {
+            "const": "Conflicting"
+          }
+        },
+        "required": [
+          "polarity"
+        ]
+      },
+      "then": {
+        "required": [
+          "overlapWitnesses"
+        ],
+        "properties": {
+          "overlapWitnesses": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "correspondenceKind": {
+            "const": "SemanticOverlap"
+          },
+          "reviewStatus": {
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "correspondenceKind",
+          "reviewStatus"
+        ]
+      },
+      "then": {
+        "required": [
+          "overlapWitnesses"
+        ],
+        "properties": {
+          "overlapWitnesses": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "witnessKind": {
+                  "enum": [
+                    "NormalizedClaim",
+                    "PredicateSet",
+                    "FeatureSet"
+                  ]
+                }
+              },
+              "required": [
+                "witnessKind"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "participantRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "cell",
+                "complex",
+                "context",
+                "projection",
+                "claim",
+                "evidence",
+                "invariant",
+                "obstruction",
+                "completionCandidate"
+              ]
+            },
+            "id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "participantRefArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/participantRef"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reviewStatus": {
+      "enum": [
+        "candidate",
+        "reviewed",
+        "accepted",
+        "rejected"
+      ]
+    },
+    "correspondenceKind": {
+      "enum": [
+        "ExactIdentity",
+        "SurfaceOverlap",
+        "SemanticOverlap",
+        "StructuralOverlap",
+        "ConstraintOverlap",
+        "EvidenceOverlap",
+        "ContextualOverlap",
+        "CausalOverlap",
+        "ProjectionOverlap",
+        "Refinement",
+        "Abstraction",
+        "Conflict",
+        "Synergy",
+        "Obstructed"
+      ]
+    },
+    "correspondencePolarity": {
+      "enum": [
+        "Agreeing",
+        "Conflicting",
+        "Refining",
+        "Projecting",
+        "Ambiguous",
+        "Unknown"
+      ]
+    },
+    "overlapWitness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "witnessKind",
+        "sharedStructure",
+        "context",
+        "confidence",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "witnessKind": {
+          "enum": [
+            "FeatureSet",
+            "PredicateSet",
+            "NormalizedClaim",
+            "Subgraph",
+            "Subcomplex",
+            "ConstraintSet",
+            "EvidenceSet",
+            "Boundary",
+            "ProjectionTrace",
+            "CausalPattern",
+            "ContextRestriction"
+          ]
+        },
+        "sharedStructure": {
+          "type": "object"
+        },
+        "participantMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/participantMapping"
+          }
+        },
+        "scope": {
+          "type": "object"
+        },
+        "context": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "status": {
+          "$ref": "#/$defs/reviewStatus"
+        }
+      }
+    },
+    "participantMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "path"
+      ],
+      "properties": {
+        "participant": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "differenceWitness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "differenceKind",
+        "differingStructure",
+        "severity",
+        "context",
+        "confidence",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "differenceKind": {
+          "enum": [
+            "AdditionalDetail",
+            "MissingDetail",
+            "TypeMismatch",
+            "PredicateMismatch",
+            "ModalityMismatch",
+            "ContextMismatch",
+            "EvidenceMismatch",
+            "ConfidenceMismatch",
+            "TemporalMismatch",
+            "InvariantMismatch",
+            "Contradiction",
+            "ProjectionLoss"
+          ]
+        },
+        "differingStructure": {
+          "type": "object"
+        },
+        "participantMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/participantMapping"
+          }
+        },
+        "severity": {
+          "enum": [
+            "informational",
+            "minor",
+            "major",
+            "blocking"
+          ]
+        },
+        "context": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "status": {
+          "$ref": "#/$defs/reviewStatus"
+        }
+      }
+    },
+    "gluingAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "result",
+        "context",
+        "confidence",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "participants": {
+          "$ref": "#/$defs/participantRefArray"
+        },
+        "overlapWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "differenceWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "context": {
+          "$ref": "#/$defs/id"
+        },
+        "invariantChecks": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "preservationReport": {
+          "type": "object"
+        },
+        "result": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "mergedComplex",
+                "preservationReport"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "success"
+                },
+                "mergedComplex": {
+                  "$ref": "#/$defs/id"
+                },
+                "preservationReport": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "completionCandidate",
+                "requiredReview"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "candidate"
+                },
+                "completionCandidate": {
+                  "$ref": "#/$defs/id"
+                },
+                "requiredReview": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "obstruction"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "failure"
+                },
+                "obstruction": {
+                  "$ref": "#/$defs/id"
+                }
+              }
+            }
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "status": {
+          "$ref": "#/$defs/reviewStatus"
+        },
+        "overrideReview": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

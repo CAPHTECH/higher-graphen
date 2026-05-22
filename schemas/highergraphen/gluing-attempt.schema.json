@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.gluing.attempt.v1",
+  "title": "HigherGraphen Gluing Attempt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "context",
+    "result",
+    "confidence",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/participantRef"
+      }
+    },
+    "overlapWitnesses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "differenceWitnesses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/id"
+    },
+    "invariantChecks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/invariantCheck"
+      }
+    },
+    "preservationReport": {
+      "$ref": "#/$defs/preservationReport"
+    },
+    "result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "mergedComplex",
+            "preservationReport"
+          ],
+          "properties": {
+            "kind": {
+              "const": "success"
+            },
+            "mergedComplex": {
+              "$ref": "#/$defs/id"
+            },
+            "preservationReport": {
+              "$ref": "#/$defs/preservationReport"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "completionCandidate",
+            "requiredReview"
+          ],
+          "properties": {
+            "kind": {
+              "const": "candidate"
+            },
+            "completionCandidate": {
+              "$ref": "#/$defs/id"
+            },
+            "requiredReview": {
+              "$ref": "#/$defs/reviewRequirement"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "obstruction"
+          ],
+          "properties": {
+            "kind": {
+              "const": "failure"
+            },
+            "obstruction": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "overrideReview": {
+      "$ref": "#/$defs/reviewRequirement"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "participantRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "cell",
+                "complex",
+                "context",
+                "projection",
+                "claim",
+                "evidence",
+                "invariant",
+                "obstruction",
+                "completionCandidate"
+              ]
+            },
+            "id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "invariantCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invariant",
+        "result"
+      ],
+      "properties": {
+        "invariant": {
+          "$ref": "#/$defs/id"
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "preservationReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preservedInvariants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "preservedStructures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "reviewRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/id"
+        },
+        "decision_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "reviewStatus": {
+      "enum": [
+        "candidate",
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    }
+  }
+}

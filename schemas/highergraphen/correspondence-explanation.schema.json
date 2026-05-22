@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.correspondence.explanation.v1",
+  "title": "HigherGraphen Correspondence Explanation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "correspondenceId",
+    "participants",
+    "context",
+    "confidence",
+    "reviewStatus",
+    "projectionLoss"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.correspondence.explanation.v1"
+    },
+    "correspondenceId": {
+      "$ref": "#/$defs/id"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/id"
+    },
+    "overlapWitnesses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "differenceWitnesses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence": {
+      "$ref": "#/$defs/idArray"
+    },
+    "confidence": {
+      "$ref": "#/$defs/confidence"
+    },
+    "reviewStatus": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "gluing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "context",
+        "result",
+        "confidence",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "context": {
+          "$ref": "#/$defs/id"
+        },
+        "result": {
+          "type": "object"
+        },
+        "obstruction": {
+          "$ref": "#/$defs/id"
+        },
+        "invariantChecks": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "status": {
+          "$ref": "#/$defs/reviewStatus"
+        }
+      }
+    },
+    "projectionLoss": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "omittedOverlapWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedDifferenceWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedEvidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedContexts": {
+          "$ref": "#/$defs/idArray"
+        },
+        "collapsedStatuses": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reviewStatus": {
+      "enum": [
+        "candidate",
+        "unreviewed",
+        "reviewed",
+        "accepted",
+        "rejected"
+      ]
+    }
+  }
+}

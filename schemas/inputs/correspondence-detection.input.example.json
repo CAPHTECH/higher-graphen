@@ -1,0 +1,94 @@
+{
+  "schema": "highergraphen.correspondence.detection.input.v1",
+  "context": "ctx:architecture-review",
+  "provenance": "provenance:deterministic-overlap",
+  "scope": "all",
+  "subjects": [
+    {
+      "participant": "claim:architecture-doc-order-billing-access",
+      "role": "observed_claim",
+      "normalizedLabel": "order service billing db access",
+      "modality": "observed",
+      "contexts": [
+        "ctx:legacy-migration"
+      ],
+      "evidence": [
+        "evidence:architecture-doc",
+        "evidence:repository-scan-billing-db-access"
+      ],
+      "invariants": [
+        "invariant:no-cross-context-db-access"
+      ],
+      "invariantStates": [
+        {
+          "invariant": "invariant:no-cross-context-db-access",
+          "satisfaction": "failed"
+        }
+      ],
+      "typedRelations": [
+        {
+          "subject": "OrderService",
+          "relation": "accesses",
+          "object": "BillingDB"
+        }
+      ]
+    },
+    {
+      "participant": "invariant:no-cross-context-db-access",
+      "role": "constraint",
+      "normalizedLabel": "order service billing db access",
+      "modality": "forbidden",
+      "contexts": [
+        "ctx:production-architecture"
+      ],
+      "evidence": [
+        "evidence:architecture-doc"
+      ],
+      "invariants": [
+        "invariant:no-cross-context-db-access"
+      ],
+      "invariantStates": [
+        {
+          "invariant": "invariant:no-cross-context-db-access",
+          "satisfaction": "satisfied"
+        }
+      ],
+      "typedRelations": [
+        {
+          "subject": "OrderService",
+          "relation": "accesses",
+          "object": "BillingDB"
+        }
+      ]
+    }
+  ],
+  "semanticSignals": [
+    {
+      "id": "semantic-signal:order-service-billing-db-access",
+      "participants": [
+        "claim:architecture-doc-order-billing-access",
+        "invariant:no-cross-context-db-access"
+      ],
+      "source": "llm",
+      "polarity": "Conflicting",
+      "normalizedClaim": {
+        "subject": "OrderService",
+        "relation": "accesses",
+        "object": "BillingDB"
+      },
+      "features": [
+        {
+          "key": "llm_adapter",
+          "value": "bounded-semantic-normalizer"
+        }
+      ],
+      "evidence": [
+        "evidence:architecture-doc",
+        "evidence:repository-scan-billing-db-access"
+      ],
+      "confidence": 0.94,
+      "embeddingScore": 0.89,
+      "rationale": "Both structures describe the same normalized access relation."
+    }
+  ]
+}

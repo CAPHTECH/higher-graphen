@@ -1,6 +1,14 @@
 use crate::test_semantics_review;
+use higher_graphen_projection::{ProjectionAudience, ProjectionPurpose};
+use higher_graphen_reasoning::correspondence::SemanticReviewDecision;
 use higher_graphen_runtime::CompletionReviewDecision;
 use std::path::PathBuf;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OutputFormat {
+    Json,
+    Markdown,
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Command {
@@ -31,6 +39,37 @@ pub(crate) enum Command {
         output: Option<PathBuf>,
     },
     PrReviewTargetsRecommend {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    OverlapCandidates {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    OverlapExplain {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    CorrespondenceValidate {
+        input: PathBuf,
+        output: Option<PathBuf>,
+    },
+    CorrespondenceProject {
+        input: PathBuf,
+        audience: ProjectionAudience,
+        purpose: ProjectionPurpose,
+        format: OutputFormat,
+        output: Option<PathBuf>,
+    },
+    CorrespondenceReview {
+        decision: SemanticReviewDecision,
+        input: PathBuf,
+        candidate_id: String,
+        reviewer_id: String,
+        reason: String,
+        output: Option<PathBuf>,
+    },
+    GluingCheck {
         input: PathBuf,
         output: Option<PathBuf>,
     },
@@ -148,6 +187,12 @@ impl Command {
             | Self::DddReview { output, .. }
             | Self::PrReviewInputFromGit { output, .. }
             | Self::PrReviewTargetsRecommend { output, .. }
+            | Self::OverlapCandidates { output, .. }
+            | Self::OverlapExplain { output, .. }
+            | Self::CorrespondenceValidate { output, .. }
+            | Self::CorrespondenceProject { output, .. }
+            | Self::CorrespondenceReview { output, .. }
+            | Self::GluingCheck { output, .. }
             | Self::TestGapInputFromGit { output, .. }
             | Self::TestGapInputFromPath { output, .. }
             | Self::TestGapEvidenceFromTestRun { output, .. }

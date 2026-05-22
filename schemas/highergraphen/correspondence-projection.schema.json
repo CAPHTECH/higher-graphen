@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "highergraphen.correspondence.projection.v1",
+  "title": "HigherGraphen Correspondence Projection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "correspondenceId",
+    "audience",
+    "purpose",
+    "renderer",
+    "correspondenceKind",
+    "polarity",
+    "participants",
+    "context",
+    "provenance",
+    "confidence",
+    "reviewStatus",
+    "projectionLoss"
+  ],
+  "properties": {
+    "schema": {
+      "const": "highergraphen.correspondence.projection.v1"
+    },
+    "correspondenceId": {
+      "$ref": "#/$defs/id"
+    },
+    "audience": {
+      "enum": [
+        "human",
+        "ai",
+        "ai_agent",
+        "audit",
+        "developer",
+        "architect",
+        "executive",
+        "operator",
+        "external_system"
+      ]
+    },
+    "purpose": {
+      "enum": [
+        "explanation",
+        "report",
+        "dashboard",
+        "action_plan",
+        "review",
+        "query_result",
+        "api_response"
+      ]
+    },
+    "renderer": {
+      "oneOf": [
+        {
+          "enum": [
+            "plain_text",
+            "markdown",
+            "table",
+            "structured"
+          ]
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "correspondenceKind": {
+      "type": "string"
+    },
+    "polarity": {
+      "type": "string"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/id"
+    },
+    "provenance": {
+      "$ref": "#/$defs/id"
+    },
+    "overlapWitnesses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "differenceWitnesses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence": {
+      "$ref": "#/$defs/idArray"
+    },
+    "confidence": {
+      "$ref": "#/$defs/confidence"
+    },
+    "reviewStatus": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "gluing": {
+      "type": "object"
+    },
+    "projectionLoss": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "omittedOverlapWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedDifferenceWitnesses": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedEvidence": {
+          "$ref": "#/$defs/idArray"
+        },
+        "omittedContexts": {
+          "$ref": "#/$defs/idArray"
+        },
+        "collapsedStatuses": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reviewStatus": {
+      "enum": [
+        "candidate",
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "accepted"
+      ]
+    }
+  }
+}

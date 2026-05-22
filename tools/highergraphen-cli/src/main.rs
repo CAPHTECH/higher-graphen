@@ -33,6 +33,12 @@ pub(crate) const USAGE: &str = "usage:
   highergraphen ddd review --input <path> --format json [--output <path>]
   highergraphen pr-review input from-git --base <ref> --head <ref> --format json [--repo <path>] [--output <path>]
   highergraphen pr-review targets recommend --input <path> --format json [--output <path>]
+  highergraphen overlap candidates --input <path> --format json [--output <path>]
+  highergraphen overlap explain --input <path> --format json [--output <path>]
+  highergraphen correspondence validate --input <path> --format json [--output <path>]
+  highergraphen correspondence project --input <path> --audience <name> [--purpose <name>] --format json|markdown [--output <path>]
+  highergraphen correspondence review accept|reject --input <path> --candidate <id> --reviewer <id> --reason <text> --format json [--output <path>]
+  highergraphen gluing check --input <path> --format json [--output <path>]
   highergraphen test-gap input from-git --base <ref> --head <ref> --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
   highergraphen test-gap input from-path --path <path> [--path <path> ...] [--include-tests] --format json [--repo <path>] [--binding-rules <path>] [--output <path>]
   highergraphen test-gap evidence from-test-run --input <path> --test-run <path> --format json [--output <path>]
@@ -69,12 +75,12 @@ fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
     }
 
     let output = command.output().cloned();
-    let json = command.run_json()?;
+    let rendered = command.run_output()?;
 
     match output {
-        Some(path) => fs::write(path, json).map_err(CliError::write_output),
+        Some(path) => fs::write(path, rendered).map_err(CliError::write_output),
         None => {
-            println!("{json}");
+            println!("{rendered}");
             Ok(())
         }
     }

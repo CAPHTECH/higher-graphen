@@ -1,4 +1,6 @@
 use crate::cli_error::CliError;
+use crate::command::OutputFormat;
+use higher_graphen_projection::{ProjectionAudience, ProjectionPurpose};
 use std::{ffi::OsString, path::PathBuf};
 
 pub(crate) fn require_token(
@@ -30,6 +32,19 @@ fn require_json_format(args: &mut impl Iterator<Item = OsString>) -> Result<(), 
         Some(arg) if arg == "json" => Ok(()),
         Some(arg) => Err(CliError::usage(format!(
             "unsupported format {arg:?}; only json is supported"
+        ))),
+        None => Err(CliError::usage("missing value for --format")),
+    }
+}
+
+fn require_output_format(
+    args: &mut impl Iterator<Item = OsString>,
+) -> Result<OutputFormat, CliError> {
+    match args.next() {
+        Some(arg) if arg == "json" => Ok(OutputFormat::Json),
+        Some(arg) if arg == "markdown" => Ok(OutputFormat::Markdown),
+        Some(arg) => Err(CliError::usage(format!(
+            "unsupported format {arg:?}; expected json or markdown"
         ))),
         None => Err(CliError::usage("missing value for --format")),
     }
@@ -155,6 +170,61 @@ pub(crate) struct TestSemanticsInterpretOptions {
     pub(crate) output: Option<PathBuf>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct CorrespondenceProjectOptions {
+    pub(crate) input: Option<PathBuf>,
+    pub(crate) audience: Option<ProjectionAudience>,
+    pub(crate) purpose: ProjectionPurpose,
+    pub(crate) format: Option<OutputFormat>,
+    pub(crate) output: Option<PathBuf>,
+}
+
+impl Default for CorrespondenceProjectOptions {
+    fn default() -> Self {
+        Self {
+            input: None,
+            audience: None,
+            purpose: ProjectionPurpose::Review,
+            format: None,
+            output: None,
+        }
+    }
+}
+
+impl CorrespondenceProjectOptions {
+    pub(crate) fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let mut options = Self::default();
+        let mut args = args;
+        while let Some(arg) = args.next() {
+            if arg == "--format" {
+                options.format = Some(require_output_format(&mut args)?);
+            } else if arg == "--input" {
+                options.input = Some(require_path(&mut args, "--input")?);
+            } else if arg == "--audience" {
+                options.audience = Some(parse_projection_audience(&require_string(
+                    &mut args,
+                    "--audience",
+                )?)?);
+            } else if arg == "--purpose" {
+                options.purpose =
+                    parse_projection_purpose(&require_string(&mut args, "--purpose")?)?;
+            } else if arg == "--output" {
+                options.output = Some(require_path(&mut args, "--output")?);
+            } else {
+                return Err(CliError::usage(format!("unsupported argument {arg:?}")));
+            }
+        }
+
+        if options.format.is_none() {
+            return Err(CliError::usage(
+                "--format json or --format markdown is required",
+            ));
+        }
+
+        Ok(options)
+    }
+}
+
 impl TestSemanticsInterpretOptions {
     pub(crate) fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
         let mut format_seen = false;
@@ -178,6 +248,38 @@ impl TestSemanticsInterpretOptions {
 
         require_format_seen(format_seen)?;
         Ok(options)
+    }
+}
+
+fn parse_projection_audience(value: &str) -> Result<ProjectionAudience, CliError> {
+    match value {
+        "human-reviewer" | "human" => Ok(ProjectionAudience::Human),
+        "ai" => Ok(ProjectionAudience::Ai),
+        "ai-agent" | "agent" => Ok(ProjectionAudience::AiAgent),
+        "audit" => Ok(ProjectionAudience::Audit),
+        "developer" => Ok(ProjectionAudience::Developer),
+        "architect" => Ok(ProjectionAudience::Architect),
+        "executive" => Ok(ProjectionAudience::Executive),
+        "operator" => Ok(ProjectionAudience::Operator),
+        "external-system" => Ok(ProjectionAudience::ExternalSystem),
+        _ => Err(CliError::usage(
+            "unsupported audience; expected human-reviewer, ai-agent, audit, developer, architect, executive, operator, or external-system",
+        )),
+    }
+}
+
+fn parse_projection_purpose(value: &str) -> Result<ProjectionPurpose, CliError> {
+    match value {
+        "explanation" => Ok(ProjectionPurpose::Explanation),
+        "report" => Ok(ProjectionPurpose::Report),
+        "dashboard" => Ok(ProjectionPurpose::Dashboard),
+        "action-plan" => Ok(ProjectionPurpose::ActionPlan),
+        "review" | "human-review" => Ok(ProjectionPurpose::Review),
+        "query-result" => Ok(ProjectionPurpose::QueryResult),
+        "api-response" => Ok(ProjectionPurpose::ApiResponse),
+        _ => Err(CliError::usage(
+            "unsupported purpose; expected explanation, report, dashboard, action-plan, review, query-result, or api-response",
+        )),
     }
 }
 

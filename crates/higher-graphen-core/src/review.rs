@@ -80,6 +80,8 @@ impl fmt::Display for Severity {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewStatus {
+    /// Candidate structure inferred or generated but not yet confirmed.
+    Candidate,
     /// No review has occurred.
     #[default]
     Unreviewed,
@@ -95,6 +97,7 @@ impl ReviewStatus {
     /// Stable lower snake case representation used by serde and text protocols.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Candidate => "candidate",
             Self::Unreviewed => "unreviewed",
             Self::Reviewed => "reviewed",
             Self::Rejected => "rejected",
@@ -114,7 +117,7 @@ impl ReviewStatus {
 
     /// Returns true when a review action has occurred.
     pub fn has_review_action(self) -> bool {
-        !matches!(self, Self::Unreviewed)
+        !matches!(self, Self::Candidate | Self::Unreviewed)
     }
 }
 
@@ -123,6 +126,7 @@ impl FromStr for ReviewStatus {
 
     fn from_str(value: &str) -> Result<Self> {
         match value {
+            "candidate" => Ok(Self::Candidate),
             "unreviewed" => Ok(Self::Unreviewed),
             "reviewed" => Ok(Self::Reviewed),
             "rejected" => Ok(Self::Rejected),
@@ -130,7 +134,7 @@ impl FromStr for ReviewStatus {
             unknown => Err(CoreError::parse_failure(
                 "review_status",
                 unknown,
-                "expected unreviewed, reviewed, rejected, or accepted",
+                "expected candidate, unreviewed, reviewed, rejected, or accepted",
             )),
         }
     }

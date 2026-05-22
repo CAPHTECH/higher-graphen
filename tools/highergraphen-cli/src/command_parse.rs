@@ -1,15 +1,17 @@
 use crate::{
     cli_args::{
-        require_token, required_segment, DddCaseSpaceInputOptions, GitInputOptions,
-        PathInputOptions, ReportOptions, ReviewOptions, SemanticProofArtifactOptions,
-        SemanticProofAttachArtifactOptions, SemanticProofBackendOptions,
-        SemanticProofReportInputOptions, TestRunEvidenceOptions, TestSemanticsGapOptions,
-        TestSemanticsInterpretOptions, TestSemanticsReviewOptions, TestSemanticsVerifyOptions,
+        require_token, required_segment, CorrespondenceProjectOptions, DddCaseSpaceInputOptions,
+        GitInputOptions, PathInputOptions, ReportOptions, ReviewOptions,
+        SemanticProofArtifactOptions, SemanticProofAttachArtifactOptions,
+        SemanticProofBackendOptions, SemanticProofReportInputOptions, TestRunEvidenceOptions,
+        TestSemanticsGapOptions, TestSemanticsInterpretOptions, TestSemanticsReviewOptions,
+        TestSemanticsVerifyOptions,
     },
     cli_error::CliError,
     command::Command,
     test_semantics_review,
 };
+use higher_graphen_reasoning::correspondence::SemanticReviewDecision;
 use higher_graphen_runtime::CompletionReviewDecision;
 use std::{ffi::OsString, path::PathBuf};
 
@@ -24,6 +26,9 @@ impl Command {
             Some("feed") => Self::parse_feed(args),
             Some("ddd") => Self::parse_ddd(args),
             Some("pr-review") => Self::parse_pr_review(args),
+            Some("overlap") => Self::parse_overlap(args),
+            Some("correspondence") => Self::parse_correspondence(args),
+            Some("gluing") => Self::parse_gluing(args),
             Some("test-gap") => Self::parse_test_gap(args),
             Some("test-semantics") => Self::parse_test_semantics(args),
             Some("rust-test") => Self::parse_rust_test(args),
@@ -139,6 +144,88 @@ impl Command {
         let input = required_option(options.input, "--input <path> is required")?;
         Ok(Self::PrReviewTargetsRecommend {
             input,
+            output: options.output,
+        })
+    }
+
+    fn parse_overlap(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "overlap command")?;
+        match segment.to_str() {
+            Some("candidates") => {
+                let options = ReportOptions::parse(args, true)?;
+                Ok(Self::OverlapCandidates {
+                    input: required_option(options.input, "--input <path> is required")?,
+                    output: options.output,
+                })
+            }
+            Some("explain") => {
+                let options = ReportOptions::parse(args, true)?;
+                Ok(Self::OverlapExplain {
+                    input: required_option(options.input, "--input <path> is required")?,
+                    output: options.output,
+                })
+            }
+            Some(_) | None => Err(CliError::usage("unsupported overlap command segment")),
+        }
+    }
+
+    fn parse_correspondence(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        let segment = required_segment(&mut args, "correspondence command")?;
+        match segment.to_str() {
+            Some("validate") => {
+                let options = ReportOptions::parse(args, true)?;
+                Ok(Self::CorrespondenceValidate {
+                    input: required_option(options.input, "--input <path> is required")?,
+                    output: options.output,
+                })
+            }
+            Some("project") => {
+                let options = CorrespondenceProjectOptions::parse(args)?;
+                Ok(Self::CorrespondenceProject {
+                    input: required_option(options.input, "--input <path> is required")?,
+                    audience: required_option(options.audience, "--audience <name> is required")?,
+                    purpose: options.purpose,
+                    format: required_option(
+                        options.format,
+                        "--format json or --format markdown is required",
+                    )?,
+                    output: options.output,
+                })
+            }
+            Some("review") => Self::parse_correspondence_review(args),
+            Some(_) | None => Err(CliError::usage(
+                "unsupported correspondence command segment",
+            )),
+        }
+    }
+
+    fn parse_correspondence_review(
+        mut args: impl Iterator<Item = OsString>,
+    ) -> Result<Self, CliError> {
+        let decision = match required_segment(&mut args, "correspondence review action")?.to_str() {
+            Some("accept") => SemanticReviewDecision::Accept,
+            Some("reject") => SemanticReviewDecision::Reject,
+            Some(_) | None => {
+                return Err(CliError::usage("unsupported correspondence review action"));
+            }
+        };
+        let options = ReviewOptions::parse(args)?;
+
+        Ok(Self::CorrespondenceReview {
+            decision,
+            input: required_option(options.input, "--input <path> is required")?,
+            candidate_id: required_option(options.candidate_id, "--candidate <id> is required")?,
+            reviewer_id: required_option(options.reviewer_id, "--reviewer <id> is required")?,
+            reason: required_option(options.reason, "--reason <text> is required")?,
+            output: options.output,
+        })
+    }
+
+    fn parse_gluing(mut args: impl Iterator<Item = OsString>) -> Result<Self, CliError> {
+        require_token(&mut args, "check")?;
+        let options = ReportOptions::parse(args, true)?;
+        Ok(Self::GluingCheck {
+            input: required_option(options.input, "--input <path> is required")?,
             output: options.output,
         })
     }

@@ -1,0 +1,116 @@
+{
+  "schema": "highergraphen.correspondence.cell.v1",
+  "id": "corr:order-service-billing-db-access",
+  "kind": "CorrespondenceCell",
+  "participants": [
+    {
+      "role": "observed_claim",
+      "ref": "claim:architecture-doc-order-billing-access"
+    },
+    {
+      "role": "constraint",
+      "ref": "invariant:no-cross-context-db-access"
+    },
+    {
+      "role": "code_evidence",
+      "ref": "evidence:repository-scan-billing-db-access"
+    }
+  ],
+  "correspondenceKind": "ConstraintOverlap",
+  "polarity": "Conflicting",
+  "overlapWitnesses": [
+    {
+      "id": "witness:shared-order-billing-access",
+      "witnessKind": "NormalizedClaim",
+      "sharedStructure": {
+        "kind": "normalizedClaim",
+        "value": {
+          "subject": "OrderService",
+          "relation": "accesses",
+          "object": "BillingDB"
+        }
+      },
+      "participantMappings": [
+        {
+          "participant": "claim:architecture-doc-order-billing-access",
+          "path": "$.claim.normalized"
+        },
+        {
+          "participant": "invariant:no-cross-context-db-access",
+          "path": "$.constraint.forbiddenRelation"
+        },
+        {
+          "participant": "evidence:repository-scan-billing-db-access",
+          "path": "$.observedRelation"
+        }
+      ],
+      "context": "ctx:architecture-review",
+      "evidence": [
+        "evidence:architecture-doc",
+        "evidence:repository-scan-billing-db-access"
+      ],
+      "confidence": 0.91,
+      "status": "candidate"
+    }
+  ],
+  "differenceWitnesses": [
+    {
+      "id": "diff:observed-vs-forbidden",
+      "differenceKind": "ModalityMismatch",
+      "differingStructure": {
+        "kind": "modalityMismatch",
+        "value": {
+          "observed_claim": "observed",
+          "constraint": "forbidden"
+        }
+      },
+      "severity": "blocking",
+      "context": "ctx:architecture-review",
+      "evidence": [
+        "evidence:architecture-doc",
+        "evidence:repository-scan-billing-db-access"
+      ],
+      "confidence": 0.93,
+      "status": "candidate"
+    }
+  ],
+  "context": "ctx:architecture-review",
+  "evidence": [
+    "evidence:architecture-doc",
+    "evidence:repository-scan-billing-db-access"
+  ],
+  "provenance": "provenance:architecture-review",
+  "confidence": 0.9,
+  "reviewStatus": "candidate",
+  "gluing": {
+    "id": "glue:order-service-billing-db-access",
+    "participants": [
+      "claim:architecture-doc-order-billing-access",
+      "invariant:no-cross-context-db-access",
+      "evidence:repository-scan-billing-db-access"
+    ],
+    "overlapWitnesses": [
+      "witness:shared-order-billing-access"
+    ],
+    "differenceWitnesses": [
+      "diff:observed-vs-forbidden"
+    ],
+    "context": "ctx:architecture-review",
+    "invariantChecks": [
+      {
+        "invariant": "invariant:no-cross-context-db-access",
+        "result": "failed"
+      }
+    ],
+    "result": {
+      "kind": "failure",
+      "obstruction": "obstruction:direct-db-access-violates-boundary"
+    },
+    "evidence": [
+      "evidence:architecture-doc",
+      "evidence:repository-scan-billing-db-access"
+    ],
+    "confidence": 0.9,
+    "status": "candidate"
+  }
+}
