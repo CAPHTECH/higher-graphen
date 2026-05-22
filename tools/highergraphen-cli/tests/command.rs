@@ -184,6 +184,40 @@ fn input_lift_command_writes_output_file_without_stdout() {
 }
 
 #[test]
+fn input_lift_command_reads_resolved_billing_boundary_fixture() {
+    let fixture = resolved_input_fixture();
+    let output = run_cli(&[
+        "architecture",
+        "input",
+        "lift",
+        "--input",
+        fixture.to_str().expect("fixture path should be utf-8"),
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stderr(&output).is_empty());
+
+    let value: Value =
+        serde_json::from_str(stdout(&output).trim_end()).expect("stdout should be JSON");
+    assert_eq!(value["schema"], json!(INPUT_LIFT_REPORT_SCHEMA));
+    assert!(value["result"]["accepted_fact_ids"]
+        .as_array()
+        .expect("accepted facts")
+        .contains(&json!(BILLING_STATUS_API_CELL)));
+    assert!(value["result"]["accepted_fact_ids"]
+        .as_array()
+        .expect("accepted facts")
+        .contains(&json!("incidence:order-service-calls-billing-status-api")));
+    assert!(!value["result"]["accepted_fact_ids"]
+        .as_array()
+        .expect("accepted facts")
+        .contains(&json!("incidence:order-service-reads-billing-db")));
+    assert_eq!(value["result"]["completion_candidates"], json!([]));
+}
+
+#[test]
 fn feed_reader_run_reads_fixture_and_writes_one_json_report_to_stdout() {
     let fixture = feed_fixture();
     let output = run_cli(&[
@@ -4222,6 +4256,12 @@ fn input_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("schemas/inputs/architecture-lift.input.example.json")
+}
+
+fn resolved_input_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("schemas/inputs/architecture-lift.resolved.input.example.json")
 }
 
 fn feed_fixture() -> PathBuf {

@@ -21,6 +21,13 @@ A reuse fixture exercises non-database Architecture Product vocabulary:
 schemas/inputs/architecture-lift.reuse.input.example.json
 ```
 
+A resolved boundary fixture represents the recommended Billing Status API
+resolution after direct Order Service reads from Billing DB have been removed:
+
+```sh
+schemas/inputs/architecture-lift.resolved.input.example.json
+```
+
 `feed-lift.input.schema.json` defines the first Feed Product input contract,
 `highergraphen.feed.input.v1`. The scope is intentionally narrow: one
 structured JSON fixture with source feeds, feed entries, correspondence hints,
@@ -181,6 +188,14 @@ Lift the architecture fixture with:
 ```sh
 highergraphen architecture input lift \
   --input schemas/inputs/architecture-lift.input.example.json \
+  --format json
+```
+
+Run the resolved Billing boundary fixture with:
+
+```sh
+highergraphen architecture input lift \
+  --input schemas/inputs/architecture-lift.resolved.input.example.json \
   --format json
 ```
 

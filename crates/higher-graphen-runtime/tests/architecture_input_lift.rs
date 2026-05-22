@@ -16,6 +16,7 @@ const BILLING_CONTEXT: &str = "context:billing";
 const ORDER_SERVICE: &str = "cell:order-service";
 const BILLING_DB: &str = "cell:billing-db";
 const ORDER_READS_BILLING_DB: &str = "incidence:order-service-reads-billing-db";
+const ORDER_CALLS_BILLING_STATUS_API: &str = "incidence:order-service-calls-billing-status-api";
 const BILLING_STATUS_API_CANDIDATE: &str = "candidate:billing-status-api-input";
 const BILLING_STATUS_API_CELL: &str = "cell:billing-status-api";
 
@@ -188,6 +189,43 @@ fn runner_reuses_interpretation_package_for_non_database_fixture() {
 }
 
 #[test]
+fn resolved_billing_boundary_fixture_promotes_api_as_accepted_fact() {
+    let report = run_architecture_input_lift(resolved_fixture()).expect("workflow should run");
+
+    assert_eq!(report.schema, REPORT_SCHEMA);
+    assert_eq!(report.result.status, ArchitectureInputLiftStatus::Lifted);
+    assert_eq!(report.result.accepted_fact_ids.len(), 7);
+    assert!(report
+        .result
+        .accepted_fact_ids
+        .contains(&id(BILLING_STATUS_API_CELL)));
+    assert!(report
+        .result
+        .accepted_fact_ids
+        .contains(&id(ORDER_CALLS_BILLING_STATUS_API)));
+    assert!(!report
+        .result
+        .accepted_fact_ids
+        .contains(&id(ORDER_READS_BILLING_DB)));
+    assert!(report.result.inferred_structure_ids.is_empty());
+    assert!(report.result.completion_candidates.is_empty());
+    assert!(report
+        .projection
+        .summary
+        .contains("Lifted 7 accepted facts"));
+
+    let relation_types = report
+        .scenario
+        .incidences
+        .iter()
+        .map(|incidence| incidence.relation_type.as_str())
+        .collect::<Vec<_>>();
+    assert!(relation_types.contains(&"calls_api"));
+    assert!(relation_types.contains(&"exposes_api"));
+    assert!(!relation_types.contains(&"reads_database"));
+}
+
+#[test]
 fn report_serializes_lower_snake_case_values_and_round_trips() {
     let report = run_architecture_input_lift(fixture()).expect("workflow should run");
     let value = serde_json::to_value(&report).expect("serialize report");
@@ -287,6 +325,13 @@ fn reuse_fixture() -> ArchitectureInputLiftDocument {
         "../../../schemas/inputs/architecture-lift.reuse.input.example.json"
     ))
     .expect("reuse fixture should parse")
+}
+
+fn resolved_fixture() -> ArchitectureInputLiftDocument {
+    serde_json::from_str(include_str!(
+        "../../../schemas/inputs/architecture-lift.resolved.input.example.json"
+    ))
+    .expect("resolved fixture should parse")
 }
 
 fn id(value: &str) -> Id {

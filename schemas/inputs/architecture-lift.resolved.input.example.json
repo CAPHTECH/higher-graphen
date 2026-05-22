@@ -1,0 +1,93 @@
+{
+  "schema": "highergraphen.architecture.input.v1",
+  "source": {
+    "kind": "document",
+    "uri": "schemas/inputs/architecture-lift.resolved.input.example.json",
+    "title": "Architecture input lift resolved billing boundary fixture",
+    "captured_at": "2026-05-22T00:00:00Z",
+    "confidence": 0.98
+  },
+  "space": {
+    "id": "space:architecture-product-resolved",
+    "name": "Architecture Product Resolved Boundary",
+    "description": "Bounded JSON fixture representing the recommended Billing Status API resolution after removing direct Order Service reads from Billing DB."
+  },
+  "contexts": [
+    {
+      "id": "context:orders",
+      "name": "Orders"
+    },
+    {
+      "id": "context:billing",
+      "name": "Billing"
+    },
+    {
+      "id": "context:architecture-review",
+      "name": "Architecture Review"
+    }
+  ],
+  "components": [
+    {
+      "id": "cell:order-service",
+      "type": "service",
+      "label": "Order Service",
+      "context_id": "context:orders",
+      "source_local_id": "components.order_service",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:billing-service",
+      "type": "service",
+      "label": "Billing Service",
+      "context_id": "context:billing",
+      "source_local_id": "components.billing_service",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:billing-db",
+      "type": "database",
+      "label": "Billing DB",
+      "context_id": "context:billing",
+      "source_local_id": "components.billing_db",
+      "confidence": 1.0
+    },
+    {
+      "id": "cell:billing-status-api",
+      "type": "api",
+      "label": "Billing Status API",
+      "context_id": "context:billing",
+      "source_local_id": "components.billing_status_api",
+      "confidence": 0.94
+    }
+  ],
+  "relations": [
+    {
+      "id": "incidence:order-service-calls-billing-status-api",
+      "type": "calls_api",
+      "from": "cell:order-service",
+      "to": "cell:billing-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.order_calls_billing_status_api",
+      "confidence": 0.93
+    },
+    {
+      "id": "incidence:billing-service-exposes-billing-status-api",
+      "type": "exposes_api",
+      "from": "cell:billing-service",
+      "to": "cell:billing-status-api",
+      "orientation": "directed",
+      "source_local_id": "relations.billing_exposes_billing_status_api",
+      "confidence": 0.94
+    },
+    {
+      "id": "incidence:billing-service-owns-billing-db",
+      "type": "owns_database",
+      "from": "cell:billing-service",
+      "to": "cell:billing-db",
+      "orientation": "directed",
+      "source_local_id": "relations.billing_owns_billing_db",
+      "confidence": 1.0
+    }
+  ],
+  "inferred_structures": []
+}

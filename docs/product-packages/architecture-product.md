@@ -101,6 +101,30 @@ Recommended action:
   - Change Order Service to use the Billing API instead of Billing DB.
 ```
 
+Resolved structure:
+
+```text
+Cells:
+  Order Service
+  Billing Service
+  Billing DB
+  Billing Status API
+
+Incidences:
+  Order Service -> Billing Status API
+  Billing Service -> Billing Status API
+  Billing Service -> Billing DB
+
+Removed:
+  Order Service -> Billing DB
+```
+
+The checked-in resolved fixture is
+`schemas/inputs/architecture-lift.resolved.input.example.json`. It represents
+`cell:billing-status-api` as an accepted architecture fact, with no
+`candidate:billing-status-api-input` and no
+`incidence:order-service-reads-billing-db`.
+
 ## MVP Validation Goal
 
 This scenario is successful when HigherGraphen can:
