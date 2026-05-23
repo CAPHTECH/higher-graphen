@@ -17,13 +17,15 @@ agreeing, conflicting, refining, projecting, ambiguous, or unknown. Conflicts ar
 valid correspondences when the participants share an explicit structure such as
 the same subject, relation, object, invariant, evidence, or context.
 
-## Phase 1 Scope
+## Current Scope
 
-The initial implementation adds the schema, data model, deterministic overlap
+The current implementation adds the schema, data model, deterministic overlap
 and difference extraction, deterministic gluing checks, projection explanation,
-and audience-specific correspondence projection. It deliberately does not add
-semantic overlap detection, embeddings, LLM-based merge, automatic acceptance,
-or a pushout-style gluing algorithm.
+audience-specific correspondence projection, explicit correspondence review,
+and bounded semantic candidate generation from supplied `semanticSignals`. It
+deliberately does not call LLMs or embedding services itself, treat similarity
+as truth, automatically accept semantic overlap, perform LLM-based merge, or
+implement a general pushout-style gluing algorithm.
 
 The implemented invariants are:
 

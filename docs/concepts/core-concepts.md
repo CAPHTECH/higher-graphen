@@ -163,6 +163,41 @@ equivalence claim remains a candidate until its scope, criteria, supporting
 witnesses, quotient losses, unresolved obstructions, provenance, and review
 state make acceptance safe.
 
+## Correspondence
+
+A Correspondence records that two or more structures are related under an
+explicit context without claiming equality, acceptance, or merge.
+
+Correspondences can represent exact identity, surface overlap, semantic
+overlap, structural overlap, shared evidence, shared constraints, refinement,
+abstraction, projection overlap, conflict, synergy, or obstructed gluing. A
+correspondence remains reviewable structure: AI-derived semantic
+correspondences start as candidates and require explicit review before they can
+be accepted.
+
+## Overlap and Difference Witnesses
+
+An Overlap Witness records what is shared inside a correspondence. A Difference
+Witness records what differs, conflicts, or blocks safe integration.
+
+Witnesses make correspondence reviewable by pointing to shared or differing
+features, predicates, normalized claims, subgraphs, constraints, evidence,
+boundaries, projection traces, context restrictions, or causal patterns. They
+also carry context, evidence, confidence, participant mappings, and review
+status. A conflict without explicit shared structure is not a correspondence;
+it is merely unrelated structure.
+
+## Gluing Attempt
+
+A Gluing Attempt checks whether structures connected by a correspondence can be
+joined safely.
+
+Gluing is separate from correspondence. A valid correspondence may still fail
+to glue because of blocking differences, failed invariant checks, context
+mismatches, missing evidence, or projection loss. A gluing result can be a
+success with preservation evidence, a review candidate, or a failure with an
+obstruction.
+
 ## Derivation
 
 A Derivation records how premises, inference rules, warrants, and verification
