@@ -74,13 +74,10 @@ These are releaseable agent integration surfaces:
 - `integrations/cli-skill-bundle/bundle.json`
 - `integrations/cli-skill-bundle/README.md`
 - `integrations/cli-skill-bundle/check-bundle.py`
-- `integrations/cli-skill-bundle/skills/highergraphen/SKILL.md`
-- `integrations/cli-skill-bundle/skills/highergraphen-ddd/SKILL.md`
-- `integrations/cli-skill-bundle/skills/casegraphen/SKILL.md`
-- `integrations/cli-skill-bundle/skills/architecture-review/SKILL.md`
 - `integrations/cli-skill-bundle/references/cli-contract.md`
 - distributed source skills under `skills/highergraphen`,
-  `skills/highergraphen-ddd`, and `skills/casegraphen`
+  `skills/highergraphen-ddd`, `skills/casegraphen`, and
+  `skills/architecture-review`
 - repository-local Codex skills under `.codex/skills/release-runner` and
   `.codex/skills/highergraphen-structure-builder`
 

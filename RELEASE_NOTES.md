@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.5.1
+
+Release scope:
+
+- Patch repository release for the provider-neutral CLI skill bundle at
+  `0.5.1`.
+- Rust workspace crates and CLI packages remain at `0.5.0`; this release does
+  not republish crates.io packages.
+- Git tag publication is for the repository skill distribution and docs surface.
+
+Highlights:
+
+- Removed duplicated skill copies from `integrations/cli-skill-bundle/skills/`.
+- Made root `skills/` the single source of truth for distributed skills.
+- Moved `architecture-review` into `skills/architecture-review/SKILL.md`.
+- Updated bundle metadata and smoke checks to validate source skill paths
+  directly instead of byte-for-byte bundled copies.
+- Updated documentation to distinguish distributed skills from repository-local
+  `.codex/skills`.
+
+Publication decisions:
+
+- Publish a Git tag for the repository state after maintainer approval.
+- Do not create new crates.io package versions for this patch.
+- Provider marketplace publication, MCP server publication, and
+  provider-specific manifests remain out of scope.
+
 ## v0.5.0
 
 Release scope:
