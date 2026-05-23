@@ -314,11 +314,11 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
         if not isinstance(skill, dict):
             errors.append("skills: entries must be objects")
             continue
-        bundle_path = skill.get("bundle_path")
-        if not isinstance(bundle_path, str):
-            errors.append(f"{skill.get('name')}: missing bundle_path")
+        source = skill.get("source")
+        if not isinstance(source, str):
+            errors.append(f"{skill.get('name')}: missing source")
             continue
-        require_path(errors, bundle_path)
+        require_path(errors, source)
 
     return errors
 
@@ -337,26 +337,25 @@ def check_casegraphen_entrypoints(metadata: dict[str, Any]) -> list[str]:
 
 
 def check_highergraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    return check_byte_for_byte_skill_sync(metadata, "highergraphen")
+    return check_source_skill(metadata, "highergraphen")
 
 
 def check_casegraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    return check_byte_for_byte_skill_sync(metadata, "casegraphen")
+    return check_source_skill(metadata, "casegraphen")
 
 
 def check_highergraphen_ddd_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    return check_byte_for_byte_skill_sync(metadata, "highergraphen-ddd")
+    return check_source_skill(metadata, "highergraphen-ddd")
 
 
-def check_byte_for_byte_skill_sync(metadata: dict[str, Any], name: str) -> list[str]:
+def check_source_skill(metadata: dict[str, Any], name: str) -> list[str]:
     skill = find_skill(metadata, name)
     if skill is None:
         return [f"{name} skill metadata is missing"]
 
     source = require_existing_path(skill, "source")
-    packaged = require_existing_path(skill, "bundle_path")
-    if source.read_text(encoding="utf-8") != packaged.read_text(encoding="utf-8"):
-        return [f"bundled {name} skill is out of sync with source skill"]
+    if not str(source.relative_to(ROOT)).startswith("skills/"):
+        return [f"{name} skill source must live under skills/"]
     return []
 
 
@@ -365,7 +364,7 @@ def check_architecture_review_skill(metadata: dict[str, Any]) -> list[str]:
     if skill is None:
         return ["architecture-review skill metadata is missing"]
 
-    path = require_existing_path(skill, "bundle_path")
+    path = require_existing_path(skill, "source")
     text = path.read_text(encoding="utf-8")
     return [
         f"{path.relative_to(ROOT)}: missing {term!r}"

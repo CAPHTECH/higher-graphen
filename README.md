@@ -383,6 +383,7 @@ boundary.
 - [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Distributed CLI skill for the first HigherGraphen report contract
 - [`skills/highergraphen-ddd/SKILL.md`](skills/highergraphen-ddd/SKILL.md) - Distributed DDD review CLI skill
 - [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Distributed CaseGraphen CLI skill
+- [`skills/architecture-review/SKILL.md`](skills/architecture-review/SKILL.md) - Distributed Architecture Product smoke review skill
 - [`.codex/skills/release-runner/SKILL.md`](.codex/skills/release-runner/SKILL.md) - Repository-local release preparation and publication skill
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification

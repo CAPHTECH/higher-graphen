@@ -166,8 +166,7 @@ The repo now has a `casegraphen` skill surface:
 | Surface | Current behavior |
 | --- | --- |
 | `skills/casegraphen/SKILL.md` | CLI-only agent workflow for installed `cg`, repo-owned `casegraphen workflow ...`, repo-owned `casegraphen cg workflow ...`, evidence boundaries, projection loss, review workflows, patch workflows, and validation-before-close. |
-| `integrations/cli-skill-bundle/skills/casegraphen/SKILL.md` | Byte-for-byte bundled copy of the repo skill. |
-| `integrations/cli-skill-bundle/bundle.json` | Declares CaseGraphen workflow command entrypoints, schema references, and bundle checks. |
+| `integrations/cli-skill-bundle/bundle.json` | Declares CaseGraphen workflow command entrypoints, schema references, source skill paths, and bundle checks. |
 | `integrations/cli-skill-bundle/references/cli-contract.md` | Provider-neutral contract reference for HigherGraphen CLI and CaseGraphen workflow reasoning. |
 
 The skill path is intentionally CLI-only. It does not define a competing schema
@@ -231,7 +230,7 @@ Required completed capabilities:
 | Projection loss | Present in workflow report views and focused project/readiness reports. | Every subset view and operator workflow must declare represented IDs, omitted IDs, and information loss. | Final E2E verification should check projection loss is visible in aggregate, focused, and bridge reports. |
 | Correspondence | Present as aggregate and focused report records. | Distinguish equivalent, similar-with-loss, scenario-pattern match, conflicting, not-comparable, and transferable patterns. | Final E2E verification should include mismatch witness expectations and reference examples. |
 | Evolution/history | Present as file-based transition records in workflow report. | Connect revision-indexed workflow reasoning to `.casegraphen` history and durable event replay. | Current local store is a file collection, not workspace history integration. |
-| Skills | Repo skill and bundled copy are present and cover bridge, review, patch, focused commands, and validation-before-close. | Keep source and bundled skill synchronized with the implemented commands and safety rules. | Bundle smoke check enforces sync and key operator command terms. |
+| Skills | Repo skill sources are present and cover bridge, review, patch, focused commands, and validation-before-close. | Keep `skills/` as the source of truth for distributed skills. | Bundle smoke check enforces source paths and key operator command terms. |
 | Examples | Baseline and workflow references are present. | Cover normal operation, blocked work, missing evidence, missing proof, completion review, patch review, storage replay, projection loss, and `cg` bridge. | Current reference proves the aggregate reason command only. |
 | Verification | Focused tests exist for current slice. | Full release gate covers docs, schemas, package tests, workspace validation, bundle checks, static analysis, and CaseGraphen evidence. | Need final release verification task after implementation tasks complete. |
 
@@ -304,7 +303,7 @@ not file-to-file `workflow transition check` commands; they live in the
 repo-owned bridge as `casegraphen cg workflow patch check`.
 
 Implementation note for `task_casegraphen_skill_docs_operator_surface`
-(2026-04-26): the source skill and bundled skill now document installed `cg`
+(2026-04-26): the distributed source skills now document installed `cg`
 versus repo-owned `casegraphen`, focused workflow commands, bridge workspace
 commands, completion review, patch review/apply/reject, evidence and projection
 boundaries, and validation-before-close. Bundle validation checks that these
@@ -411,7 +410,7 @@ The completed `cg`-compatible operator path must cover:
 - repo-owned bridge review commands: accepting, rejecting, reopening, and
   converting completion candidates into reviewable patch transitions; checking,
   applying, or rejecting patch transitions against the workflow store history;
-- source and bundled skills: operator guidance for all of the above, including
+- distributed source skills: operator guidance for all of the above, including
   evidence/projection boundaries and validation-before-close.
 
 The exact command spelling should converge in `casegraphen`. Installed `cg`
@@ -450,8 +449,8 @@ The completed skill surface must give agents a repeatable operator workflow:
 Skill requirements:
 
 - `skills/casegraphen/SKILL.md` remains the source skill.
-- `integrations/cli-skill-bundle/skills/casegraphen/SKILL.md` remains
-  byte-for-byte synchronized when the source skill changes.
+- `integrations/cli-skill-bundle/bundle.json` references `skills/casegraphen/SKILL.md`
+  directly instead of carrying a bundled copy.
 - The skill must reference schemas, fixtures, and CLI output instead of
   restating them as a competing contract.
 - The skill must keep MCP, provider SDKs, provider marketplace metadata, and
@@ -609,7 +608,7 @@ This case is complete only when the repository contains:
   repo-owned `casegraphen` as higher-order structure operator;
 - durable case-space storage/history integration;
 - explicit completion review and morphism workflows;
-- synchronized source and bundled skills;
+- `skills/` as the single source of truth for distributed skills;
 - reference examples for the full operator workflow;
 - validation gates recorded as case evidence;
 - explicit out-of-scope boundaries still intact.

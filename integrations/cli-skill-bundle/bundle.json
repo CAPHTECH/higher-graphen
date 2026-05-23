@@ -124,26 +124,22 @@
     {
       "name": "highergraphen",
       "source": "skills/highergraphen/SKILL.md",
-      "bundle_path": "integrations/cli-skill-bundle/skills/highergraphen/SKILL.md",
-      "sync_policy": "byte_for_byte"
+      "sync_policy": "source_of_truth"
     },
     {
       "name": "casegraphen",
       "source": "skills/casegraphen/SKILL.md",
-      "bundle_path": "integrations/cli-skill-bundle/skills/casegraphen/SKILL.md",
-      "sync_policy": "byte_for_byte"
+      "sync_policy": "source_of_truth"
     },
     {
       "name": "highergraphen-ddd",
       "source": "skills/highergraphen-ddd/SKILL.md",
-      "bundle_path": "integrations/cli-skill-bundle/skills/highergraphen-ddd/SKILL.md",
-      "sync_policy": "byte_for_byte"
+      "sync_policy": "source_of_truth"
     },
     {
       "name": "architecture-review",
-      "source": "docs/specs/ai-agent-integration.md#reference-workflow-architecture-review",
-      "bundle_path": "integrations/cli-skill-bundle/skills/architecture-review/SKILL.md",
-      "sync_policy": "derived_reference"
+      "source": "skills/architecture-review/SKILL.md",
+      "sync_policy": "source_of_truth"
     }
   ],
   "checks": [

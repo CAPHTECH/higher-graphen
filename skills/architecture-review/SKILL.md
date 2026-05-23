@@ -9,8 +9,9 @@ Use this skill when a task asks for the current HigherGraphen architecture
 review smoke workflow or for interpretation of the direct database access
 architecture report.
 
-This bundled skill is CLI-only. It delegates execution and contract validation
-to the `highergraphen` CLI and the repository-owned report validator.
+This distributed skill is CLI-only. It delegates execution and contract
+validation to the `highergraphen` CLI and the repository-owned report
+validator.
 
 ## Source Of Truth
 

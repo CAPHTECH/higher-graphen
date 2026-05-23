@@ -2,7 +2,8 @@
 
 This provider-neutral bundle packages the current HigherGraphen CLI skill
 surface for agents. It is intentionally smaller than a provider plugin: it
-contains skill files, contract references, metadata, and a local smoke check.
+contains contract references, metadata, and a local smoke check. Distributed
+skill source files live under the repository root `skills/` directory.
 
 MCP servers, provider marketplace publication, provider SDK integrations, and
 provider-specific manifests are out of scope for this bundle.
@@ -15,22 +16,13 @@ integrations/cli-skill-bundle/
   check-bundle.py
   references/
     cli-contract.md
-  skills/
-    highergraphen/
-      SKILL.md
-    highergraphen-ddd/
-      SKILL.md
-    casegraphen/
-      SKILL.md
-    architecture-review/
-      SKILL.md
 ```
 
-The bundled `highergraphen` skill is copied from
-`skills/highergraphen/SKILL.md`. Run the bundle smoke check after changing the
-source skill so the packaged copy stays in sync.
+The distributed `highergraphen` skill is `skills/highergraphen/SKILL.md`. Run
+the bundle smoke check after changing the source skill so the metadata and key
+operator terms stay valid.
 
-The bundled `casegraphen` skill is copied from `skills/casegraphen/SKILL.md`.
+The distributed `casegraphen` skill is `skills/casegraphen/SKILL.md`.
 It covers installed `cg` workspace operation, the repo-owned
 `casegraphen workflow ...` report surface, and the repo-owned
 `casegraphen cg workflow ...` bridge. It also covers native CaseGraphen
@@ -39,14 +31,15 @@ completion proposal, projection, equivalence, invariants, and morphisms
 without introducing MCP or provider SDK integrations. Installed `cg` is the
 meta `.casegraphen` workflow driver, not the native CaseGraphen product model.
 
-The bundled `highergraphen-ddd` skill is copied from
+The distributed `highergraphen-ddd` skill is
 `skills/highergraphen-ddd/SKILL.md`. It guides agents through the bounded
 `highergraphen ddd` product workflow, including boundary semantic loss,
 missing evidence, completion candidates, projection loss, review gaps, and
 closeability interpretation.
 
-The bundled `architecture-review` skill is a thin workflow guide for the
-current Architecture Product smoke report. It points agents back to the
+The distributed `architecture-review` skill is
+`skills/architecture-review/SKILL.md`. It is a thin workflow guide for the
+current Architecture Product smoke report and points agents back to the
 `highergraphen` CLI, schema, fixture, and validator instead of reimplementing
 workflow logic.
 
