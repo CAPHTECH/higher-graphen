@@ -251,7 +251,7 @@ is still unreviewed.
 
 ## Step 11: Use Extension Objects Deliberately
 
-HigherGraphen v0.4.1 exposes several core extension objects. Use them when the
+HigherGraphen v0.5.0 exposes several core extension objects. Use them when the
 product has the corresponding failure mode. Do not add them as decorative
 metadata.
 
@@ -285,17 +285,17 @@ Every projection should declare meaningful information loss, such as omitted
 source text, summarized evidence, dropped unsupported fields, hidden internal
 policy, or collapsed contexts.
 
-## Implemented Surface In v0.4.1
+## Implemented Surface In v0.5.0
 
 Use this map when choosing crates.
 
 | Crate | Mental model | Use for |
 | --- | --- | --- |
-| `higher-graphen-core` | Shared primitives and core extension records. | IDs, provenance, confidence, review status, source refs, extension objects such as `Scenario`, `Policy`, `Witness`, and `SchemaMorphism`. |
+| `higher-graphen-core` | Shared primitives and core extension records. | IDs, provenance, confidence, review status, source refs, correspondence records, extension objects such as `Scenario`, `Policy`, `Witness`, and `SchemaMorphism`. |
 | `higher-graphen-structure` | Shape the target world. | `space`, `context`, `morphism`, and `topology` modules. |
-| `higher-graphen-reasoning` | Judge whether structure is acceptable. | `invariant`, `obstruction`, `completion`, `model_checking`, and `abstract_interpretation` modules. |
+| `higher-graphen-reasoning` | Judge whether structure is acceptable. | `invariant`, `obstruction`, `completion`, `correspondence`, `gluing`, `model_checking`, and `abstract_interpretation` modules. |
 | `higher-graphen-evidence` | Support, doubt, or bridge claims. | `confidence`, `causal`, and `prover` modules. |
-| `higher-graphen-projection` | Define audience-specific views. | Projection definitions, selectors, results, and view metadata. |
+| `higher-graphen-projection` | Define audience-specific views. | Projection definitions, selectors, correspondence projections, results, and view metadata. |
 | `higher-graphen-interpretation` | Give domain meaning to shared structure. | Domain packages, architecture interpretation, templates, and lift boundaries. |
 | `higher-graphen-runtime` | Run workflows and emit reports. | Architecture, feed, PR review target, test gap, semantic proof, and completion review workflows. |
 

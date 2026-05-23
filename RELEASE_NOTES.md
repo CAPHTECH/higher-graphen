@@ -1,5 +1,42 @@
 # Release Notes
 
+## v0.5.0
+
+Release scope:
+
+- Minor release for the HigherGraphen Rust workspace at `0.5.0`.
+- Adds the Correspondence / Overlap workflow as a first-class, reviewable
+  structure surface.
+- Git tag and GitHub Release are prepared for repository publication after
+  maintainer approval.
+
+Highlights:
+
+- Added `CorrespondenceCell`, `OverlapWitness`, `DifferenceWitness`, and
+  `GluingAttempt` core contracts with validation invariants.
+- Added deterministic overlap candidate generation for identifiers,
+  normalized labels, shared evidence, shared invariants, and typed relation
+  triples.
+- Added difference extraction for modality, evidence, invariant satisfaction,
+  and context mismatches.
+- Added deterministic gluing checks that return success, review candidate, or
+  failure with obstruction while preserving review boundaries.
+- Added human, AI-agent, and audit correspondence projections with explicit
+  projection-loss declarations.
+- Added bounded semantic candidate generation from supplied `semanticSignals`;
+  LLM and embedding signals remain candidates until explicit review.
+- Added CLI coverage for overlap candidates, overlap explanation,
+  correspondence projection, semantic correspondence review, and gluing checks.
+- Updated correspondence documentation, examples, JSON schema fixtures, and
+  release static-limit structure.
+
+Publication decisions:
+
+- Publish reusable crates before dependent crates and CLI tools.
+- Example workspace packages remain unpublished validation fixtures.
+- Durable external publication actions still require explicit maintainer
+  approval at release time.
+
 ## v0.4.1
 
 Release scope:
