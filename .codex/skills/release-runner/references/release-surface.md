@@ -79,11 +79,15 @@ These are releaseable agent integration surfaces:
 - `integrations/cli-skill-bundle/skills/casegraphen/SKILL.md`
 - `integrations/cli-skill-bundle/skills/architecture-review/SKILL.md`
 - `integrations/cli-skill-bundle/references/cli-contract.md`
-- repository source skills under `skills/highergraphen`, `skills/highergraphen-ddd`, `skills/casegraphen`, and `skills/release-runner`
+- distributed source skills under `skills/highergraphen`,
+  `skills/highergraphen-ddd`, and `skills/casegraphen`
+- repository-local Codex skills under `.codex/skills/release-runner` and
+  `.codex/skills/highergraphen-structure-builder`
 
 The CLI skill bundle has its own `version` in `bundle.json`. Decide explicitly whether a repository release also bumps the bundle version.
 
-`skills/release-runner` is release process support. It is not part of the CLI skill bundle unless a future release explicitly adds it.
+`.codex/skills/release-runner` is release process support. It is not part of
+the CLI skill bundle unless a future release explicitly adds it.
 
 ## Schemas, Fixtures, and Report Contracts
 

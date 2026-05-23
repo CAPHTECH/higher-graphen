@@ -380,10 +380,10 @@ boundary.
 - [`examples/casegraphen/ddd/domain-model-design/README.md`](examples/casegraphen/ddd/domain-model-design/README.md) - Legacy DDD domain model fixture that motivates the HigherGraphen DDD review workflow
 - [`docs/specs/ddd-review-cli-contract.md`](docs/specs/ddd-review-cli-contract.md) - HigherGraphen DDD review CLI contract
 - [`docs/specs/ai-agent-integration.md`](docs/specs/ai-agent-integration.md) - Skills, plugins, MCP, and marketplace integration strategy
-- [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Repository-owned CLI skill for the first HigherGraphen report contract
-- [`skills/highergraphen-ddd/SKILL.md`](skills/highergraphen-ddd/SKILL.md) - Repository-owned DDD review CLI skill
-- [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Repository-owned CaseGraphen CLI skill
-- [`skills/release-runner/SKILL.md`](skills/release-runner/SKILL.md) - Repository-owned release preparation and publication skill
+- [`skills/highergraphen/SKILL.md`](skills/highergraphen/SKILL.md) - Distributed CLI skill for the first HigherGraphen report contract
+- [`skills/highergraphen-ddd/SKILL.md`](skills/highergraphen-ddd/SKILL.md) - Distributed DDD review CLI skill
+- [`skills/casegraphen/SKILL.md`](skills/casegraphen/SKILL.md) - Distributed CaseGraphen CLI skill
+- [`.codex/skills/release-runner/SKILL.md`](.codex/skills/release-runner/SKILL.md) - Repository-local release preparation and publication skill
 - [`docs/specs/rust-core-model.md`](docs/specs/rust-core-model.md) - Rust core data model specification
 - [`docs/specs/engine-traits.md`](docs/specs/engine-traits.md) - Engine interface specification
 - [`docs/product-packages/architecture-product.md`](docs/product-packages/architecture-product.md) - Reference Architecture Product

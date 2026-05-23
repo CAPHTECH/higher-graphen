@@ -38,7 +38,7 @@ The original proposal remains available as source material:
 29. [`cli/highergraphen.md`](cli/highergraphen.md)
 30. [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md)
 31. [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md)
-32. [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md)
+32. [`../.codex/skills/release-runner/SKILL.md`](../.codex/skills/release-runner/SKILL.md)
 33. [`specs/rust-core-model.md`](specs/rust-core-model.md)
 34. [`specs/engine-traits.md`](specs/engine-traits.md)
 35. [`product-packages/architecture-product.md`](product-packages/architecture-product.md)
@@ -82,7 +82,7 @@ The original proposal remains available as source material:
 | [`cli/highergraphen.md`](cli/highergraphen.md) | Provides the user-facing CLI reference for `highergraphen` runtime workflows, including PR review target recommendation. |
 | [`../skills/highergraphen/SKILL.md`](../skills/highergraphen/SKILL.md) | Provides the repository-owned CLI skill for agents using HigherGraphen report contracts, including PR review target reports. |
 | [`../skills/highergraphen-ddd/SKILL.md`](../skills/highergraphen-ddd/SKILL.md) | Provides the repository-owned skill for agents using `highergraphen ddd` review contracts and reports. |
-| [`../skills/release-runner/SKILL.md`](../skills/release-runner/SKILL.md) | Provides the repository-owned release preparation, verification, packaging, and publication workflow. |
+| [`../.codex/skills/release-runner/SKILL.md`](../.codex/skills/release-runner/SKILL.md) | Provides the repository-local release preparation, verification, packaging, and publication workflow. |
 | [`specs/rust-core-model.md`](specs/rust-core-model.md) | Specifies the core Rust data model at a stable contract level. |
 | [`specs/engine-traits.md`](specs/engine-traits.md) | Specifies the engine interfaces that operate on the model. |
 | [`product-packages/architecture-product.md`](product-packages/architecture-product.md) | Defines the first reference product and MVP scenario. |
