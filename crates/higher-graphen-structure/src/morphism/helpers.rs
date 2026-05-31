@@ -193,6 +193,138 @@ pub(super) fn pushout_groups(left: &BTreeMap<Id, Id>, right: &BTreeMap<Id, Id>) 
     }
 }
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub(super) enum PushoutSide {
+    Left,
+    Right,
+}
+
+impl PushoutSide {
+    pub(super) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub(super) struct PushoutElementKey {
+    pub(super) side: PushoutSide,
+    pub(super) id: Id,
+}
+
+impl PushoutElementKey {
+    pub(super) fn left(id: Id) -> Self {
+        Self {
+            side: PushoutSide::Left,
+            id,
+        }
+    }
+
+    pub(super) fn right(id: Id) -> Self {
+        Self {
+            side: PushoutSide::Right,
+            id,
+        }
+    }
+
+    pub(super) fn stable_fragment(&self) -> String {
+        format!(
+            "{}:{}",
+            encode_pushout_fragment(self.side.as_str()),
+            encode_pushout_fragment(self.id.as_str())
+        )
+    }
+}
+
+fn encode_pushout_fragment(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('+', "%2B")
+        .replace(':', "%3A")
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct PushoutEquivalenceClass {
+    pub(super) canonical_id: Id,
+    pub(super) members: Vec<PushoutElementKey>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct PushoutUnionFind {
+    parent: BTreeMap<PushoutElementKey, PushoutElementKey>,
+}
+
+impl PushoutUnionFind {
+    pub(super) fn insert(&mut self, key: PushoutElementKey) {
+        self.parent.entry(key.clone()).or_insert(key);
+    }
+
+    pub(super) fn union(&mut self, first: PushoutElementKey, second: PushoutElementKey) {
+        self.insert(first.clone());
+        self.insert(second.clone());
+
+        let first_root = self.find(&first);
+        let second_root = self.find(&second);
+        if first_root == second_root {
+            return;
+        }
+
+        let (parent, child) = if first_root <= second_root {
+            (first_root, second_root)
+        } else {
+            (second_root, first_root)
+        };
+        self.parent.insert(child, parent);
+    }
+
+    pub(super) fn find(&self, key: &PushoutElementKey) -> PushoutElementKey {
+        let mut current = key.clone();
+        while let Some(parent) = self.parent.get(&current) {
+            if parent == &current {
+                return current;
+            }
+            current = parent.clone();
+        }
+        key.clone()
+    }
+
+    pub(super) fn classes(
+        &self,
+        candidate_space_id: &Id,
+        element_kind: &str,
+    ) -> Option<Vec<PushoutEquivalenceClass>> {
+        let mut grouped = BTreeMap::<PushoutElementKey, Vec<PushoutElementKey>>::new();
+        for key in self.parent.keys() {
+            grouped.entry(self.find(key)).or_default().push(key.clone());
+        }
+
+        let mut classes = Vec::new();
+        for mut members in grouped.into_values() {
+            members.sort();
+            let member_key = members
+                .iter()
+                .map(PushoutElementKey::stable_fragment)
+                .collect::<Vec<_>>()
+                .join("+");
+            let canonical_id = Id::new(format!(
+                "{}/pushout/{}/{}",
+                candidate_space_id.as_str(),
+                element_kind,
+                member_key
+            ))
+            .ok()?;
+            classes.push(PushoutEquivalenceClass {
+                canonical_id,
+                members,
+            });
+        }
+        classes.sort_by(|left, right| left.canonical_id.cmp(&right.canonical_id));
+        Some(classes)
+    }
+}
+
 pub(super) fn compose_path_summary(path: &[Morphism]) -> DiagramPathSummary {
     let morphism_ids = path.iter().map(|morphism| morphism.id.clone()).collect();
     let Some(first) = path.first() else {

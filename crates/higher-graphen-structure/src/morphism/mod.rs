@@ -1,9 +1,11 @@
 //! Structure mappings, composition, preservation checks, lost structure, and
 //! distortion for HigherGraphen.
 
-use higher_graphen_core::{Id, Provenance, Severity};
+use higher_graphen_core::{Id, Provenance, ReviewStatus, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+use crate::space::{Cell, Complex, ComplexType, Incidence, IncidenceOrientation, Space};
 
 /// Source-to-target cell identifier mapping for a morphism.
 pub type CellMapping = BTreeMap<Id, Id>;
@@ -270,6 +272,20 @@ pub enum PushoutObstructionType {
     IncompatibleSourceSpace,
     /// At least one source mapping has no partner on the other leg.
     PushoutIncomplete,
+    /// Identified cells or relations disagree on attributes required to merge them.
+    IncompatibleIdentification,
+    /// Identified relations do not agree on remapped endpoints.
+    RelationEndpointConflict,
+    /// The quotient collapses two or more originally distinct same-side elements.
+    AmbiguousIdentification,
+}
+
+impl PushoutObstructionType {
+    /// Returns true when this obstruction prevents materializing the pushout candidate.
+    #[must_use]
+    pub fn is_blocking(&self) -> bool {
+        !matches!(self, Self::AmbiguousIdentification)
+    }
 }
 
 /// Structured pushout extraction obstruction.
@@ -341,20 +357,66 @@ pub struct ExplicitPushoutReport {
 }
 
 impl ExplicitPushoutReport {
-    /// Returns true when sources are compatible and all explicit mappings have partners.
+    /// Returns true when no pushout obstructions were detected.
     pub fn is_complete(&self) -> bool {
         self.obstructions.is_empty()
     }
+}
 
-    /// Creates an empty candidate space shell for this pushout report.
-    ///
-    /// The shell carries the candidate identifier and name only. Cells,
-    /// incidences, quotient losses, and inclusion morphisms remain reviewable
-    /// report data and are not silently materialized as accepted structure.
-    #[must_use]
-    pub fn candidate_space_shell(&self, name: impl Into<String>) -> crate::space::Space {
-        crate::space::Space::new(self.candidate_space_id.clone(), name)
-    }
+/// Explicit finite inputs used to construct a binary pushout candidate.
+pub struct PushoutInputs<'a> {
+    /// Left cospan leg from the shared source into the left target space.
+    pub left: &'a Morphism,
+    /// Right cospan leg from the shared source into the right target space.
+    pub right: &'a Morphism,
+    /// Identifier assigned to the materialized candidate space.
+    pub candidate_space_id: Id,
+    /// Human-readable name assigned to the materialized candidate space and complex.
+    pub candidate_space_name: String,
+    /// Structural kind assigned to the materialized candidate complex.
+    pub complex_type: ComplexType,
+    /// Cells from the left target space to carry into the finite quotient.
+    pub left_cells: &'a [Cell],
+    /// Cells from the right target space to carry into the finite quotient.
+    pub right_cells: &'a [Cell],
+    /// Incidences from the left target space to carry into the finite quotient.
+    pub left_incidences: &'a [Incidence],
+    /// Incidences from the right target space to carry into the finite quotient.
+    pub right_incidences: &'a [Incidence],
+}
+
+/// Materialized finite pushout candidate.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushoutConstruction {
+    /// Populated candidate space containing exactly the constructed memberships.
+    pub space: Space,
+    /// Candidate complex over the constructed cells and incidences.
+    pub complex: Complex,
+    /// Constructed cells sorted by identifier.
+    pub cells: Vec<Cell>,
+    /// Constructed incidences sorted by identifier.
+    pub incidences: Vec<Incidence>,
+    /// Review status for the materialized candidate; this is never accepted.
+    pub review_status: ReviewStatus,
+}
+
+/// Result of constructing a finite explicit pushout.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PushoutOutcome {
+    /// The pushout was materialized as a reviewable candidate.
+    Constructed {
+        /// The materialized candidate structure.
+        construction: Box<PushoutConstruction>,
+        /// Diagnostic report for the construction.
+        report: ExplicitPushoutReport,
+    },
+    /// Blocking obstructions prevented materializing a valid candidate.
+    Blocked {
+        /// Diagnostic report carrying all detected obstructions.
+        report: ExplicitPushoutReport,
+    },
 }
 
 /// Stable obstruction emitted by finite diagram commutativity checks.
@@ -758,6 +820,612 @@ pub fn failed_composition_findings(
     findings_from_mapping_compositions(first, second, &cell_composition, &relation_composition)
 }
 
+/// Constructs a deterministic finite pushout candidate for a binary cospan.
+///
+/// The construction quotients the disjoint union of the left and right target
+/// cells and incidences by the identifications induced from shared source
+/// mappings. Blocking obstructions return [`PushoutOutcome::Blocked`] and do
+/// not materialize cells, incidences, or a complex.
+pub fn construct_explicit_pushout(inputs: PushoutInputs<'_>) -> PushoutOutcome {
+    let mut report =
+        explicit_pushout_candidate(inputs.left, inputs.right, inputs.candidate_space_id.clone());
+    let mut quotient_losses = Vec::new();
+
+    let left_cells = inputs
+        .left_cells
+        .iter()
+        .map(|cell| (cell.id.clone(), cell))
+        .collect::<BTreeMap<_, _>>();
+    let right_cells = inputs
+        .right_cells
+        .iter()
+        .map(|cell| (cell.id.clone(), cell))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut cell_union = PushoutUnionFind::default();
+    for cell in inputs.left_cells {
+        cell_union.insert(PushoutElementKey::left(cell.id.clone()));
+    }
+    for cell in inputs.right_cells {
+        cell_union.insert(PushoutElementKey::right(cell.id.clone()));
+    }
+    for group in &report.identified_cell_groups {
+        cell_union.union(
+            PushoutElementKey::left(group.left_target_id.clone()),
+            PushoutElementKey::right(group.right_target_id.clone()),
+        );
+    }
+
+    let Some(cell_classes) = cell_union.classes(&inputs.candidate_space_id, "cell") else {
+        report.obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+            reason: "could not derive a valid canonical cell identifier".to_owned(),
+        });
+        report.quotient_losses = quotient_losses;
+        report.review_status = pushout_review_status(&report.obstructions);
+        return PushoutOutcome::Blocked { report };
+    };
+
+    let mut cell_id_by_key = BTreeMap::new();
+    for class in &cell_classes {
+        for member in &class.members {
+            cell_id_by_key.insert(member.clone(), class.canonical_id.clone());
+        }
+    }
+
+    report.obstructions.extend(ambiguous_class_obstructions(
+        "cell",
+        &cell_classes,
+        &mut quotient_losses,
+    ));
+
+    let mut cells = Vec::new();
+    for class in &cell_classes {
+        if let Some(cell) = merged_cell(
+            class,
+            &inputs.candidate_space_id,
+            &left_cells,
+            &right_cells,
+            &cell_id_by_key,
+            &mut report.obstructions,
+            &mut quotient_losses,
+        ) {
+            cells.push(cell);
+        }
+    }
+    cells.sort_by(|left, right| left.id.cmp(&right.id));
+
+    let left_incidences = inputs
+        .left_incidences
+        .iter()
+        .map(|incidence| (incidence.id.clone(), incidence))
+        .collect::<BTreeMap<_, _>>();
+    let right_incidences = inputs
+        .right_incidences
+        .iter()
+        .map(|incidence| (incidence.id.clone(), incidence))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut relation_union = PushoutUnionFind::default();
+    for incidence in inputs.left_incidences {
+        relation_union.insert(PushoutElementKey::left(incidence.id.clone()));
+    }
+    for incidence in inputs.right_incidences {
+        relation_union.insert(PushoutElementKey::right(incidence.id.clone()));
+    }
+    for group in &report.identified_relation_groups {
+        relation_union.union(
+            PushoutElementKey::left(group.left_target_id.clone()),
+            PushoutElementKey::right(group.right_target_id.clone()),
+        );
+    }
+
+    let Some(relation_classes) = relation_union.classes(&inputs.candidate_space_id, "incidence")
+    else {
+        report.obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+            reason: "could not derive a valid canonical incidence identifier".to_owned(),
+        });
+        report.quotient_losses = quotient_losses;
+        report.review_status = pushout_review_status(&report.obstructions);
+        return PushoutOutcome::Blocked { report };
+    };
+
+    report.obstructions.extend(ambiguous_class_obstructions(
+        "relation",
+        &relation_classes,
+        &mut quotient_losses,
+    ));
+
+    let incidence_seeds = relation_classes
+        .iter()
+        .filter_map(|class| {
+            merged_incidence_seed(
+                class,
+                &inputs.candidate_space_id,
+                &left_incidences,
+                &right_incidences,
+                &cell_id_by_key,
+                &mut report.obstructions,
+                &mut quotient_losses,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut incidences = deduplicate_incidences(incidence_seeds, &mut quotient_losses);
+    incidences.sort_by(|left, right| left.id.cmp(&right.id));
+
+    report.quotient_losses = quotient_losses;
+    report.review_status = pushout_review_status(&report.obstructions);
+
+    if report
+        .obstructions
+        .iter()
+        .any(|obstruction| obstruction.obstruction_type.is_blocking())
+    {
+        return PushoutOutcome::Blocked { report };
+    }
+
+    let review_status = report.review_status;
+    let Some(complex_id) = Id::new(format!(
+        "{}/pushout/complex",
+        inputs.candidate_space_id.as_str()
+    ))
+    .ok() else {
+        let mut blocked_report = report;
+        blocked_report.obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+            reason: "could not derive a valid canonical complex identifier".to_owned(),
+        });
+        blocked_report.review_status = ReviewStatus::Rejected;
+        return PushoutOutcome::Blocked {
+            report: blocked_report,
+        };
+    };
+
+    let cell_ids = cells.iter().map(|cell| cell.id.clone()).collect::<Vec<_>>();
+    let incidence_ids = incidences
+        .iter()
+        .map(|incidence| incidence.id.clone())
+        .collect::<Vec<_>>();
+    let context_ids = cells
+        .iter()
+        .flat_map(|cell| cell.context_ids.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let max_dimension = cells
+        .iter()
+        .map(|cell| cell.dimension)
+        .max()
+        .map_or(0, |value| value);
+
+    let mut complex = Complex::new(
+        complex_id.clone(),
+        inputs.candidate_space_id.clone(),
+        inputs.candidate_space_name.clone(),
+        inputs.complex_type,
+    );
+    complex.cell_ids = cell_ids.clone();
+    complex.incidence_ids = incidence_ids.clone();
+    complex.max_dimension = max_dimension;
+
+    let mut space = Space::new(inputs.candidate_space_id, inputs.candidate_space_name);
+    space.cell_ids = cell_ids;
+    space.incidence_ids = incidence_ids;
+    space.complex_ids = vec![complex_id];
+    space.context_ids = context_ids;
+
+    PushoutOutcome::Constructed {
+        construction: Box::new(PushoutConstruction {
+            space,
+            complex,
+            cells,
+            incidences,
+            review_status,
+        }),
+        report,
+    }
+}
+
+fn pushout_review_status(obstructions: &[PushoutObstruction]) -> ReviewStatus {
+    if obstructions
+        .iter()
+        .any(|obstruction| obstruction.obstruction_type.is_blocking())
+    {
+        ReviewStatus::Rejected
+    } else if obstructions.iter().any(|obstruction| {
+        obstruction.obstruction_type == PushoutObstructionType::AmbiguousIdentification
+    }) {
+        ReviewStatus::Candidate
+    } else {
+        ReviewStatus::Unreviewed
+    }
+}
+
+fn class_member_cell<'a>(
+    key: &PushoutElementKey,
+    left_cells: &'a BTreeMap<Id, &'a Cell>,
+    right_cells: &'a BTreeMap<Id, &'a Cell>,
+) -> Option<&'a Cell> {
+    match key.side {
+        PushoutSide::Left => left_cells.get(&key.id).copied(),
+        PushoutSide::Right => right_cells.get(&key.id).copied(),
+    }
+}
+
+fn class_member_incidence<'a>(
+    key: &PushoutElementKey,
+    left_incidences: &'a BTreeMap<Id, &'a Incidence>,
+    right_incidences: &'a BTreeMap<Id, &'a Incidence>,
+) -> Option<&'a Incidence> {
+    match key.side {
+        PushoutSide::Left => left_incidences.get(&key.id).copied(),
+        PushoutSide::Right => right_incidences.get(&key.id).copied(),
+    }
+}
+
+fn ambiguous_class_obstructions(
+    element_kind: &str,
+    classes: &[PushoutEquivalenceClass],
+    quotient_losses: &mut Vec<String>,
+) -> Vec<PushoutObstruction> {
+    let mut obstructions = Vec::new();
+    for class in classes {
+        let left_ids = class
+            .members
+            .iter()
+            .filter(|member| member.side == PushoutSide::Left)
+            .map(|member| member.id.clone())
+            .collect::<Vec<_>>();
+        let right_ids = class
+            .members
+            .iter()
+            .filter(|member| member.side == PushoutSide::Right)
+            .map(|member| member.id.clone())
+            .collect::<Vec<_>>();
+
+        if left_ids.len() > 1 || right_ids.len() > 1 {
+            obstructions.push(PushoutObstruction {
+                obstruction_type: PushoutObstructionType::AmbiguousIdentification,
+                reason: format!(
+                    "{element_kind} class {} collapses multiple same-side elements",
+                    class.canonical_id
+                ),
+            });
+            quotient_losses.push(format!(
+                "ambiguous_identification: {element_kind} class {} collapses left {:?} and right {:?}",
+                class.canonical_id, left_ids, right_ids
+            ));
+        }
+    }
+    obstructions
+}
+
+fn remap_cell_reference(
+    side: &PushoutSide,
+    cell_id: &Id,
+    cell_id_by_key: &BTreeMap<PushoutElementKey, Id>,
+) -> Option<Id> {
+    let key = match side {
+        PushoutSide::Left => PushoutElementKey::left(cell_id.clone()),
+        PushoutSide::Right => PushoutElementKey::right(cell_id.clone()),
+    };
+    cell_id_by_key.get(&key).cloned()
+}
+
+fn remap_cell_refs(
+    owner: &PushoutElementKey,
+    attribute: &str,
+    refs: &[Id],
+    cell_id_by_key: &BTreeMap<PushoutElementKey, Id>,
+    quotient_losses: &mut Vec<String>,
+) -> BTreeSet<Id> {
+    let mut remapped = BTreeSet::new();
+    for cell_id in refs {
+        if let Some(mapped_id) = remap_cell_reference(&owner.side, cell_id, cell_id_by_key) {
+            remapped.insert(mapped_id);
+        } else {
+            quotient_losses.push(format!(
+                "cell {}:{} {attribute} reference {} dropped because it is outside the pushout input",
+                owner.side.as_str(),
+                owner.id,
+                cell_id
+            ));
+        }
+    }
+    remapped
+}
+
+fn merged_cell(
+    class: &PushoutEquivalenceClass,
+    candidate_space_id: &Id,
+    left_cells: &BTreeMap<Id, &Cell>,
+    right_cells: &BTreeMap<Id, &Cell>,
+    cell_id_by_key: &BTreeMap<PushoutElementKey, Id>,
+    obstructions: &mut Vec<PushoutObstruction>,
+    quotient_losses: &mut Vec<String>,
+) -> Option<Cell> {
+    let mut members = Vec::new();
+    for key in &class.members {
+        if let Some(cell) = class_member_cell(key, left_cells, right_cells) {
+            members.push((key, cell));
+        } else {
+            obstructions.push(PushoutObstruction {
+                obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+                reason: format!(
+                    "identified cell {}:{} is not present in the finite input",
+                    key.side.as_str(),
+                    key.id
+                ),
+            });
+        }
+    }
+
+    let dimensions = members
+        .iter()
+        .map(|(_, cell)| cell.dimension)
+        .collect::<BTreeSet<_>>();
+    let cell_types = members
+        .iter()
+        .map(|(_, cell)| cell.cell_type.clone())
+        .collect::<BTreeSet<_>>();
+
+    if dimensions.len() > 1 || cell_types.len() > 1 {
+        obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+            reason: format!(
+                "cell class {} has incompatible dimensions {:?} or cell types {:?}",
+                class.canonical_id, dimensions, cell_types
+            ),
+        });
+        return None;
+    }
+
+    let dimension = dimensions.iter().next().copied()?;
+    let cell_type = cell_types.iter().next().cloned()?;
+
+    let canonical_label = members
+        .iter()
+        .filter_map(|(_, cell)| cell.label.clone())
+        .min();
+    let distinct_labels = members
+        .iter()
+        .map(|(_, cell)| cell.label.clone())
+        .collect::<BTreeSet<_>>();
+    if distinct_labels.len() > 1 {
+        for (key, cell) in &members {
+            if cell.label != canonical_label {
+                quotient_losses.push(format!(
+                    "cell {}:{} label {:?} dropped; class {} keeps {:?}",
+                    key.side.as_str(),
+                    key.id,
+                    cell.label,
+                    class.canonical_id,
+                    canonical_label
+                ));
+            }
+        }
+    }
+
+    let mut boundary = BTreeSet::new();
+    let mut coboundary = BTreeSet::new();
+    let mut context_ids = BTreeSet::new();
+    for (key, cell) in &members {
+        boundary.extend(remap_cell_refs(
+            key,
+            "boundary",
+            &cell.boundary,
+            cell_id_by_key,
+            quotient_losses,
+        ));
+        coboundary.extend(remap_cell_refs(
+            key,
+            "coboundary",
+            &cell.coboundary,
+            cell_id_by_key,
+            quotient_losses,
+        ));
+        context_ids.extend(cell.context_ids.iter().cloned());
+    }
+
+    let provenance = if members.len() == 1 {
+        members
+            .first()
+            .and_then(|(_, cell)| cell.provenance.clone())
+    } else {
+        for (key, cell) in &members {
+            if cell.provenance.is_some() {
+                quotient_losses.push(format!(
+                    "cell {}:{} provenance dropped; merged class {} has multiple sources",
+                    key.side.as_str(),
+                    key.id,
+                    class.canonical_id
+                ));
+            }
+        }
+        None
+    };
+
+    Some(Cell {
+        id: class.canonical_id.clone(),
+        space_id: candidate_space_id.clone(),
+        dimension,
+        cell_type,
+        label: canonical_label,
+        boundary: boundary.into_iter().collect(),
+        coboundary: coboundary.into_iter().collect(),
+        context_ids: context_ids.into_iter().collect(),
+        provenance,
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+struct IncidenceSignature {
+    from_cell_id: Id,
+    to_cell_id: Id,
+    relation_type: String,
+    orientation: IncidenceOrientation,
+}
+
+#[derive(Clone, Debug)]
+struct IncidenceSeed {
+    incidence: Incidence,
+    signature: IncidenceSignature,
+}
+
+fn merged_incidence_seed(
+    class: &PushoutEquivalenceClass,
+    candidate_space_id: &Id,
+    left_incidences: &BTreeMap<Id, &Incidence>,
+    right_incidences: &BTreeMap<Id, &Incidence>,
+    cell_id_by_key: &BTreeMap<PushoutElementKey, Id>,
+    obstructions: &mut Vec<PushoutObstruction>,
+    quotient_losses: &mut Vec<String>,
+) -> Option<IncidenceSeed> {
+    let mut members = Vec::new();
+    for key in &class.members {
+        if let Some(incidence) = class_member_incidence(key, left_incidences, right_incidences) {
+            let from_cell_id =
+                remap_cell_reference(&key.side, &incidence.from_cell_id, cell_id_by_key);
+            let to_cell_id = remap_cell_reference(&key.side, &incidence.to_cell_id, cell_id_by_key);
+            if from_cell_id.is_none() || to_cell_id.is_none() {
+                obstructions.push(PushoutObstruction {
+                    obstruction_type: PushoutObstructionType::RelationEndpointConflict,
+                    reason: format!(
+                        "incidence {}:{} references an endpoint outside the pushout cells",
+                        key.side.as_str(),
+                        key.id
+                    ),
+                });
+            }
+            if let (Some(from_cell_id), Some(to_cell_id)) = (from_cell_id, to_cell_id) {
+                members.push((key, incidence, from_cell_id, to_cell_id));
+            }
+        } else {
+            obstructions.push(PushoutObstruction {
+                obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+                reason: format!(
+                    "identified relation {}:{} is not present in the finite input",
+                    key.side.as_str(),
+                    key.id
+                ),
+            });
+        }
+    }
+
+    let relation_types = members
+        .iter()
+        .map(|(_, incidence, _, _)| incidence.relation_type.clone())
+        .collect::<BTreeSet<_>>();
+    let orientations = members
+        .iter()
+        .map(|(_, incidence, _, _)| incidence.orientation)
+        .collect::<BTreeSet<_>>();
+    if relation_types.len() > 1 || orientations.len() > 1 {
+        obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
+            reason: format!(
+                "relation class {} has incompatible relation types {:?} or orientations {:?}",
+                class.canonical_id, relation_types, orientations
+            ),
+        });
+        return None;
+    }
+
+    let endpoints = members
+        .iter()
+        .map(|(_, _, from_cell_id, to_cell_id)| (from_cell_id.clone(), to_cell_id.clone()))
+        .collect::<BTreeSet<_>>();
+    if endpoints.len() > 1 {
+        obstructions.push(PushoutObstruction {
+            obstruction_type: PushoutObstructionType::RelationEndpointConflict,
+            reason: format!(
+                "relation class {} has conflicting remapped endpoints {:?}",
+                class.canonical_id, endpoints
+            ),
+        });
+        return None;
+    }
+
+    let (_, first, from_cell_id, to_cell_id) = members.first()?;
+    let relation_type = relation_types.iter().next().cloned()?;
+    let orientation = orientations.iter().next().copied()?;
+
+    let weight = first.weight;
+    let provenance = if members.len() == 1 {
+        first.provenance.clone()
+    } else {
+        for (key, incidence, _, _) in &members {
+            if incidence.weight != weight {
+                quotient_losses.push(format!(
+                    "incidence {}:{} weight {:?} dropped; class {} keeps {:?}",
+                    key.side.as_str(),
+                    key.id,
+                    incidence.weight,
+                    class.canonical_id,
+                    weight
+                ));
+            }
+            if incidence.provenance.is_some() {
+                quotient_losses.push(format!(
+                    "incidence {}:{} provenance dropped; merged class {} has multiple sources",
+                    key.side.as_str(),
+                    key.id,
+                    class.canonical_id
+                ));
+            }
+        }
+        None
+    };
+    let signature = IncidenceSignature {
+        from_cell_id: from_cell_id.clone(),
+        to_cell_id: to_cell_id.clone(),
+        relation_type,
+        orientation,
+    };
+
+    Some(IncidenceSeed {
+        incidence: Incidence {
+            id: class.canonical_id.clone(),
+            space_id: candidate_space_id.clone(),
+            from_cell_id: signature.from_cell_id.clone(),
+            to_cell_id: signature.to_cell_id.clone(),
+            relation_type: signature.relation_type.clone(),
+            orientation: signature.orientation,
+            weight,
+            provenance,
+        },
+        signature,
+    })
+}
+
+fn deduplicate_incidences(
+    mut seeds: Vec<IncidenceSeed>,
+    quotient_losses: &mut Vec<String>,
+) -> Vec<Incidence> {
+    seeds.sort_by(|left, right| left.incidence.id.cmp(&right.incidence.id));
+    let mut by_signature = BTreeMap::<IncidenceSignature, Incidence>::new();
+    for seed in seeds {
+        if let Some(existing) = by_signature.get(&seed.signature) {
+            if existing.weight != seed.incidence.weight {
+                quotient_losses.push(format!(
+                    "incidence {} weight {:?} dropped during dedup; incidence {} keeps {:?}",
+                    seed.incidence.id, seed.incidence.weight, existing.id, existing.weight
+                ));
+            }
+            if existing.provenance != seed.incidence.provenance {
+                quotient_losses.push(format!(
+                    "incidence {} provenance dropped during dedup; incidence {} is canonical",
+                    seed.incidence.id, existing.id
+                ));
+            }
+        } else {
+            by_signature.insert(seed.signature, seed.incidence);
+        }
+    }
+    by_signature.into_values().collect()
+}
+
 /// Extracts common mapped substructure for two morphisms with a shared target.
 ///
 /// The construction is finite and explicit: a left source and right source
@@ -827,11 +1495,11 @@ pub fn explicit_pullback_candidate(left: &Morphism, right: &Morphism) -> Explici
     }
 }
 
-/// Extracts an explicit pushout-style merge candidate for two morphisms sharing a source.
+/// Extracts an explicit pushout-style merge report for two morphisms sharing a source.
 ///
 /// The candidate identifies left and right targets that come from the same
-/// source element. It does not construct a new space and does not accept the
-/// quotient; losses and incompleteness remain explicit.
+/// source element. Use [`construct_explicit_pushout`] with finite cells and
+/// incidences to materialize the merged candidate structure.
 pub fn explicit_pushout_candidate(
     left: &Morphism,
     right: &Morphism,
@@ -880,11 +1548,7 @@ pub fn explicit_pushout_candidate(
         unmatched_right_cell_source_ids,
         unmatched_left_relation_source_ids,
         unmatched_right_relation_source_ids,
-        quotient_losses: vec![
-            "identified target elements are quotient candidates, not accepted equivalences"
-                .to_owned(),
-            "invariant preservation across the quotient is not proven by this report".to_owned(),
-        ],
+        quotient_losses: Vec::new(),
         obstructions,
         review_status: higher_graphen_core::ReviewStatus::Unreviewed,
     }

@@ -124,3 +124,20 @@ let report = check_diagram_requirements(Id::new("diagram:integration")?, &[requi
 
 Pullback and pushout APIs produce candidates. They do not accept equivalence
 claims, quotient losses, or invariant preservation automatically.
+
+```rust
+use higher_graphen_structure::morphism::{construct_explicit_pushout, PushoutInputs};
+use higher_graphen_structure::space::ComplexType;
+
+let outcome = construct_explicit_pushout(PushoutInputs {
+    left: &left_leg,
+    right: &right_leg,
+    candidate_space_id: Id::new("space:pushout-candidate")?,
+    candidate_space_name: "Pushout candidate".to_owned(),
+    complex_type: ComplexType::CellComplex,
+    left_cells: &left_cells,
+    right_cells: &right_cells,
+    left_incidences: &left_incidences,
+    right_incidences: &right_incidences,
+});
+```
