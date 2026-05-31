@@ -233,6 +233,13 @@ Use finite structural metrics first:
 Entropy-based metrics can be added later when source distributions are
 available and validated.
 
+Implemented MVP surface:
+
+- `higher_graphen_projection::measure_projection_loss`
+- `ProjectionLossMetric`, `ProjectionAmbiguityReport`, and
+  `ProjectionLossReport`
+- `ProjectionLossObstruction`
+
 ### Obstructions
 
 - `undeclared_projection_loss`

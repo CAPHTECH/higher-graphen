@@ -1,11 +1,17 @@
 //! Projection definitions, selectors, results, and renderers for HigherGraphen.
 
 mod correspondence;
+mod loss_metrics;
 
 pub use correspondence::{
     explain_correspondence, project_correspondence, render_correspondence_projection_markdown,
     CorrespondenceExplanation, CorrespondenceProjection, GluingExplanation,
     CORRESPONDENCE_EXPLANATION_SCHEMA, CORRESPONDENCE_PROJECTION_SCHEMA,
+};
+pub use loss_metrics::{
+    measure_projection_loss, ProjectionAmbiguityReport, ProjectionCollapsedSourceGroup,
+    ProjectionLossMetric, ProjectionLossMetricKind, ProjectionLossObstruction,
+    ProjectionLossReport, ProjectionSourceCardinalityBasis,
 };
 
 use higher_graphen_core::{CoreError, Id, Result, Severity};
