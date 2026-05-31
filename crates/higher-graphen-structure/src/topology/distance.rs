@@ -389,17 +389,16 @@ fn bottleneck_feasible(
     right: &[NormalizedPoint],
     threshold_doubled: u64,
 ) -> bool {
-    // Bipartite graph: each left point connects to compatible right points and,
-    // through a private diagonal slot, to the diagonal when its own to-diagonal
-    // cost fits. Each right point likewise reaches its private diagonal slot.
-    // A matching saturates all points iff matching saturates every left point
-    // and every right point whose to-diagonal cost exceeds the threshold.
     let left_count = left.len();
     let right_count = right.len();
+    let size = left_count + right_count;
 
-    // Right targets for each left point: real right points plus the left point's
-    // own diagonal slot encoded as `right_count + left_index`.
-    let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); left_count];
+    // Feasibility uses the same augmented square assignment graph as the
+    // Wasserstein solver, retaining only edges whose doubled cost is within
+    // the threshold. Rows are left points followed by diagonal sources for
+    // right points; columns are right points followed by diagonal sinks for
+    // left points.
+    let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); size];
     for (left_index, left_point) in left.iter().enumerate() {
         for (right_index, right_point) in right.iter().enumerate() {
             if linf_doubled(left_point, right_point) <= threshold_doubled {
@@ -410,27 +409,20 @@ fn bottleneck_feasible(
             adjacency[left_index].push(right_count + left_index);
         }
     }
-
-    // Any right point that cannot reach the diagonal within the threshold must
-    // be covered by a real matched left point.
-    let right_target_count = right_count + left_count;
-    let mut match_left_for_right = vec![None::<usize>; right_target_count];
-    for left_index in 0..left_count {
-        let mut visited = vec![false; right_target_count];
-        if !augment(
-            left_index,
-            &adjacency,
-            &mut match_left_for_right,
-            &mut visited,
-        ) {
-            return false;
+    for (right_index, right_point) in right.iter().enumerate() {
+        let row = left_count + right_index;
+        if right_point.to_diagonal_doubled() <= threshold_doubled {
+            adjacency[row].push(right_index);
+        }
+        for left_index in 0..left_count {
+            adjacency[row].push(right_count + left_index);
         }
     }
 
-    for (right_index, right_point) in right.iter().enumerate() {
-        if match_left_for_right[right_index].is_none()
-            && right_point.to_diagonal_doubled() > threshold_doubled
-        {
+    let mut match_row_for_column = vec![None::<usize>; size];
+    for row in 0..size {
+        let mut visited = vec![false; size];
+        if !augment(row, &adjacency, &mut match_row_for_column, &mut visited) {
             return false;
         }
     }
@@ -571,9 +563,11 @@ fn hungarian(cost: &[Vec<u128>]) -> Vec<usize> {
     }
 
     // One-based potentials and matching arrays following the standard
-    // Jonker-Volgenant style augmentation over a square matrix.
+    // Jonker-Volgenant style augmentation over a square matrix. The textbook
+    // column potential is non-positive for minimization; store its negation so
+    // all arithmetic can stay unsigned and saturating.
     let mut row_potential = vec![0u128; n + 1];
-    let mut column_potential = vec![0u128; n + 1];
+    let mut column_penalty = vec![0u128; n + 1];
     let mut column_match = vec![0usize; n + 1];
     let mut way = vec![0usize; n + 1];
 
@@ -596,7 +590,7 @@ fn hungarian(cost: &[Vec<u128>]) -> Vec<usize> {
                 let reduced = saturating_reduced_cost(
                     cost[matched_row - 1][column - 1],
                     row_potential[matched_row],
-                    column_potential[column],
+                    column_penalty[column],
                 );
                 if reduced < min_slack[column] {
                     min_slack[column] = reduced;
@@ -612,7 +606,7 @@ fn hungarian(cost: &[Vec<u128>]) -> Vec<usize> {
                 if used[column] {
                     row_potential[column_match[column]] =
                         row_potential[column_match[column]].saturating_add(delta);
-                    column_potential[column] = column_potential[column].saturating_sub(delta);
+                    column_penalty[column] = column_penalty[column].saturating_add(delta);
                 } else {
                     min_slack[column] = min_slack[column].saturating_sub(delta);
                 }
@@ -645,15 +639,16 @@ fn hungarian(cost: &[Vec<u128>]) -> Vec<usize> {
 
 /// Computes `cost - row_potential - column_potential` without underflow.
 ///
-/// Potentials never exceed the matched cost in the Kuhn-Munkres invariant, but
-/// the saturating form keeps the [`INFEASIBLE_COST`] sentinel stable and avoids
-/// any panic path on integer subtraction.
-fn saturating_reduced_cost(cost: u128, row_potential: u128, column_potential: u128) -> u128 {
+/// The minimization algorithm's column potential is non-positive, and callers
+/// pass its negation as `column_penalty`. The saturating form keeps the
+/// [`INFEASIBLE_COST`] sentinel stable and avoids any panic path on integer
+/// arithmetic.
+fn saturating_reduced_cost(cost: u128, row_potential: u128, column_penalty: u128) -> u128 {
     if cost == INFEASIBLE_COST {
         return INFEASIBLE_COST;
     }
-    let potential = row_potential.saturating_add(column_potential);
-    cost.saturating_sub(potential)
+    cost.saturating_add(column_penalty)
+        .saturating_sub(row_potential)
 }
 
 fn malformed(field: &str, reason: impl Into<String>) -> CoreError {
@@ -925,6 +920,407 @@ mod tests {
             m.kind,
             PersistenceMatchKind::LeftToDiagonal | PersistenceMatchKind::RightToDiagonal
         )));
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    struct OraclePoint {
+        birth_index: usize,
+        death_index: usize,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    struct OracleResult {
+        wasserstein_p1: u128,
+        wasserstein_p2: u128,
+        bottleneck: u64,
+    }
+
+    struct SplitMix64 {
+        state: u64,
+    }
+
+    impl SplitMix64 {
+        fn new(seed: u64) -> Self {
+            Self { state: seed }
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            self.state = self.state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+            let mut value = self.state;
+            value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+            value ^ (value >> 31)
+        }
+
+        fn usize_inclusive(&mut self, min: usize, max: usize) -> usize {
+            let span = max - min + 1;
+            min + (self.next_u64() % span as u64) as usize
+        }
+    }
+
+    fn stages_for_count(stage_count: usize) -> Vec<Id> {
+        (0..stage_count)
+            .map(|index| id(&format!("s{index}")))
+            .collect()
+    }
+
+    fn oracle_interval(
+        dimension: Dim,
+        stage_count: usize,
+        point: OraclePoint,
+        generator: &str,
+    ) -> PersistenceInterval {
+        let death_stage_id =
+            (point.death_index < stage_count).then(|| id(&format!("s{}", point.death_index)));
+        PersistenceInterval {
+            dimension,
+            birth_stage_id: id(&format!("s{}", point.birth_index)),
+            birth_stage_index: point.birth_index,
+            death_stage_id,
+            death_stage_index: (point.death_index < stage_count).then_some(point.death_index),
+            generator_cell_ids: vec![id(generator)],
+        }
+    }
+
+    fn oracle_intervals(
+        dimension: Dim,
+        stage_count: usize,
+        side: &str,
+        points: &[OraclePoint],
+    ) -> Vec<PersistenceInterval> {
+        points
+            .iter()
+            .enumerate()
+            .map(|(index, &point)| {
+                oracle_interval(
+                    dimension,
+                    stage_count,
+                    point,
+                    &format!("oracle-{side}-{index}"),
+                )
+            })
+            .collect()
+    }
+
+    fn random_oracle_point(rng: &mut SplitMix64, stage_count: usize) -> OraclePoint {
+        let birth_index = rng.usize_inclusive(0, stage_count - 1);
+        let death_index = rng.usize_inclusive(birth_index, stage_count);
+        OraclePoint {
+            birth_index,
+            death_index,
+        }
+    }
+
+    fn linf_oracle_doubled(left: OraclePoint, right: OraclePoint) -> u64 {
+        2 * left
+            .birth_index
+            .abs_diff(right.birth_index)
+            .max(left.death_index.abs_diff(right.death_index)) as u64
+    }
+
+    fn diagonal_oracle_doubled(point: OraclePoint) -> u64 {
+        (point.death_index - point.birth_index) as u64
+    }
+
+    fn brute_force_oracle(left: &[OraclePoint], right: &[OraclePoint]) -> OracleResult {
+        let left_count = left.len();
+        let right_count = right.len();
+        let size = left_count + right_count;
+        if size == 0 {
+            return OracleResult {
+                wasserstein_p1: 0,
+                wasserstein_p2: 0,
+                bottleneck: 0,
+            };
+        }
+
+        let mut cost = vec![vec![None; size]; size];
+        for (left_index, &left_point) in left.iter().enumerate() {
+            for (right_index, &right_point) in right.iter().enumerate() {
+                cost[left_index][right_index] = Some(linf_oracle_doubled(left_point, right_point));
+            }
+            cost[left_index][right_count + left_index] = Some(diagonal_oracle_doubled(left_point));
+        }
+        for (right_index, &right_point) in right.iter().enumerate() {
+            cost[left_count + right_index][right_index] =
+                Some(diagonal_oracle_doubled(right_point));
+            for left_index in 0..left_count {
+                cost[left_count + right_index][right_count + left_index] = Some(0);
+            }
+        }
+
+        let mut used = vec![false; size];
+        let mut permutation = vec![0usize; size];
+        let mut best = None;
+        enumerate_oracle_permutations(0, &cost, &mut used, &mut permutation, &mut best);
+        best.expect("augmented oracle matrix has at least one feasible permutation")
+    }
+
+    fn enumerate_oracle_permutations(
+        row: usize,
+        cost: &[Vec<Option<u64>>],
+        used: &mut [bool],
+        permutation: &mut [usize],
+        best: &mut Option<OracleResult>,
+    ) {
+        if row == cost.len() {
+            let mut wasserstein_p1 = 0u128;
+            let mut wasserstein_p2 = 0u128;
+            let mut bottleneck = 0u64;
+            for (row_index, &column_index) in permutation.iter().enumerate() {
+                let entry = cost[row_index][column_index].expect("permutation is feasible");
+                wasserstein_p1 += u128::from(entry);
+                wasserstein_p2 += u128::from(entry) * u128::from(entry);
+                bottleneck = bottleneck.max(entry);
+            }
+
+            match best {
+                Some(best) => {
+                    best.wasserstein_p1 = best.wasserstein_p1.min(wasserstein_p1);
+                    best.wasserstein_p2 = best.wasserstein_p2.min(wasserstein_p2);
+                    best.bottleneck = best.bottleneck.min(bottleneck);
+                }
+                None => {
+                    *best = Some(OracleResult {
+                        wasserstein_p1,
+                        wasserstein_p2,
+                        bottleneck,
+                    });
+                }
+            }
+            return;
+        }
+
+        for column in 0..cost.len() {
+            if used[column] || cost[row][column].is_none() {
+                continue;
+            }
+            used[column] = true;
+            permutation[row] = column;
+            enumerate_oracle_permutations(row + 1, cost, used, permutation, best);
+            used[column] = false;
+        }
+    }
+
+    fn assert_oracle_case(
+        label: &str,
+        stage_count: usize,
+        left_points: &[OraclePoint],
+        right_points: &[OraclePoint],
+    ) {
+        let dimension = 0;
+        let oracle = brute_force_oracle(left_points, right_points);
+        let left = oracle_intervals(dimension, stage_count, "left", left_points);
+        let right = oracle_intervals(dimension, stage_count, "right", right_points);
+        let stage_ids = stages_for_count(stage_count);
+
+        let p1_report = persistence_distance(&PersistenceDistanceRequest::new(
+            stage_ids.clone(),
+            left.clone(),
+            right.clone(),
+        ))
+        .expect("p=1 distance");
+        let p2_report = persistence_distance(
+            &PersistenceDistanceRequest::new(stage_ids, left, right).with_wasserstein_order(2),
+        )
+        .expect("p=2 distance");
+
+        let p1_dimension = p1_report
+            .dimensions
+            .iter()
+            .find(|distance| distance.dimension == dimension);
+        let p2_dimension = p2_report
+            .dimensions
+            .iter()
+            .find(|distance| distance.dimension == dimension);
+
+        let kernel_p1 =
+            p1_dimension.map_or(0, |distance| distance.wasserstein_cost_power_sum_doubled);
+        let kernel_p2 =
+            p2_dimension.map_or(0, |distance| distance.wasserstein_cost_power_sum_doubled);
+        let kernel_bottleneck = p1_dimension.map_or(0, |distance| distance.bottleneck_doubled);
+
+        assert_metric_eq(
+            label,
+            stage_count,
+            left_points,
+            right_points,
+            "wasserstein p=1 power sum",
+            oracle.wasserstein_p1,
+            kernel_p1,
+        );
+        assert_metric_eq(
+            label,
+            stage_count,
+            left_points,
+            right_points,
+            "wasserstein p=2 power sum",
+            oracle.wasserstein_p2,
+            kernel_p2,
+        );
+        assert_metric_eq(
+            label,
+            stage_count,
+            left_points,
+            right_points,
+            "bottleneck",
+            u128::from(oracle.bottleneck),
+            u128::from(kernel_bottleneck),
+        );
+    }
+
+    fn assert_metric_eq(
+        label: &str,
+        stage_count: usize,
+        left_points: &[OraclePoint],
+        right_points: &[OraclePoint],
+        metric: &str,
+        expected: u128,
+        actual: u128,
+    ) {
+        if expected != actual {
+            panic!(
+                "brute-force oracle mismatch in {label}: metric={metric}, stage_count={stage_count}, left={left_points:?}, right={right_points:?}, oracle_expected={expected}, kernel_actual={actual}"
+            );
+        }
+    }
+
+    #[test]
+    fn brute_force_oracle_randomized() {
+        const SEEDS: [u64; 8] = [
+            0x0000_0000_0000_0000,
+            0x0123_4567_89ab_cdef,
+            0xfedc_ba98_7654_3210,
+            0x9e37_79b9_7f4a_7c15,
+            0x243f_6a88_85a3_08d3,
+            0x1319_8a2e_0370_7344,
+            0xa409_3822_299f_31d0,
+            0x082e_fa98_ec4e_6c89,
+        ];
+        const CASES_PER_SEED: usize = 25;
+
+        let mut case_count = 0usize;
+        for seed in SEEDS {
+            let mut rng = SplitMix64::new(seed);
+            for case_index in 0..CASES_PER_SEED {
+                let stage_count = rng.usize_inclusive(5, 8);
+                let left_count = rng.usize_inclusive(0, 3);
+                let mut right_count = rng.usize_inclusive(0, 3);
+                if left_count == 0 && right_count == 0 {
+                    right_count = 1;
+                }
+
+                let left_points = (0..left_count)
+                    .map(|_| random_oracle_point(&mut rng, stage_count))
+                    .collect::<Vec<_>>();
+                let right_points = (0..right_count)
+                    .map(|_| random_oracle_point(&mut rng, stage_count))
+                    .collect::<Vec<_>>();
+                assert_oracle_case(
+                    &format!("random seed={seed:#018x} case={case_index}"),
+                    stage_count,
+                    &left_points,
+                    &right_points,
+                );
+                case_count += 1;
+            }
+        }
+
+        assert_eq!(case_count, SEEDS.len() * CASES_PER_SEED);
+        assert!(case_count >= 200);
+    }
+
+    #[test]
+    fn brute_force_oracle_regression_w2_69_case() {
+        assert_oracle_case(
+            "regression original w2 69 case",
+            8,
+            &[
+                OraclePoint {
+                    birth_index: 2,
+                    death_index: 8,
+                },
+                OraclePoint {
+                    birth_index: 4,
+                    death_index: 4,
+                },
+            ],
+            &[
+                OraclePoint {
+                    birth_index: 0,
+                    death_index: 2,
+                },
+                OraclePoint {
+                    birth_index: 0,
+                    death_index: 8,
+                },
+                OraclePoint {
+                    birth_index: 1,
+                    death_index: 8,
+                },
+            ],
+        );
+    }
+
+    #[test]
+    fn brute_force_oracle_degenerate_cases() {
+        assert_oracle_case(
+            "degenerate empty left vs two-point right",
+            6,
+            &[],
+            &[
+                OraclePoint {
+                    birth_index: 0,
+                    death_index: 2,
+                },
+                OraclePoint {
+                    birth_index: 3,
+                    death_index: 6,
+                },
+            ],
+        );
+
+        let duplicated = [
+            OraclePoint {
+                birth_index: 2,
+                death_index: 5,
+            },
+            OraclePoint {
+                birth_index: 2,
+                death_index: 5,
+            },
+        ];
+        assert_oracle_case(
+            "degenerate duplicate identical points on both sides",
+            7,
+            &duplicated,
+            &duplicated,
+        );
+
+        assert_oracle_case(
+            "degenerate far-apart points prefer diagonal",
+            8,
+            &[
+                OraclePoint {
+                    birth_index: 0,
+                    death_index: 3,
+                },
+                OraclePoint {
+                    birth_index: 0,
+                    death_index: 2,
+                },
+            ],
+            &[
+                OraclePoint {
+                    birth_index: 5,
+                    death_index: 8,
+                },
+                OraclePoint {
+                    birth_index: 6,
+                    death_index: 8,
+                },
+            ],
+        );
     }
 
     #[test]
