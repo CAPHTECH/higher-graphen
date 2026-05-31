@@ -1,5 +1,8 @@
 use super::*;
-use crate::morphism::{construct_explicit_pushout, Morphism, PushoutInputs, PushoutOutcome};
+use crate::morphism::{
+    construct_explicit_pullback, construct_explicit_pushout, Morphism, PullbackInputs,
+    PullbackOutcome, PushoutInputs, PushoutOutcome,
+};
 use crate::space::ComplexType;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -179,6 +182,83 @@ impl InMemorySpaceStore {
             left_incidences: &left_incidences,
             right_incidences: &right_incidences,
         }))
+    }
+
+    /// Constructs a finite pullback candidate over a cospan whose legs are the
+    /// two morphisms, gathering source-space cells and incidences from this
+    /// store. Read-only: the constructed candidate is returned, never inserted.
+    pub fn construct_pullback(
+        &self,
+        left: &Morphism,
+        right: &Morphism,
+        candidate_space_id: Id,
+        candidate_space_name: String,
+        complex_type: ComplexType,
+    ) -> std::result::Result<PullbackOutcome, CoreError> {
+        if !self.spaces.contains_key(&left.source_space_id) {
+            return Err(malformed(
+                "left",
+                format!(
+                    "source space identifier {} does not exist in the store",
+                    left.source_space_id
+                ),
+            ));
+        }
+        if !self.spaces.contains_key(&right.source_space_id) {
+            return Err(malformed(
+                "right",
+                format!(
+                    "source space identifier {} does not exist in the store",
+                    right.source_space_id
+                ),
+            ));
+        }
+
+        let mut left_source_cells = self
+            .cells
+            .values()
+            .filter(|cell| cell.space_id == left.source_space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        left_source_cells.sort_by(|left, right| left.id.cmp(&right.id));
+
+        let mut right_source_cells = self
+            .cells
+            .values()
+            .filter(|cell| cell.space_id == right.source_space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        right_source_cells.sort_by(|left, right| left.id.cmp(&right.id));
+
+        let mut left_source_incidences = self
+            .incidences
+            .values()
+            .filter(|incidence| incidence.space_id == left.source_space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        left_source_incidences.sort_by(|left, right| left.id.cmp(&right.id));
+
+        let mut right_source_incidences = self
+            .incidences
+            .values()
+            .filter(|incidence| incidence.space_id == right.source_space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        right_source_incidences.sort_by(|left, right| left.id.cmp(&right.id));
+
+        Ok(construct_explicit_pullback(
+            PullbackInputs {
+                left: left.clone(),
+                right: right.clone(),
+                left_source_cells,
+                right_source_cells,
+                left_source_incidences,
+                right_source_incidences,
+            },
+            candidate_space_id,
+            candidate_space_name,
+            complex_type,
+        ))
     }
 
     /// Returns a space by identifier.

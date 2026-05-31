@@ -576,6 +576,9 @@ mod diagram;
 #[path = "tests/pushout.rs"]
 mod pushout;
 
+#[path = "tests/pullback.rs"]
+mod pullback;
+
 fn fixture_morphism<const C: usize, const R: usize, const I: usize>(
     morphism_id: &str,
     source_space_id: &str,
