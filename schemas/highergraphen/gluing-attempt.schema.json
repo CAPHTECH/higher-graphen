@@ -52,7 +52,6 @@
           "additionalProperties": false,
           "required": [
             "kind",
-            "mergedComplex",
             "preservationReport"
           ],
           "properties": {

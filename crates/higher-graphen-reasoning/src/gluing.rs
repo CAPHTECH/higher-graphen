@@ -5,7 +5,20 @@ use higher_graphen_core::{
     DifferingStructure, GluingAttempt, GluingResult, Id, InvariantCheckResult, PreservationReport,
     Result, ReviewRequirement, ReviewStatus, SharedStructure,
 };
+use higher_graphen_structure::{
+    morphism::{Morphism, PushoutConstruction, PushoutObstructionType, PushoutOutcome},
+    space::{ComplexType, InMemorySpaceStore},
+};
 use std::collections::BTreeSet;
+
+/// Outcome of gluing two concrete structures over a cospan.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructuralGluing {
+    /// Gluing classification in the gluing vocabulary.
+    pub result: GluingResult,
+    /// Materialized merged structure, present only when pushout construction succeeded.
+    pub construction: Option<PushoutConstruction>,
+}
 
 /// Checks whether a correspondence can be glued without silent loss.
 ///
@@ -89,9 +102,142 @@ fn gluing_result(
     }
 
     Ok(GluingResult::Success {
-        merged_complex: Id::new(format!("complex:glued:{base_id}"))?,
+        merged_complex: None,
         preservation_report: preservation_report.clone(),
     })
+}
+
+/// Attempts to glue concrete structures by constructing a finite pushout candidate.
+///
+/// The store is used read-only: the pushout candidate is returned in the result
+/// and is never inserted back into the store.
+pub fn attempt_structural_gluing(
+    left: &Morphism,
+    right: &Morphism,
+    store: &InMemorySpaceStore,
+    candidate_space_id: Id,
+    candidate_space_name: String,
+    complex_type: ComplexType,
+) -> std::result::Result<StructuralGluing, CoreError> {
+    let candidate_segment = safe_id_segment(&candidate_space_id);
+    let outcome = store.construct_pushout(
+        left,
+        right,
+        candidate_space_id,
+        candidate_space_name,
+        complex_type,
+    )?;
+
+    match outcome {
+        PushoutOutcome::Constructed {
+            construction,
+            report: _,
+        } => {
+            let construction = *construction;
+            match construction.review_status {
+                ReviewStatus::Unreviewed | ReviewStatus::Accepted => {
+                    let merged_complex = construction.complex.id.clone();
+                    let result = GluingResult::Success {
+                        merged_complex: Some(merged_complex),
+                        preservation_report: preservation_report_from_pushout(&construction),
+                    };
+                    let structural_gluing = StructuralGluing {
+                        result,
+                        construction: Some(construction),
+                    };
+                    debug_assert!(success_honesty_invariant(&structural_gluing));
+                    Ok(structural_gluing)
+                }
+                ReviewStatus::Candidate | ReviewStatus::Reviewed | ReviewStatus::Rejected => {
+                    let reason = structural_review_reason(construction.review_status);
+                    Ok(StructuralGluing {
+                        result: GluingResult::Candidate {
+                            completion_candidate: Id::new(format!(
+                                "completion:structural-gluing:{candidate_segment}"
+                            ))?,
+                            required_review: ReviewRequirement::new(true)
+                                .with_decision_reason(reason)?,
+                        },
+                        construction: Some(construction),
+                    })
+                }
+            }
+        }
+        PushoutOutcome::Blocked { report } => Ok(StructuralGluing {
+            result: GluingResult::Failure {
+                obstruction: Id::new(format!(
+                    "obstruction:pushout:{}:{}",
+                    candidate_segment,
+                    pushout_obstruction_segment(
+                        report
+                            .obstructions
+                            .first()
+                            .map(|obstruction| &obstruction.obstruction_type)
+                    )
+                ))?,
+            },
+            construction: None,
+        }),
+    }
+}
+
+fn preservation_report_from_pushout(construction: &PushoutConstruction) -> PreservationReport {
+    let preserved_structures = construction
+        .complex
+        .cell_ids
+        .iter()
+        .chain(construction.complex.incidence_ids.iter())
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    PreservationReport {
+        preserved_invariants: Vec::new(),
+        preserved_structures,
+        summary: Some(format!(
+            "constructed pushout complex {} with {} cell(s) and {} incidence(s)",
+            construction.complex.id,
+            construction.cells.len(),
+            construction.incidences.len()
+        )),
+    }
+}
+
+fn structural_review_reason(review_status: ReviewStatus) -> &'static str {
+    match review_status {
+        ReviewStatus::Candidate => "ambiguous identification requires review",
+        ReviewStatus::Reviewed => "reviewed pushout candidate requires explicit acceptance",
+        ReviewStatus::Rejected => "rejected pushout candidate cannot be silently glued",
+        ReviewStatus::Unreviewed | ReviewStatus::Accepted => {
+            "pushout construction does not require review"
+        }
+    }
+}
+
+fn pushout_obstruction_segment(obstruction_type: Option<&PushoutObstructionType>) -> &'static str {
+    match obstruction_type {
+        Some(PushoutObstructionType::IncompatibleSourceSpace) => "incompatible-source-space",
+        Some(PushoutObstructionType::PushoutIncomplete) => "pushout-incomplete",
+        Some(PushoutObstructionType::IncompatibleIdentification) => "incompatible-identification",
+        Some(PushoutObstructionType::RelationEndpointConflict) => "relation-endpoint-conflict",
+        Some(PushoutObstructionType::AmbiguousIdentification) => "ambiguous-identification",
+        None => "blocked",
+    }
+}
+
+fn success_honesty_invariant(gluing: &StructuralGluing) -> bool {
+    match (&gluing.result, &gluing.construction) {
+        (
+            GluingResult::Success {
+                merged_complex: Some(merged_complex),
+                ..
+            },
+            Some(construction),
+        ) => construction.complex.id == *merged_complex,
+        (GluingResult::Success { .. }, _) => false,
+        _ => true,
+    }
 }
 
 fn failure_reason(
@@ -327,7 +473,12 @@ mod tests {
     use super::*;
     use higher_graphen_core::{
         Confidence, CorrespondenceKind, CorrespondenceParticipant, CorrespondencePolarity, Feature,
-        OverlapWitness, OverlapWitnessKind, ParticipantMapping, ParticipantRef, Scope,
+        OverlapWitness, OverlapWitnessKind, ParticipantMapping, ParticipantRef, Provenance, Scope,
+        SourceKind, SourceRef,
+    };
+    use higher_graphen_structure::{
+        morphism::MorphismType,
+        space::{Cell, Incidence, IncidenceOrientation, Space},
     };
     use std::collections::BTreeMap;
 
@@ -447,16 +598,21 @@ mod tests {
 
         let attempt = attempt_gluing(&correspondence).expect("gluing check");
 
-        match attempt.result {
+        match &attempt.result {
             GluingResult::Success {
+                merged_complex,
                 preservation_report,
-                ..
             } => {
+                assert!(merged_complex.is_none());
                 assert!(!preservation_report.preserved_structures.is_empty());
                 assert!(preservation_report.summary.is_some());
             }
             other => panic!("expected success, got {other:?}"),
         }
+        let serialized = serde_json::to_string(&attempt).expect("serialize attempt");
+        let fabricated_prefix = ["complex", "glued"].join(":");
+        assert!(!serialized.contains("mergedComplex"));
+        assert!(!serialized.contains(&fabricated_prefix));
         assert!(attempt.preservation_report.summary.is_some());
     }
 
@@ -469,5 +625,228 @@ mod tests {
         let attempt = attempt_gluing(&correspondence).expect("gluing check");
 
         assert!(matches!(attempt.result, GluingResult::Candidate { .. }));
+    }
+
+    #[test]
+    fn gluing_result_option_roundtrips_for_absent_and_present_complex() {
+        let absent = GluingResult::Success {
+            merged_complex: None,
+            preservation_report: PreservationReport::default(),
+        };
+        let absent_value = serde_json::to_value(&absent).expect("serialize absent success");
+        assert!(absent_value.get("mergedComplex").is_none());
+        let absent_roundtrip: GluingResult =
+            serde_json::from_value(absent_value).expect("deserialize absent success");
+        assert_eq!(absent_roundtrip, absent);
+
+        let present = GluingResult::Success {
+            merged_complex: Some(id("complex:materialized")),
+            preservation_report: PreservationReport::default(),
+        };
+        let present_value = serde_json::to_value(&present).expect("serialize present success");
+        assert_eq!(
+            present_value
+                .get("mergedComplex")
+                .and_then(|value| value.as_str()),
+            Some("complex:materialized")
+        );
+        let present_roundtrip: GluingResult =
+            serde_json::from_value(present_value).expect("deserialize present success");
+        assert_eq!(present_roundtrip, present);
+    }
+
+    #[test]
+    fn structural_gluing_success_returns_real_constructed_complex_id() {
+        let (store, left, right) = clean_pushout_store();
+
+        let structural = attempt_structural_gluing(
+            &left,
+            &right,
+            &store,
+            id("space/pushout"),
+            "Pushout".to_owned(),
+            ComplexType::CellComplex,
+        )
+        .expect("structural gluing");
+
+        match (&structural.result, &structural.construction) {
+            (
+                GluingResult::Success {
+                    merged_complex: Some(merged_complex),
+                    preservation_report,
+                },
+                Some(construction),
+            ) => {
+                assert_eq!(merged_complex, &construction.complex.id);
+                assert!(!preservation_report.preserved_structures.is_empty());
+            }
+            other => panic!("expected successful structural gluing, got {other:?}"),
+        }
+        assert!(success_honesty_invariant(&structural));
+    }
+
+    #[test]
+    fn structural_gluing_blocked_returns_failure_without_construction() {
+        let (store, left, mut right) = clean_pushout_store();
+        right.source_space_id = id("space/other-source");
+
+        let structural = attempt_structural_gluing(
+            &left,
+            &right,
+            &store,
+            id("space/pushout"),
+            "Pushout".to_owned(),
+            ComplexType::CellComplex,
+        )
+        .expect("structural gluing");
+
+        assert!(matches!(structural.result, GluingResult::Failure { .. }));
+        assert!(structural.construction.is_none());
+    }
+
+    #[test]
+    fn structural_gluing_ambiguous_returns_candidate_with_construction() {
+        let (store, mut left, right) = clean_pushout_store();
+        left.cell_mapping
+            .insert(id("cell/source-b"), id("cell/left-a"));
+
+        let structural = attempt_structural_gluing(
+            &left,
+            &right,
+            &store,
+            id("space/pushout"),
+            "Pushout".to_owned(),
+            ComplexType::CellComplex,
+        )
+        .expect("structural gluing");
+
+        match structural.result {
+            GluingResult::Candidate {
+                required_review, ..
+            } => {
+                assert!(required_review.required);
+                assert_eq!(
+                    required_review.decision_reason.as_deref(),
+                    Some("ambiguous identification requires review")
+                );
+            }
+            other => panic!("expected candidate, got {other:?}"),
+        }
+        assert!(structural.construction.is_some());
+    }
+
+    fn clean_pushout_store() -> (InMemorySpaceStore, Morphism, Morphism) {
+        let left = fixture_morphism(
+            "morphism:left",
+            "space/source",
+            "space/left",
+            [
+                ("cell/source-a", "cell/left-a"),
+                ("cell/source-b", "cell/left-b"),
+            ],
+            [],
+        );
+        let right = fixture_morphism(
+            "morphism:right",
+            "space/source",
+            "space/right",
+            [
+                ("cell/source-a", "cell/right-a"),
+                ("cell/source-b", "cell/right-b"),
+            ],
+            [],
+        );
+        let mut store = InMemorySpaceStore::new();
+        for (space_id, name) in [
+            ("space/source", "Source"),
+            ("space/left", "Left"),
+            ("space/right", "Right"),
+        ] {
+            store
+                .insert_space(Space::new(id(space_id), name))
+                .expect("insert space");
+        }
+        store
+            .insert_cell(Cell::new(id("cell/left-a"), id("space/left"), 0, "vertex"))
+            .expect("insert left cell a");
+        store
+            .insert_cell(Cell::new(id("cell/left-b"), id("space/left"), 0, "vertex"))
+            .expect("insert left cell b");
+        store
+            .insert_cell(Cell::new(
+                id("cell/right-a"),
+                id("space/right"),
+                0,
+                "vertex",
+            ))
+            .expect("insert right cell a");
+        store
+            .insert_cell(Cell::new(
+                id("cell/right-b"),
+                id("space/right"),
+                0,
+                "vertex",
+            ))
+            .expect("insert right cell b");
+        store
+            .insert_incidence(Incidence::new(
+                id("incidence/left-a"),
+                id("space/left"),
+                id("cell/left-a"),
+                id("cell/left-b"),
+                "edge",
+                IncidenceOrientation::Directed,
+            ))
+            .expect("insert left incidence");
+        store
+            .insert_incidence(Incidence::new(
+                id("incidence/right-a"),
+                id("space/right"),
+                id("cell/right-a"),
+                id("cell/right-b"),
+                "edge",
+                IncidenceOrientation::Directed,
+            ))
+            .expect("insert right incidence");
+
+        (store, left, right)
+    }
+
+    fn fixture_morphism<const C: usize, const R: usize>(
+        morphism_id: &str,
+        source_space_id: &str,
+        target_space_id: &str,
+        cell_pairs: [(&str, &str); C],
+        relation_pairs: [(&str, &str); R],
+    ) -> Morphism {
+        Morphism {
+            id: id(morphism_id),
+            source_space_id: id(source_space_id),
+            target_space_id: id(target_space_id),
+            name: morphism_id.to_owned(),
+            morphism_type: MorphismType::Translation,
+            cell_mapping: mapping(cell_pairs),
+            relation_mapping: mapping(relation_pairs),
+            preserved_invariant_ids: Vec::new(),
+            lost_structure: Vec::new(),
+            distortion: Vec::new(),
+            composable_with: Vec::new(),
+            provenance: provenance(),
+        }
+    }
+
+    fn mapping<const N: usize>(pairs: [(&str, &str); N]) -> BTreeMap<Id, Id> {
+        pairs
+            .into_iter()
+            .map(|(source_id, target_id)| (id(source_id), id(target_id)))
+            .collect()
+    }
+
+    fn provenance() -> Provenance {
+        Provenance::new(
+            SourceRef::new(SourceKind::custom("gluing-test").expect("valid source kind")),
+            Confidence::ONE,
+        )
+        .with_review_status(ReviewStatus::Accepted)
     }
 }

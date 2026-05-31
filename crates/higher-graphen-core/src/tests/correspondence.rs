@@ -110,7 +110,7 @@ fn gluing_success_requires_preservation_and_blocks_silent_merge() {
         invariant_checks: Vec::new(),
         preservation_report: PreservationReport::default(),
         result: GluingResult::Success {
-            merged_complex: id("complex:merged"),
+            merged_complex: Some(id("complex:merged")),
             preservation_report: PreservationReport::default(),
         },
         evidence: vec![id("evidence:architecture-doc")],
@@ -129,7 +129,7 @@ fn gluing_success_requires_preservation_and_blocks_silent_merge() {
 
     if let Some(gluing) = &mut correspondence.gluing {
         gluing.result = GluingResult::Success {
-            merged_complex: id("complex:merged"),
+            merged_complex: Some(id("complex:merged")),
             preservation_report: PreservationReport {
                 preserved_invariants: vec![id("invariant:no-cross-context-db-access")],
                 preserved_structures: Vec::new(),
