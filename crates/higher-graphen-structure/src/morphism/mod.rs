@@ -177,6 +177,16 @@ pub enum PullbackObstructionType {
     IncompatibleTargetSpace,
     /// At least one explicit mapping has no partner with the same target.
     PullbackIncomplete,
+    /// Matched source cells or relations disagree on attributes required for one fiber element.
+    IncompatibleFiber,
+}
+
+impl PullbackObstructionType {
+    /// Returns true when this obstruction prevents materializing the pullback candidate.
+    #[must_use]
+    pub fn is_blocking(&self) -> bool {
+        true
+    }
 }
 
 /// Structured pullback extraction obstruction.
@@ -262,6 +272,61 @@ impl ExplicitPullbackReport {
     pub fn is_complete(&self) -> bool {
         self.obstructions.is_empty()
     }
+}
+
+/// Explicit finite inputs used to construct a binary pullback candidate.
+#[derive(Clone, Debug)]
+pub struct PullbackInputs {
+    /// Left cospan leg from its source space into the shared target space.
+    pub left: Morphism,
+    /// Right cospan leg from its source space into the shared target space.
+    pub right: Morphism,
+    /// Cells from the left source space to pair in the finite fiber product.
+    pub left_source_cells: Vec<Cell>,
+    /// Cells from the right source space to pair in the finite fiber product.
+    pub right_source_cells: Vec<Cell>,
+    /// Incidences from the left source space to pair in the finite fiber product.
+    pub left_source_incidences: Vec<Incidence>,
+    /// Incidences from the right source space to pair in the finite fiber product.
+    pub right_source_incidences: Vec<Incidence>,
+}
+
+/// Materialized finite pullback candidate.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PullbackConstruction {
+    /// Populated candidate space containing exactly the constructed memberships.
+    pub space: Space,
+    /// Candidate complex over the constructed cells and incidences.
+    pub complex: Complex,
+    /// Constructed fiber cells sorted by identifier.
+    pub cells: Vec<Cell>,
+    /// Constructed fiber incidences sorted by identifier.
+    pub incidences: Vec<Incidence>,
+    /// Cell-pair matches used to construct the fiber cells.
+    pub cell_matches: Vec<PullbackCellMatch>,
+    /// Relation-pair matches used to construct the fiber incidences.
+    pub relation_matches: Vec<PullbackRelationMatch>,
+}
+
+/// Result of constructing a finite explicit pullback.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PullbackOutcome {
+    /// The pullback was materialized as a reviewable candidate.
+    Constructed {
+        /// The materialized candidate structure.
+        construction: Box<PullbackConstruction>,
+        /// Diagnostic report for the construction.
+        report: ExplicitPullbackReport,
+    },
+    /// Blocking obstructions prevented materializing a valid candidate.
+    Blocked {
+        /// Blocking obstructions collected during construction.
+        obstructions: Vec<PullbackObstruction>,
+        /// Diagnostic report carrying all detected obstructions.
+        report: ExplicitPullbackReport,
+    },
 }
 
 /// Stable obstruction emitted by explicit pushout-candidate extraction.
@@ -1025,6 +1090,369 @@ pub fn construct_explicit_pushout(inputs: PushoutInputs<'_>) -> PushoutOutcome {
         }),
         report,
     }
+}
+
+/// Constructs a deterministic finite pullback candidate for a binary cospan.
+///
+/// The construction pairs left and right source cells whose morphism mappings
+/// agree in the shared target. Blocking obstructions return
+/// [`PullbackOutcome::Blocked`] and do not materialize cells, incidences, or a
+/// complex.
+pub fn construct_explicit_pullback(
+    inputs: PullbackInputs,
+    candidate_space_id: Id,
+    candidate_space_name: String,
+    complex_type: ComplexType,
+) -> PullbackOutcome {
+    let mut report = explicit_pullback_candidate(&inputs.left, &inputs.right);
+
+    if inputs.left.target_space_id != inputs.right.target_space_id {
+        report.review_status = ReviewStatus::Rejected;
+        return PullbackOutcome::Blocked {
+            obstructions: report.obstructions.clone(),
+            report,
+        };
+    }
+
+    let left_cells = inputs
+        .left_source_cells
+        .iter()
+        .map(|cell| (cell.id.clone(), cell))
+        .collect::<BTreeMap<_, _>>();
+    let right_cells = inputs
+        .right_source_cells
+        .iter()
+        .map(|cell| (cell.id.clone(), cell))
+        .collect::<BTreeMap<_, _>>();
+    let left_incidences = inputs
+        .left_source_incidences
+        .iter()
+        .map(|incidence| (incidence.id.clone(), incidence))
+        .collect::<BTreeMap<_, _>>();
+    let right_incidences = inputs
+        .right_source_incidences
+        .iter()
+        .map(|incidence| (incidence.id.clone(), incidence))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut information_loss = report.information_loss.clone();
+    let mut cell_id_by_pair = BTreeMap::<(Id, Id), Id>::new();
+    let mut cells = Vec::new();
+
+    for matched in &report.cell_matches {
+        let Some(canonical_id) = pullback_cell_id(
+            &candidate_space_id,
+            &matched.left_cell_id,
+            &matched.right_cell_id,
+        ) else {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "could not derive a valid canonical cell identifier for pair ({}, {})",
+                    matched.left_cell_id, matched.right_cell_id
+                ),
+            });
+            continue;
+        };
+        cell_id_by_pair.insert(
+            (matched.left_cell_id.clone(), matched.right_cell_id.clone()),
+            canonical_id,
+        );
+    }
+
+    for matched in &report.cell_matches {
+        let Some(canonical_id) =
+            cell_id_by_pair.get(&(matched.left_cell_id.clone(), matched.right_cell_id.clone()))
+        else {
+            continue;
+        };
+        let (Some(left_cell), Some(right_cell)) = (
+            left_cells.get(&matched.left_cell_id),
+            right_cells.get(&matched.right_cell_id),
+        ) else {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "matched cell pair ({}, {}) is not present in the finite source inputs",
+                    matched.left_cell_id, matched.right_cell_id
+                ),
+            });
+            continue;
+        };
+
+        if left_cell.dimension != right_cell.dimension
+            || left_cell.cell_type != right_cell.cell_type
+        {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "matched cell pair ({}, {}) has incompatible dimensions {} vs {} or cell types {:?} vs {:?}",
+                    matched.left_cell_id,
+                    matched.right_cell_id,
+                    left_cell.dimension,
+                    right_cell.dimension,
+                    left_cell.cell_type,
+                    right_cell.cell_type
+                ),
+            });
+            continue;
+        }
+
+        let label = [left_cell.label.clone(), right_cell.label.clone()]
+            .into_iter()
+            .flatten()
+            .min();
+        let mut boundary = BTreeSet::new();
+        for left_boundary_id in &left_cell.boundary {
+            for right_boundary_id in &right_cell.boundary {
+                if let Some(boundary_id) =
+                    cell_id_by_pair.get(&(left_boundary_id.clone(), right_boundary_id.clone()))
+                {
+                    boundary.insert(boundary_id.clone());
+                }
+            }
+        }
+        let mut coboundary = BTreeSet::new();
+        for left_coboundary_id in &left_cell.coboundary {
+            for right_coboundary_id in &right_cell.coboundary {
+                if let Some(coboundary_id) =
+                    cell_id_by_pair.get(&(left_coboundary_id.clone(), right_coboundary_id.clone()))
+                {
+                    coboundary.insert(coboundary_id.clone());
+                }
+            }
+        }
+        let context_ids = left_cell
+            .context_ids
+            .iter()
+            .chain(right_cell.context_ids.iter())
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if left_cell.provenance.is_some() || right_cell.provenance.is_some() {
+            information_loss.push(format!(
+                "cell pair ({}, {}) provenance dropped because the pullback cell has two sources",
+                matched.left_cell_id, matched.right_cell_id
+            ));
+        }
+
+        cells.push(Cell {
+            id: canonical_id.clone(),
+            space_id: candidate_space_id.clone(),
+            dimension: left_cell.dimension,
+            cell_type: left_cell.cell_type.clone(),
+            label,
+            boundary: boundary.into_iter().collect(),
+            coboundary: coboundary.into_iter().collect(),
+            context_ids,
+            provenance: None,
+        });
+    }
+    cells.sort_by(|left, right| left.id.cmp(&right.id));
+
+    let mut incidence_seeds = Vec::new();
+    for matched in &report.relation_matches {
+        let Some(canonical_id) = pullback_incidence_id(
+            &candidate_space_id,
+            &matched.left_relation_id,
+            &matched.right_relation_id,
+        ) else {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "could not derive a valid canonical incidence identifier for pair ({}, {})",
+                    matched.left_relation_id, matched.right_relation_id
+                ),
+            });
+            continue;
+        };
+
+        let (Some(left_incidence), Some(right_incidence)) = (
+            left_incidences.get(&matched.left_relation_id),
+            right_incidences.get(&matched.right_relation_id),
+        ) else {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "matched relation pair ({}, {}) is not present in the finite source inputs",
+                    matched.left_relation_id, matched.right_relation_id
+                ),
+            });
+            continue;
+        };
+
+        if left_incidence.relation_type != right_incidence.relation_type
+            || left_incidence.orientation != right_incidence.orientation
+        {
+            report.obstructions.push(PullbackObstruction {
+                obstruction_type: PullbackObstructionType::IncompatibleFiber,
+                reason: format!(
+                    "matched relation pair ({}, {}) has incompatible relation types {:?} vs {:?} or orientations {:?} vs {:?}",
+                    matched.left_relation_id,
+                    matched.right_relation_id,
+                    left_incidence.relation_type,
+                    right_incidence.relation_type,
+                    left_incidence.orientation,
+                    right_incidence.orientation
+                ),
+            });
+            continue;
+        }
+
+        let from_pair = (
+            left_incidence.from_cell_id.clone(),
+            right_incidence.from_cell_id.clone(),
+        );
+        let to_pair = (
+            left_incidence.to_cell_id.clone(),
+            right_incidence.to_cell_id.clone(),
+        );
+        let (Some(from_cell_id), Some(to_cell_id)) = (
+            cell_id_by_pair.get(&from_pair),
+            cell_id_by_pair.get(&to_pair),
+        ) else {
+            information_loss.push(format!(
+                "relation pair ({}, {}) dropped because one or both endpoint pairs are outside the pullback cells",
+                matched.left_relation_id, matched.right_relation_id
+            ));
+            continue;
+        };
+
+        if left_incidence.provenance.is_some() || right_incidence.provenance.is_some() {
+            information_loss.push(format!(
+                "incidence pair ({}, {}) provenance dropped because the pullback incidence has two sources",
+                matched.left_relation_id, matched.right_relation_id
+            ));
+        }
+
+        incidence_seeds.push(IncidenceSeed {
+            signature: IncidenceSignature {
+                from_cell_id: from_cell_id.clone(),
+                to_cell_id: to_cell_id.clone(),
+                relation_type: left_incidence.relation_type.clone(),
+                orientation: left_incidence.orientation,
+            },
+            incidence: Incidence {
+                id: canonical_id,
+                space_id: candidate_space_id.clone(),
+                from_cell_id: from_cell_id.clone(),
+                to_cell_id: to_cell_id.clone(),
+                relation_type: left_incidence.relation_type.clone(),
+                orientation: left_incidence.orientation,
+                weight: left_incidence.weight,
+                provenance: None,
+            },
+        });
+    }
+    let mut incidences = deduplicate_incidences(incidence_seeds, &mut information_loss);
+    incidences.sort_by(|left, right| left.id.cmp(&right.id));
+
+    report.information_loss = information_loss;
+    report.review_status = if report
+        .obstructions
+        .iter()
+        .any(|obstruction| obstruction.obstruction_type.is_blocking())
+    {
+        ReviewStatus::Rejected
+    } else {
+        ReviewStatus::Candidate
+    };
+
+    if report
+        .obstructions
+        .iter()
+        .any(|obstruction| obstruction.obstruction_type.is_blocking())
+    {
+        return PullbackOutcome::Blocked {
+            obstructions: report.obstructions.clone(),
+            report,
+        };
+    }
+
+    let Some(complex_id) =
+        Id::new(format!("{}/pullback/complex", candidate_space_id.as_str())).ok()
+    else {
+        let mut blocked_report = report;
+        blocked_report.obstructions.push(PullbackObstruction {
+            obstruction_type: PullbackObstructionType::IncompatibleFiber,
+            reason: "could not derive a valid canonical complex identifier".to_owned(),
+        });
+        blocked_report.review_status = ReviewStatus::Rejected;
+        return PullbackOutcome::Blocked {
+            obstructions: blocked_report.obstructions.clone(),
+            report: blocked_report,
+        };
+    };
+
+    let cell_ids = cells.iter().map(|cell| cell.id.clone()).collect::<Vec<_>>();
+    let incidence_ids = incidences
+        .iter()
+        .map(|incidence| incidence.id.clone())
+        .collect::<Vec<_>>();
+    let context_ids = cells
+        .iter()
+        .flat_map(|cell| cell.context_ids.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let max_dimension = cells
+        .iter()
+        .map(|cell| cell.dimension)
+        .max()
+        .map_or(0, |value| value);
+
+    let mut complex = Complex::new(
+        complex_id.clone(),
+        candidate_space_id.clone(),
+        candidate_space_name.clone(),
+        complex_type,
+    );
+    complex.cell_ids = cell_ids.clone();
+    complex.incidence_ids = incidence_ids.clone();
+    complex.max_dimension = max_dimension;
+
+    let mut space = Space::new(candidate_space_id, candidate_space_name);
+    space.cell_ids = cell_ids;
+    space.incidence_ids = incidence_ids;
+    space.complex_ids = vec![complex_id];
+    space.context_ids = context_ids;
+
+    PullbackOutcome::Constructed {
+        construction: Box::new(PullbackConstruction {
+            space,
+            complex,
+            cells,
+            incidences,
+            cell_matches: report.cell_matches.clone(),
+            relation_matches: report.relation_matches.clone(),
+        }),
+        report,
+    }
+}
+
+fn pullback_cell_id(candidate_space_id: &Id, left_cell_id: &Id, right_cell_id: &Id) -> Option<Id> {
+    Id::new(format!(
+        "{}/pullback/cell/{}+{}",
+        candidate_space_id.as_str(),
+        encode_pushout_fragment(left_cell_id.as_str()),
+        encode_pushout_fragment(right_cell_id.as_str())
+    ))
+    .ok()
+}
+
+fn pullback_incidence_id(
+    candidate_space_id: &Id,
+    left_relation_id: &Id,
+    right_relation_id: &Id,
+) -> Option<Id> {
+    Id::new(format!(
+        "{}/pullback/incidence/{}+{}",
+        candidate_space_id.as_str(),
+        encode_pushout_fragment(left_relation_id.as_str()),
+        encode_pushout_fragment(right_relation_id.as_str())
+    ))
+    .ok()
 }
 
 fn pushout_review_status(obstructions: &[PushoutObstruction]) -> ReviewStatus {

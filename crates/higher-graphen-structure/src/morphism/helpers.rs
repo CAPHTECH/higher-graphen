@@ -238,7 +238,7 @@ impl PushoutElementKey {
     }
 }
 
-fn encode_pushout_fragment(value: &str) -> String {
+pub(super) fn encode_pushout_fragment(value: &str) -> String {
     value
         .replace('%', "%25")
         .replace('+', "%2B")
