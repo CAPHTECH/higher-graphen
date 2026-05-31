@@ -4,6 +4,13 @@ use higher_graphen_core::{CoreError, Id, Result, ReviewStatus};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeSet;
 
+mod fixpoint;
+pub use fixpoint::{
+    run_fixpoint, AbstractEdge, AbstractGraph, AbstractGraphNode, AbstractInterpretationReport,
+    FixpointObstruction, FixpointObstructionType, FixpointOptions, MembershipCheck,
+    NodeAbstractState, NodeSeed, WideningEvent,
+};
+
 /// Stable domain category for an abstract element.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
