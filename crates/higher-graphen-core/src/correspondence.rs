@@ -693,9 +693,9 @@ impl CorrespondenceValidationReport {
 pub enum GluingResult {
     /// Participants were safely glued.
     Success {
-        /// Merged complex identifier.
-        #[serde(rename = "mergedComplex")]
-        merged_complex: Id,
+        /// Merged complex identifier when a concrete structure was materialized.
+        #[serde(rename = "mergedComplex", skip_serializing_if = "Option::is_none")]
+        merged_complex: Option<Id>,
         /// Preservation report for the merge.
         #[serde(rename = "preservationReport")]
         preservation_report: PreservationReport,
