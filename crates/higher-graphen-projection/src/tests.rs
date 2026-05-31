@@ -16,6 +16,18 @@ fn loss(source_id: &str) -> InformationLoss {
         .expect("test loss should be valid")
 }
 
+fn loss_many(source_ids: &[&str]) -> InformationLoss {
+    InformationLoss::declared(
+        "summarized detail",
+        source_ids.iter().map(|source_id| id(source_id)),
+    )
+    .expect("test loss should be valid")
+}
+
+fn ids(source_ids: &[&str]) -> Vec<Id> {
+    source_ids.iter().map(|source_id| id(source_id)).collect()
+}
+
 #[test]
 fn projection_requires_declared_information_loss() {
     let projection = Projection::new(
@@ -205,6 +217,321 @@ fn custom_schema_accepts_key_value_output_with_matching_fields() {
     .expect("matching custom output should be valid");
 
     assert_eq!(result.source_ids(), [source_id]);
+}
+
+#[test]
+fn projection_loss_declared_vs_undeclared_collapse() {
+    let declared_result = ProjectionResult::new(
+        id("projection:loss-collapse"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["merged", "solo"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([
+            ProjectionSection::new(
+                "merged",
+                "A and B summarized together",
+                ids(&["cell:b", "cell:a"]),
+            )
+            .expect("section should be valid"),
+            ProjectionSection::new("solo", "C preserved separately", [id("cell:c")])
+                .expect("section should be valid"),
+        ])
+        .expect("output should be valid"),
+        ids(&["cell:c", "cell:a", "cell:b"]),
+        [loss_many(&["cell:b", "cell:a"])],
+    )
+    .expect("result should be valid");
+
+    let declared_report =
+        measure_projection_loss(&declared_result, &ids(&["cell:c", "cell:b", "cell:a"]));
+
+    assert_eq!(declared_report.metric.source_cardinality, 3);
+    assert_eq!(declared_report.metric.projected_cardinality, 2);
+    assert_eq!(declared_report.metric.collapsed_pair_count, 1);
+    assert_eq!(declared_report.metric.distinguished_pair_count, 2);
+    assert_eq!(
+        declared_report.metric.declared_loss_source_ids,
+        ids(&["cell:a", "cell:b"])
+    );
+    assert_eq!(
+        declared_report.ambiguity.collapsed_source_groups,
+        [ProjectionCollapsedSourceGroup {
+            item_id: "section:0:merged".to_owned(),
+            source_ids: ids(&["cell:a", "cell:b"]),
+        }]
+    );
+    assert!(!declared_report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UndeclaredProjectionLoss));
+    assert!(declared_report
+        .ambiguity
+        .missing_loss_declarations
+        .is_empty());
+
+    let undeclared_result = ProjectionResult::new(
+        id("projection:loss-collapse"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["merged", "solo"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([
+            ProjectionSection::new(
+                "merged",
+                "A and B summarized together",
+                ids(&["cell:b", "cell:a"]),
+            )
+            .expect("section should be valid"),
+            ProjectionSection::new("solo", "C preserved separately", [id("cell:c")])
+                .expect("section should be valid"),
+        ])
+        .expect("output should be valid"),
+        ids(&["cell:c", "cell:a", "cell:b"]),
+        [loss("cell:c")],
+    )
+    .expect("result should be valid");
+
+    let undeclared_report =
+        measure_projection_loss(&undeclared_result, &ids(&["cell:c", "cell:b", "cell:a"]));
+
+    assert!(undeclared_report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UndeclaredProjectionLoss));
+    assert_eq!(
+        undeclared_report.ambiguity.missing_loss_declarations,
+        ids(&["cell:a", "cell:b"])
+    );
+    assert_eq!(undeclared_report.ambiguity.risk_severity, Severity::High);
+}
+
+#[test]
+fn projection_loss_ambiguous_declared_vs_undeclared() {
+    let declared_result = ProjectionResult::new(
+        id("projection:loss-ambiguous"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["first", "second"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([
+            ProjectionSection::new("first", "A appears here", [id("cell:a")])
+                .expect("section should be valid"),
+            ProjectionSection::new("second", "A also appears here", [id("cell:a")])
+                .expect("section should be valid"),
+        ])
+        .expect("output should be valid"),
+        [id("cell:a")],
+        [loss("cell:a")],
+    )
+    .expect("result should be valid");
+
+    let declared_report = measure_projection_loss(&declared_result, &ids(&["cell:a"]));
+
+    assert_eq!(declared_report.metric.ambiguity_score, 1.0);
+    assert_eq!(
+        declared_report.ambiguity.ambiguous_output_ids,
+        ["section:0:first".to_owned(), "section:1:second".to_owned()]
+    );
+    assert!(!declared_report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::AmbiguousProjectionOutput));
+
+    let undeclared_result = ProjectionResult::new(
+        id("projection:loss-ambiguous"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["first", "second"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([
+            ProjectionSection::new("first", "A appears here", [id("cell:a")])
+                .expect("section should be valid"),
+            ProjectionSection::new("second", "A also appears here", [id("cell:a")])
+                .expect("section should be valid"),
+        ])
+        .expect("output should be valid"),
+        [id("cell:a")],
+        [loss("cell:unrelated")],
+    )
+    .expect("result should be valid");
+
+    let undeclared_report = measure_projection_loss(&undeclared_result, &ids(&["cell:a"]));
+
+    assert!(undeclared_report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::AmbiguousProjectionOutput));
+    assert_eq!(
+        undeclared_report.ambiguity.missing_loss_declarations,
+        ids(&["cell:a"])
+    );
+    assert_eq!(undeclared_report.ambiguity.risk_severity, Severity::High);
+}
+
+#[test]
+fn projection_loss_reports_undeclared_omission() {
+    let result = ProjectionResult::new(
+        id("projection:loss-omission"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["kept"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([ProjectionSection::new(
+            "kept",
+            "A is represented",
+            [id("cell:a")],
+        )
+        .expect("section should be valid")])
+        .expect("output should be valid"),
+        [id("cell:a")],
+        [loss("cell:unrelated")],
+    )
+    .expect("result should be valid");
+
+    let report = measure_projection_loss(&result, &ids(&["cell:a", "cell:b"]));
+
+    assert_eq!(report.metric.source_cardinality, 2);
+    assert_eq!(
+        report.metric.source_cardinality_basis,
+        ProjectionSourceCardinalityBasis::EligibleSourceUniverse
+    );
+    assert_eq!(report.metric.omitted_source_ids, ids(&["cell:b"]));
+    assert!(report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UndeclaredProjectionLoss));
+    assert_eq!(report.ambiguity.missing_loss_declarations, ids(&["cell:b"]));
+}
+
+#[test]
+fn projection_loss_text_reports_unsupported_and_untraced_metrics() {
+    let result = ProjectionResult::new(
+        id("projection:loss-text"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::text(),
+        RendererKind::PlainText,
+        ProjectionOutput::text("A summary").expect("output should be valid"),
+        [id("cell:a")],
+        [loss("cell:b")],
+    )
+    .expect("result should be valid");
+
+    let report = measure_projection_loss(&result, &ids(&["cell:a", "cell:b"]));
+
+    assert_eq!(report.metric.projected_cardinality, 1);
+    assert_eq!(report.metric.collapsed_pair_count, 0);
+    assert_eq!(report.metric.distinguished_pair_count, 0);
+    assert_eq!(report.metric.omitted_source_ids, ids(&["cell:b"]));
+    assert_eq!(report.metric.ambiguity_score, 0.0);
+    assert!(report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::SourceTraceMissing));
+    assert!(report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UnsupportedLossMetric));
+    assert!(!report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UndeclaredProjectionLoss));
+    assert_eq!(report.ambiguity.risk_severity, Severity::Medium);
+}
+
+#[test]
+fn projection_loss_table_reports_unsupported_and_untraced_metrics() {
+    let result = ProjectionResult::new(
+        id("projection:loss-table"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::table(["cell"]).expect("schema should be valid"),
+        RendererKind::Table,
+        ProjectionOutput::table(["cell"], vec![vec!["cell:a".to_owned()]])
+            .expect("output should be valid"),
+        [id("cell:a")],
+        [loss("cell:b")],
+    )
+    .expect("result should be valid");
+
+    let report = measure_projection_loss(&result, &ids(&["cell:a", "cell:b"]));
+
+    assert_eq!(report.metric.projected_cardinality, 1);
+    assert_eq!(report.metric.source_cardinality, 2);
+    assert_eq!(report.metric.omitted_source_ids, ids(&["cell:b"]));
+    assert!(report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::SourceTraceMissing));
+    assert!(report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UnsupportedLossMetric));
+    assert!(!report
+        .ambiguity
+        .obstructions
+        .contains(&ProjectionLossObstruction::UndeclaredProjectionLoss));
+    assert_eq!(report.ambiguity.risk_severity, Severity::Medium);
+}
+
+#[test]
+fn projection_loss_report_is_deterministic() {
+    let result = ProjectionResult::new(
+        id("projection:loss-deterministic"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::key_value(["merged", "solo"]).expect("schema should be valid"),
+        RendererKind::Structured,
+        ProjectionOutput::key_value([
+            ProjectionEntry::new("merged", "B and A", ids(&["cell:b", "cell:a"]))
+                .expect("entry should be valid"),
+            ProjectionEntry::new("solo", "C", [id("cell:c")]).expect("entry should be valid"),
+        ])
+        .expect("output should be valid"),
+        ids(&["cell:c", "cell:a", "cell:b"]),
+        [loss_many(&["cell:b", "cell:a"])],
+    )
+    .expect("result should be valid");
+
+    let first = measure_projection_loss(&result, &ids(&["cell:c", "cell:b", "cell:a"]));
+    let second = measure_projection_loss(&result, &ids(&["cell:a", "cell:c", "cell:b"]));
+    let first_json = serde_json::to_string(&first).expect("report should serialize");
+    let second_json = serde_json::to_string(&second).expect("report should serialize");
+
+    assert_eq!(first_json, second_json);
+}
+
+#[test]
+fn projection_loss_report_json_round_trips() {
+    let result = ProjectionResult::new(
+        id("projection:loss-round-trip"),
+        ProjectionAudience::Human,
+        ProjectionPurpose::Report,
+        OutputSchema::sections(["merged"]).expect("schema should be valid"),
+        RendererKind::Markdown,
+        ProjectionOutput::sections([ProjectionSection::new(
+            "merged",
+            "A and B summarized",
+            ids(&["cell:a", "cell:b"]),
+        )
+        .expect("section should be valid")])
+        .expect("output should be valid"),
+        ids(&["cell:a", "cell:b"]),
+        [loss_many(&["cell:a", "cell:b"])],
+    )
+    .expect("result should be valid");
+    let report = measure_projection_loss(&result, &ids(&["cell:a", "cell:b"]));
+
+    let json = serde_json::to_string(&report).expect("report should serialize");
+    let decoded: ProjectionLossReport =
+        serde_json::from_str(&json).expect("report should deserialize");
+
+    assert_eq!(decoded, report);
+    assert_eq!(
+        decoded.metric.ambiguity_score,
+        report.metric.ambiguity_score
+    );
 }
 
 #[test]

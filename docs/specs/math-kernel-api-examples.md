@@ -141,3 +141,19 @@ let outcome = construct_explicit_pushout(PushoutInputs {
     right_incidences: &right_incidences,
 });
 ```
+
+## Projection Loss Metrics
+
+```rust
+use higher_graphen_core::Id;
+use higher_graphen_projection::measure_projection_loss;
+
+let eligible_sources = [Id::new("cell:source-a")?, Id::new("cell:source-b")?];
+let report = measure_projection_loss(&projection_result, &eligible_sources);
+
+let collapsed_pairs = report.metric.collapsed_pair_count;
+let review_signals = report.ambiguity.obstructions;
+```
+
+The report computes finite structural loss from a `ProjectionResult`; it does
+not mutate the projection or change review status.
