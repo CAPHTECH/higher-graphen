@@ -290,5 +290,12 @@ pub use analysis::{
     summarize_filtration_with_options,
 };
 
+mod distance;
+pub use distance::{
+    persistence_distance, PersistenceDimensionDistance, PersistenceDistanceObstruction,
+    PersistenceDistanceReport, PersistenceDistanceRequest, PersistenceMatch, PersistenceMatchKind,
+    PersistencePoint, EMPTY_DIAGRAM_PAIR_OBSTRUCTION_TYPE, STRUCTURAL_DRIFT_OBSTRUCTION_TYPE,
+};
+
 #[cfg(test)]
 mod tests;
