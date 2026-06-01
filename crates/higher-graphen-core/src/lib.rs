@@ -9,6 +9,7 @@ mod provenance;
 mod review;
 mod source;
 mod text;
+pub mod typed_provenance;
 
 pub use confidence::Confidence;
 pub use correspondence::{
