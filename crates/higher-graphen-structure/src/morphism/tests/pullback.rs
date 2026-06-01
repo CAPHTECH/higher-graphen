@@ -10,19 +10,17 @@ fn explicit_pullback_constructs_clean_fiber_product() {
     let PullbackOutcome::Constructed {
         construction,
         report,
-    } = construct_explicit_pullback(
-        PullbackInputs {
-            left,
-            right,
-            left_source_cells: left_cells,
-            right_source_cells: right_cells,
-            left_source_incidences: left_incidences,
-            right_source_incidences: right_incidences,
-        },
-        id("space/pullback"),
-        "Pullback".to_owned(),
-        ComplexType::CellComplex,
-    )
+    } = construct_explicit_pullback(PullbackInputs {
+        left,
+        right,
+        candidate_space_id: id("space/pullback"),
+        candidate_space_name: "Pullback".to_owned(),
+        complex_type: ComplexType::CellComplex,
+        left_source_cells: left_cells,
+        right_source_cells: right_cells,
+        left_source_incidences: left_incidences,
+        right_source_incidences: right_incidences,
+    })
     else {
         panic!("clean pullback should construct");
     };
@@ -88,19 +86,17 @@ fn explicit_pullback_blocks_incompatible_fiber_cell_dimension() {
         [],
     );
 
-    let report = blocked_report(construct_explicit_pullback(
-        PullbackInputs {
-            left,
-            right,
-            left_source_cells: vec![Cell::new(id("cell/left-a"), id("space/left"), 0, "vertex")],
-            right_source_cells: vec![Cell::new(id("cell/right-a"), id("space/right"), 1, "edge")],
-            left_source_incidences: Vec::new(),
-            right_source_incidences: Vec::new(),
-        },
-        id("space/pullback"),
-        "Pullback".to_owned(),
-        ComplexType::CellComplex,
-    ));
+    let report = blocked_report(construct_explicit_pullback(PullbackInputs {
+        left,
+        right,
+        candidate_space_id: id("space/pullback"),
+        candidate_space_name: "Pullback".to_owned(),
+        complex_type: ComplexType::CellComplex,
+        left_source_cells: vec![Cell::new(id("cell/left-a"), id("space/left"), 0, "vertex")],
+        right_source_cells: vec![Cell::new(id("cell/right-a"), id("space/right"), 1, "edge")],
+        left_source_incidences: Vec::new(),
+        right_source_incidences: Vec::new(),
+    }));
 
     assert_obstruction(&report, PullbackObstructionType::IncompatibleFiber);
 }
@@ -146,19 +142,17 @@ fn store_construct_pullback_matches_direct_explicit_construction() {
             ComplexType::CellComplex,
         )
         .expect("store pullback should construct");
-    let direct_outcome = construct_explicit_pullback(
-        PullbackInputs {
-            left: left.clone(),
-            right: right.clone(),
-            left_source_cells: gathered_cells(&store, &left.source_space_id),
-            right_source_cells: gathered_cells(&store, &right.source_space_id),
-            left_source_incidences: gathered_incidences(&store, &left.source_space_id),
-            right_source_incidences: gathered_incidences(&store, &right.source_space_id),
-        },
+    let direct_outcome = construct_explicit_pullback(PullbackInputs {
+        left: left.clone(),
+        right: right.clone(),
         candidate_space_id,
-        "Pullback".to_owned(),
-        ComplexType::CellComplex,
-    );
+        candidate_space_name: "Pullback".to_owned(),
+        complex_type: ComplexType::CellComplex,
+        left_source_cells: gathered_cells(&store, &left.source_space_id),
+        right_source_cells: gathered_cells(&store, &right.source_space_id),
+        left_source_incidences: gathered_incidences(&store, &left.source_space_id),
+        right_source_incidences: gathered_incidences(&store, &right.source_space_id),
+    });
 
     assert_eq!(store_outcome, direct_outcome);
 }
@@ -224,19 +218,17 @@ fn store_construct_pullback_leaves_store_unchanged() {
 fn deterministic_outcome() -> PullbackOutcome {
     let (left, right, left_cells, right_cells, left_incidences, right_incidences) =
         clean_pullback_inputs();
-    construct_explicit_pullback(
-        PullbackInputs {
-            left,
-            right,
-            left_source_cells: left_cells,
-            right_source_cells: right_cells,
-            left_source_incidences: left_incidences,
-            right_source_incidences: right_incidences,
-        },
-        id("space/pullback"),
-        "Pullback".to_owned(),
-        ComplexType::CellComplex,
-    )
+    construct_explicit_pullback(PullbackInputs {
+        left,
+        right,
+        candidate_space_id: id("space/pullback"),
+        candidate_space_name: "Pullback".to_owned(),
+        complex_type: ComplexType::CellComplex,
+        left_source_cells: left_cells,
+        right_source_cells: right_cells,
+        left_source_incidences: left_incidences,
+        right_source_incidences: right_incidences,
+    })
 }
 
 fn clean_pullback_inputs() -> (
@@ -345,19 +337,17 @@ fn gathered_incidences(store: &InMemorySpaceStore, space_id: &Id) -> Vec<Inciden
 }
 
 fn empty_pullback_outcome(left: Morphism, right: Morphism) -> PullbackOutcome {
-    construct_explicit_pullback(
-        PullbackInputs {
-            left,
-            right,
-            left_source_cells: Vec::new(),
-            right_source_cells: Vec::new(),
-            left_source_incidences: Vec::new(),
-            right_source_incidences: Vec::new(),
-        },
-        id("space/pullback"),
-        "Pullback".to_owned(),
-        ComplexType::CellComplex,
-    )
+    construct_explicit_pullback(PullbackInputs {
+        left,
+        right,
+        candidate_space_id: id("space/pullback"),
+        candidate_space_name: "Pullback".to_owned(),
+        complex_type: ComplexType::CellComplex,
+        left_source_cells: Vec::new(),
+        right_source_cells: Vec::new(),
+        left_source_incidences: Vec::new(),
+        right_source_incidences: Vec::new(),
+    })
 }
 
 fn blocked_report(outcome: PullbackOutcome) -> ExplicitPullbackReport {

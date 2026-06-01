@@ -281,6 +281,12 @@ pub struct PullbackInputs {
     pub left: Morphism,
     /// Right cospan leg from its source space into the shared target space.
     pub right: Morphism,
+    /// Identifier assigned to the materialized candidate space.
+    pub candidate_space_id: Id,
+    /// Human-readable name assigned to the materialized candidate space and complex.
+    pub candidate_space_name: String,
+    /// Structural kind assigned to the materialized candidate complex.
+    pub complex_type: ComplexType,
     /// Cells from the left source space to pair in the finite fiber product.
     pub left_source_cells: Vec<Cell>,
     /// Cells from the right source space to pair in the finite fiber product.
@@ -1031,54 +1037,15 @@ pub fn construct_explicit_pushout(inputs: PushoutInputs<'_>) -> PushoutOutcome {
     }
 
     let review_status = report.review_status;
-    let Some(complex_id) = Id::new(format!(
-        "{}/pushout/complex",
-        inputs.candidate_space_id.as_str()
-    ))
-    .ok() else {
-        let mut blocked_report = report;
-        blocked_report.obstructions.push(PushoutObstruction {
-            obstruction_type: PushoutObstructionType::IncompatibleIdentification,
-            reason: "could not derive a valid canonical complex identifier".to_owned(),
-        });
-        blocked_report.review_status = ReviewStatus::Rejected;
-        return PushoutOutcome::Blocked {
-            report: blocked_report,
-        };
-    };
-
-    let cell_ids = cells.iter().map(|cell| cell.id.clone()).collect::<Vec<_>>();
-    let incidence_ids = incidences
-        .iter()
-        .map(|incidence| incidence.id.clone())
-        .collect::<Vec<_>>();
-    let context_ids = cells
-        .iter()
-        .flat_map(|cell| cell.context_ids.iter().cloned())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    let max_dimension = cells
-        .iter()
-        .map(|cell| cell.dimension)
-        .max()
-        .map_or(0, |value| value);
-
-    let mut complex = Complex::new(
-        complex_id.clone(),
-        inputs.candidate_space_id.clone(),
-        inputs.candidate_space_name.clone(),
+    let (mut space, mut complex) = assemble_candidate(
+        &inputs.candidate_space_id,
+        "pushout",
         inputs.complex_type,
+        &cells,
+        &incidences,
     );
-    complex.cell_ids = cell_ids.clone();
-    complex.incidence_ids = incidence_ids.clone();
-    complex.max_dimension = max_dimension;
-
-    let mut space = Space::new(inputs.candidate_space_id, inputs.candidate_space_name);
-    space.cell_ids = cell_ids;
-    space.incidence_ids = incidence_ids;
-    space.complex_ids = vec![complex_id];
-    space.context_ids = context_ids;
+    space.name = inputs.candidate_space_name.trim().to_owned();
+    complex.name = inputs.candidate_space_name.trim().to_owned();
 
     PushoutOutcome::Constructed {
         construction: Box::new(PushoutConstruction {
@@ -1098,12 +1065,7 @@ pub fn construct_explicit_pushout(inputs: PushoutInputs<'_>) -> PushoutOutcome {
 /// agree in the shared target. Blocking obstructions return
 /// [`PullbackOutcome::Blocked`] and do not materialize cells, incidences, or a
 /// complex.
-pub fn construct_explicit_pullback(
-    inputs: PullbackInputs,
-    candidate_space_id: Id,
-    candidate_space_name: String,
-    complex_type: ComplexType,
-) -> PullbackOutcome {
+pub fn construct_explicit_pullback(inputs: PullbackInputs) -> PullbackOutcome {
     let mut report = explicit_pullback_candidate(&inputs.left, &inputs.right);
 
     if inputs.left.target_space_id != inputs.right.target_space_id {
@@ -1141,7 +1103,7 @@ pub fn construct_explicit_pullback(
 
     for matched in &report.cell_matches {
         let Some(canonical_id) = pullback_cell_id(
-            &candidate_space_id,
+            &inputs.candidate_space_id,
             &matched.left_cell_id,
             &matched.right_cell_id,
         ) else {
@@ -1239,7 +1201,7 @@ pub fn construct_explicit_pullback(
 
         cells.push(Cell {
             id: canonical_id.clone(),
-            space_id: candidate_space_id.clone(),
+            space_id: inputs.candidate_space_id.clone(),
             dimension: left_cell.dimension,
             cell_type: left_cell.cell_type.clone(),
             label,
@@ -1254,7 +1216,7 @@ pub fn construct_explicit_pullback(
     let mut incidence_seeds = Vec::new();
     for matched in &report.relation_matches {
         let Some(canonical_id) = pullback_incidence_id(
-            &candidate_space_id,
+            &inputs.candidate_space_id,
             &matched.left_relation_id,
             &matched.right_relation_id,
         ) else {
@@ -1335,7 +1297,7 @@ pub fn construct_explicit_pullback(
             },
             incidence: Incidence {
                 id: canonical_id,
-                space_id: candidate_space_id.clone(),
+                space_id: inputs.candidate_space_id.clone(),
                 from_cell_id: from_cell_id.clone(),
                 to_cell_id: to_cell_id.clone(),
                 relation_type: left_incidence.relation_type.clone(),
@@ -1370,53 +1332,15 @@ pub fn construct_explicit_pullback(
         };
     }
 
-    let Some(complex_id) =
-        Id::new(format!("{}/pullback/complex", candidate_space_id.as_str())).ok()
-    else {
-        let mut blocked_report = report;
-        blocked_report.obstructions.push(PullbackObstruction {
-            obstruction_type: PullbackObstructionType::IncompatibleFiber,
-            reason: "could not derive a valid canonical complex identifier".to_owned(),
-        });
-        blocked_report.review_status = ReviewStatus::Rejected;
-        return PullbackOutcome::Blocked {
-            obstructions: blocked_report.obstructions.clone(),
-            report: blocked_report,
-        };
-    };
-
-    let cell_ids = cells.iter().map(|cell| cell.id.clone()).collect::<Vec<_>>();
-    let incidence_ids = incidences
-        .iter()
-        .map(|incidence| incidence.id.clone())
-        .collect::<Vec<_>>();
-    let context_ids = cells
-        .iter()
-        .flat_map(|cell| cell.context_ids.iter().cloned())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    let max_dimension = cells
-        .iter()
-        .map(|cell| cell.dimension)
-        .max()
-        .map_or(0, |value| value);
-
-    let mut complex = Complex::new(
-        complex_id.clone(),
-        candidate_space_id.clone(),
-        candidate_space_name.clone(),
-        complex_type,
+    let (mut space, mut complex) = assemble_candidate(
+        &inputs.candidate_space_id,
+        "pullback",
+        inputs.complex_type,
+        &cells,
+        &incidences,
     );
-    complex.cell_ids = cell_ids.clone();
-    complex.incidence_ids = incidence_ids.clone();
-    complex.max_dimension = max_dimension;
-
-    let mut space = Space::new(candidate_space_id, candidate_space_name);
-    space.cell_ids = cell_ids;
-    space.incidence_ids = incidence_ids;
-    space.complex_ids = vec![complex_id];
-    space.context_ids = context_ids;
+    space.name = inputs.candidate_space_name.trim().to_owned();
+    complex.name = inputs.candidate_space_name.trim().to_owned();
 
     PullbackOutcome::Constructed {
         construction: Box::new(PullbackConstruction {
