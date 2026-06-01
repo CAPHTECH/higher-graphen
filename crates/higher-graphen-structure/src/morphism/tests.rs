@@ -1,5 +1,5 @@
 use super::*;
-use higher_graphen_core::{Confidence, ReviewStatus, SourceKind, SourceRef};
+use higher_graphen_core::{Confidence, ReviewStatus, Severity, SourceKind, SourceRef};
 use serde_json::json;
 
 #[test]
