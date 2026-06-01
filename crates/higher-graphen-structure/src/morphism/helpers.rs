@@ -562,3 +562,44 @@ pub(super) fn partition_by_membership(
         .into_iter()
         .partition(|invariant_id| known_preserved.contains(invariant_id))
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub(super) struct IncidenceSignature {
+    pub(super) from_cell_id: Id,
+    pub(super) to_cell_id: Id,
+    pub(super) relation_type: String,
+    pub(super) orientation: IncidenceOrientation,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct IncidenceSeed {
+    pub(super) incidence: Incidence,
+    pub(super) signature: IncidenceSignature,
+}
+
+pub(super) fn deduplicate_incidences(
+    mut seeds: Vec<IncidenceSeed>,
+    quotient_losses: &mut Vec<String>,
+) -> Vec<Incidence> {
+    seeds.sort_by(|left, right| left.incidence.id.cmp(&right.incidence.id));
+    let mut by_signature = BTreeMap::<IncidenceSignature, Incidence>::new();
+    for seed in seeds {
+        if let Some(existing) = by_signature.get(&seed.signature) {
+            if existing.weight != seed.incidence.weight {
+                quotient_losses.push(format!(
+                    "incidence {} weight {:?} dropped during dedup; incidence {} keeps {:?}",
+                    seed.incidence.id, seed.incidence.weight, existing.id, existing.weight
+                ));
+            }
+            if existing.provenance != seed.incidence.provenance {
+                quotient_losses.push(format!(
+                    "incidence {} provenance dropped during dedup; incidence {} is canonical",
+                    seed.incidence.id, existing.id
+                ));
+            }
+        } else {
+            by_signature.insert(seed.signature, seed.incidence);
+        }
+    }
+    by_signature.into_values().collect()
+}

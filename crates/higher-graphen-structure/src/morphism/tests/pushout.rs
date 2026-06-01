@@ -3,54 +3,8 @@ use crate::space::{Cell, ComplexType, Incidence, IncidenceOrientation};
 
 #[test]
 fn explicit_pushout_constructs_clean_merged_structure() {
-    let left = fixture_morphism(
-        "left",
-        "space/source",
-        "space/left",
-        [
-            ("cell/source-a", "cell/left-a"),
-            ("cell/source-b", "cell/left-b"),
-        ],
-        [("rel/source-a", "rel/left-a")],
-        [],
-    );
-    let right = fixture_morphism(
-        "right",
-        "space/source",
-        "space/right",
-        [
-            ("cell/source-a", "cell/right-a"),
-            ("cell/source-b", "cell/right-b"),
-        ],
-        [("rel/source-a", "rel/right-a")],
-        [],
-    );
-    let left_cells = vec![
-        Cell::new(id("cell/left-private"), id("space/left"), 1, "edge")
-            .with_boundary_cell(id("cell/left-a")),
-        Cell::new(id("cell/left-a"), id("space/left"), 0, "vertex").with_label("shared-a"),
-        Cell::new(id("cell/left-b"), id("space/left"), 0, "vertex").with_context(id("ctx/b")),
-    ];
-    let right_cells = vec![
-        Cell::new(id("cell/right-b"), id("space/right"), 0, "vertex").with_context(id("ctx/b")),
-        Cell::new(id("cell/right-a"), id("space/right"), 0, "vertex").with_label("shared-a"),
-    ];
-    let left_incidences = vec![Incidence::new(
-        id("rel/left-a"),
-        id("space/left"),
-        id("cell/left-a"),
-        id("cell/left-b"),
-        "attaches",
-        IncidenceOrientation::Directed,
-    )];
-    let right_incidences = vec![Incidence::new(
-        id("rel/right-a"),
-        id("space/right"),
-        id("cell/right-a"),
-        id("cell/right-b"),
-        "attaches",
-        IncidenceOrientation::Directed,
-    )];
+    let (left, right, left_cells, right_cells, left_incidences, right_incidences) =
+        clean_pushout_fixture();
 
     let PushoutOutcome::Constructed {
         construction,
@@ -121,6 +75,72 @@ fn explicit_pushout_constructs_clean_merged_structure() {
         ]
     );
     assert!(report.obstructions.is_empty());
+}
+
+fn clean_pushout_fixture() -> (
+    Morphism,
+    Morphism,
+    Vec<Cell>,
+    Vec<Cell>,
+    Vec<Incidence>,
+    Vec<Incidence>,
+) {
+    let left = fixture_morphism(
+        "left",
+        "space/source",
+        "space/left",
+        [
+            ("cell/source-a", "cell/left-a"),
+            ("cell/source-b", "cell/left-b"),
+        ],
+        [("rel/source-a", "rel/left-a")],
+        [],
+    );
+    let right = fixture_morphism(
+        "right",
+        "space/source",
+        "space/right",
+        [
+            ("cell/source-a", "cell/right-a"),
+            ("cell/source-b", "cell/right-b"),
+        ],
+        [("rel/source-a", "rel/right-a")],
+        [],
+    );
+    let left_cells = vec![
+        Cell::new(id("cell/left-private"), id("space/left"), 1, "edge")
+            .with_boundary_cell(id("cell/left-a")),
+        Cell::new(id("cell/left-a"), id("space/left"), 0, "vertex").with_label("shared-a"),
+        Cell::new(id("cell/left-b"), id("space/left"), 0, "vertex").with_context(id("ctx/b")),
+    ];
+    let right_cells = vec![
+        Cell::new(id("cell/right-b"), id("space/right"), 0, "vertex").with_context(id("ctx/b")),
+        Cell::new(id("cell/right-a"), id("space/right"), 0, "vertex").with_label("shared-a"),
+    ];
+    let left_incidences = vec![Incidence::new(
+        id("rel/left-a"),
+        id("space/left"),
+        id("cell/left-a"),
+        id("cell/left-b"),
+        "attaches",
+        IncidenceOrientation::Directed,
+    )];
+    let right_incidences = vec![Incidence::new(
+        id("rel/right-a"),
+        id("space/right"),
+        id("cell/right-a"),
+        id("cell/right-b"),
+        "attaches",
+        IncidenceOrientation::Directed,
+    )];
+    (
+        left,
+        right,
+        left_cells,
+        right_cells,
+        left_incidences,
+        right_incidences,
+    )
 }
 
 #[test]
