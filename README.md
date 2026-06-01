@@ -163,9 +163,8 @@ objects rather than hidden implementation details.
 ## Release And Install
 
 The latest release is
-[`v0.5.1`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.5.1).
-The latest binary and crate publication remains `v0.5.0`, which includes
-Darwin arm64 binaries for:
+[`v0.6.0`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.6.0),
+which includes Darwin arm64 binaries for:
 
 - `casegraphen`
 - `highergraphen`
@@ -182,8 +181,8 @@ Library consumers can depend on the workspace crates directly, for example:
 
 ```toml
 [dependencies]
-higher-graphen-core = "0.5.0"
-higher-graphen-runtime = "0.5.0"
+higher-graphen-core = "0.6.0"
+higher-graphen-runtime = "0.6.0"
 ```
 
 Publish reusable crates before dependent crates and CLI tools:

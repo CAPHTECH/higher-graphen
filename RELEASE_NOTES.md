@@ -1,5 +1,51 @@
 # Release Notes
 
+## v0.6.0
+
+Release scope:
+
+- Minor release for the HigherGraphen Rust workspace at `0.6.0`.
+- Sharpens the deterministic mathematical core: real finite (co)limit
+  constructions, persistence-diagram distance, an abstract-interpretation
+  fixpoint, computed projection-loss metrics, typed provenance, and a
+  static-analysis compliance refactor.
+- Git tag and GitHub Release are prepared for publication after maintainer
+  approval.
+
+Highlights:
+
+- Pushout: `construct_explicit_pushout` now materializes the merged finite cell
+  complex as a reviewable candidate (replacing the empty shell), with
+  gluing-axiom obstructions (incompatible/ambiguous identification, relation
+  endpoint conflict).
+- Pullback: `construct_explicit_pullback` materializes the fibered product with
+  an `incompatible_fiber` obstruction.
+- Persistence-diagram distance: exact bottleneck and p-Wasserstein distances in
+  deterministic doubled-integer arithmetic, exposed as reviewable structural
+  comparison candidates.
+- Abstract interpretation: a monotone least-fixpoint engine with widening.
+- Projection loss metrics: computed cardinality, collapsed-pair, omitted, and
+  ambiguity metrics with review-signal obstructions, hardening the projection
+  information-loss contract.
+- Gluing: retired the fabricated `complex:glued` identifier
+  (`GluingResult::Success.merged_complex` is now optional) and added
+  `attempt_structural_gluing`, which returns a genuinely constructed merged
+  complex through the new `InMemorySpaceStore::construct_pushout` and
+  `construct_pullback` store adapters.
+- Typed provenance: a `Reviewed<T, S>` typestate makes candidate-to-accepted
+  promotion require an explicit review morphism at compile time, adopted in the
+  completion-review acceptance path.
+- Consolidated the shared finite-construction scaffolding and refactored the
+  workspace to satisfy the static-analysis size and complexity policy with
+  behavior preserved (all existing tests unchanged).
+
+Publication decisions:
+
+- Publish a Git tag and GitHub Release for the repository state after maintainer
+  approval.
+- Crate publication to crates.io is a separate, explicitly-approved step and is
+  not performed automatically by this release preparation.
+
 ## v0.5.1
 
 Release scope:
