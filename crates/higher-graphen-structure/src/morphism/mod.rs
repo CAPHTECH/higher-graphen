@@ -328,8 +328,6 @@ pub enum PullbackOutcome {
     },
     /// Blocking obstructions prevented materializing a valid candidate.
     Blocked {
-        /// Blocking obstructions collected during construction.
-        obstructions: Vec<PullbackObstruction>,
         /// Diagnostic report carrying all detected obstructions.
         report: ExplicitPullbackReport,
     },
@@ -1070,10 +1068,7 @@ pub fn construct_explicit_pullback(inputs: PullbackInputs) -> PullbackOutcome {
 
     if inputs.left.target_space_id != inputs.right.target_space_id {
         report.review_status = ReviewStatus::Rejected;
-        return PullbackOutcome::Blocked {
-            obstructions: report.obstructions.clone(),
-            report,
-        };
+        return PullbackOutcome::Blocked { report };
     }
 
     let left_cells = inputs
@@ -1326,10 +1321,7 @@ pub fn construct_explicit_pullback(inputs: PullbackInputs) -> PullbackOutcome {
         .iter()
         .any(|obstruction| obstruction.obstruction_type.is_blocking())
     {
-        return PullbackOutcome::Blocked {
-            obstructions: report.obstructions.clone(),
-            report,
-        };
+        return PullbackOutcome::Blocked { report };
     }
 
     let (mut space, mut complex) = assemble_candidate(

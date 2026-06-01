@@ -351,7 +351,7 @@ fn empty_pullback_outcome(left: Morphism, right: Morphism) -> PullbackOutcome {
 }
 
 fn blocked_report(outcome: PullbackOutcome) -> ExplicitPullbackReport {
-    let PullbackOutcome::Blocked { report, .. } = outcome else {
+    let PullbackOutcome::Blocked { report } = outcome else {
         panic!("expected blocked pullback outcome");
     };
     report
