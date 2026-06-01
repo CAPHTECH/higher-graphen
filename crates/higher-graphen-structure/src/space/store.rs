@@ -120,56 +120,28 @@ impl InMemorySpaceStore {
         candidate_space_name: String,
         complex_type: ComplexType,
     ) -> std::result::Result<PushoutOutcome, CoreError> {
-        if !self.spaces.contains_key(&left.target_space_id) {
-            return Err(malformed(
-                "left",
-                format!(
-                    "target space identifier {} does not exist in the store",
-                    left.target_space_id
-                ),
-            ));
-        }
-        if !self.spaces.contains_key(&right.target_space_id) {
-            return Err(malformed(
-                "right",
-                format!(
-                    "target space identifier {} does not exist in the store",
-                    right.target_space_id
-                ),
-            ));
-        }
-
-        let mut left_cells = self
-            .cells
-            .values()
-            .filter(|cell| cell.space_id == left.target_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        left_cells.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut right_cells = self
-            .cells
-            .values()
-            .filter(|cell| cell.space_id == right.target_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        right_cells.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut left_incidences = self
-            .incidences
-            .values()
-            .filter(|incidence| incidence.space_id == left.target_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        left_incidences.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut right_incidences = self
-            .incidences
-            .values()
-            .filter(|incidence| incidence.space_id == right.target_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        right_incidences.sort_by(|left, right| left.id.cmp(&right.id));
+        let (left_cells, left_incidences) = self
+            .gather_space_elements(&left.target_space_id)
+            .map_err(|_| {
+                malformed(
+                    "left",
+                    format!(
+                        "target space identifier {} does not exist in the store",
+                        left.target_space_id
+                    ),
+                )
+            })?;
+        let (right_cells, right_incidences) = self
+            .gather_space_elements(&right.target_space_id)
+            .map_err(|_| {
+                malformed(
+                    "right",
+                    format!(
+                        "target space identifier {} does not exist in the store",
+                        right.target_space_id
+                    ),
+                )
+            })?;
 
         Ok(construct_explicit_pushout(PushoutInputs {
             left,
@@ -195,70 +167,40 @@ impl InMemorySpaceStore {
         candidate_space_name: String,
         complex_type: ComplexType,
     ) -> std::result::Result<PullbackOutcome, CoreError> {
-        if !self.spaces.contains_key(&left.source_space_id) {
-            return Err(malformed(
-                "left",
-                format!(
-                    "source space identifier {} does not exist in the store",
-                    left.source_space_id
-                ),
-            ));
-        }
-        if !self.spaces.contains_key(&right.source_space_id) {
-            return Err(malformed(
-                "right",
-                format!(
-                    "source space identifier {} does not exist in the store",
-                    right.source_space_id
-                ),
-            ));
-        }
+        let (left_source_cells, left_source_incidences) = self
+            .gather_space_elements(&left.source_space_id)
+            .map_err(|_| {
+                malformed(
+                    "left",
+                    format!(
+                        "source space identifier {} does not exist in the store",
+                        left.source_space_id
+                    ),
+                )
+            })?;
+        let (right_source_cells, right_source_incidences) = self
+            .gather_space_elements(&right.source_space_id)
+            .map_err(|_| {
+                malformed(
+                    "right",
+                    format!(
+                        "source space identifier {} does not exist in the store",
+                        right.source_space_id
+                    ),
+                )
+            })?;
 
-        let mut left_source_cells = self
-            .cells
-            .values()
-            .filter(|cell| cell.space_id == left.source_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        left_source_cells.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut right_source_cells = self
-            .cells
-            .values()
-            .filter(|cell| cell.space_id == right.source_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        right_source_cells.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut left_source_incidences = self
-            .incidences
-            .values()
-            .filter(|incidence| incidence.space_id == left.source_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        left_source_incidences.sort_by(|left, right| left.id.cmp(&right.id));
-
-        let mut right_source_incidences = self
-            .incidences
-            .values()
-            .filter(|incidence| incidence.space_id == right.source_space_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        right_source_incidences.sort_by(|left, right| left.id.cmp(&right.id));
-
-        Ok(construct_explicit_pullback(
-            PullbackInputs {
-                left: left.clone(),
-                right: right.clone(),
-                left_source_cells,
-                right_source_cells,
-                left_source_incidences,
-                right_source_incidences,
-            },
+        Ok(construct_explicit_pullback(PullbackInputs {
+            left: left.clone(),
+            right: right.clone(),
             candidate_space_id,
             candidate_space_name,
             complex_type,
-        ))
+            left_source_cells,
+            right_source_cells,
+            left_source_incidences,
+            right_source_incidences,
+        }))
     }
 
     /// Returns a space by identifier.
@@ -528,6 +470,36 @@ impl InMemorySpaceStore {
 
     fn ensure_complex_absent(&self, id: &Id) -> Result<()> {
         ensure_absent(self.complexes.contains_key(id), "complex_id", id)
+    }
+
+    fn gather_space_elements(
+        &self,
+        space_id: &Id,
+    ) -> std::result::Result<(Vec<Cell>, Vec<Incidence>), CoreError> {
+        if !self.spaces.contains_key(space_id) {
+            return Err(malformed(
+                "space_id",
+                format!("space identifier {space_id} does not exist in the store"),
+            ));
+        }
+
+        let mut cells = self
+            .cells
+            .values()
+            .filter(|cell| &cell.space_id == space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        cells.sort_by(|left, right| left.id.cmp(&right.id));
+
+        let mut incidences = self
+            .incidences
+            .values()
+            .filter(|incidence| &incidence.space_id == space_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        incidences.sort_by(|left, right| left.id.cmp(&right.id));
+
+        Ok((cells, incidences))
     }
 
     fn complex_by_id(&self, complex_id: &Id) -> Result<&Complex> {

@@ -1,5 +1,67 @@
 use super::*;
 
+pub(super) fn assemble_candidate(
+    candidate_space_id: &Id,
+    name: &str,
+    complex_type: ComplexType,
+    cells: &[Cell],
+    incidences: &[Incidence],
+) -> (Space, Complex) {
+    let cell_ids = cells.iter().map(|cell| cell.id.clone()).collect::<Vec<_>>();
+    let incidence_ids = incidences
+        .iter()
+        .map(|incidence| incidence.id.clone())
+        .collect::<Vec<_>>();
+    let context_ids = cells
+        .iter()
+        .flat_map(|cell| cell.context_ids.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let max_dimension = cells
+        .iter()
+        .map(|cell| cell.dimension)
+        .max()
+        .map_or(0, |value| value);
+    let complex_fragment = name
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|character| !character.is_control())
+        .collect::<String>();
+    let complex_fragment = if complex_fragment.is_empty() {
+        "candidate".to_owned()
+    } else {
+        complex_fragment
+    };
+    let complex_id = match Id::new(format!(
+        "{}/{}/complex",
+        candidate_space_id.as_str(),
+        complex_fragment
+    )) {
+        Ok(complex_id) => complex_id,
+        Err(_) => candidate_space_id.clone(),
+    };
+
+    let mut complex = Complex::new(
+        complex_id.clone(),
+        candidate_space_id.clone(),
+        name.to_owned(),
+        complex_type,
+    );
+    complex.cell_ids = cell_ids.clone();
+    complex.incidence_ids = incidence_ids.clone();
+    complex.max_dimension = max_dimension;
+
+    let mut space = Space::new(candidate_space_id.clone(), name.to_owned());
+    space.cell_ids = cell_ids;
+    space.incidence_ids = incidence_ids;
+    space.complex_ids = vec![complex_id];
+    space.context_ids = context_ids;
+
+    (space, complex)
+}
+
 pub(super) struct ComposedMorphismSpec {
     pub(super) composed_id: Id,
     pub(super) name: String,
