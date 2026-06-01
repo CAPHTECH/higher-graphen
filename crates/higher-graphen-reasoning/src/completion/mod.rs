@@ -1,6 +1,9 @@
 //! Completion candidates, rules, engine, and review workflow for HigherGraphen.
 
-use higher_graphen_core::{Confidence, CoreError, Id, Result, ReviewStatus};
+use higher_graphen_core::typed_provenance::{Accepted, Candidate, ReviewMorphism, Reviewed};
+use higher_graphen_core::{
+    Confidence, CoreError, Id, Provenance, Result, ReviewStatus, SourceKind, SourceRef,
+};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeSet;
 
@@ -529,6 +532,40 @@ pub struct AcceptedCompletion {
     pub review_status: ReviewStatus,
 }
 
+impl AcceptedCompletion {
+    /// Creates an accepted completion from a typestate-reviewed accepted candidate.
+    pub(crate) fn from_accepted_review(
+        reviewed: &Reviewed<CompletionCandidate, Accepted>,
+    ) -> std::result::Result<Self, CoreError> {
+        let candidate = reviewed.value();
+        let review = reviewed.review().ok_or_else(|| {
+            malformed_field(
+                "review",
+                "accepted completion review must include a review morphism",
+            )
+        })?;
+        let reason = review.review_note.clone().ok_or_else(|| {
+            malformed_field(
+                "reason",
+                "accepted completion review must include a review note",
+            )
+        })?;
+
+        Ok(Self {
+            candidate_id: candidate.id.clone(),
+            space_id: candidate.space_id.clone(),
+            missing_type: candidate.missing_type,
+            accepted_structure: candidate.suggested_structure.clone(),
+            inferred_from: candidate.inferred_from.clone(),
+            rationale: candidate.rationale.clone(),
+            confidence: candidate.confidence,
+            reviewer_id: review.reviewer_id.clone(),
+            reason,
+            review_status: reviewed.review_status(),
+        })
+    }
+}
+
 /// Rejection record created from an explicit completion review.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -572,18 +609,17 @@ pub fn accept_completion(
         ));
     }
 
-    Ok(AcceptedCompletion {
-        candidate_id: candidate.id.clone(),
-        space_id: candidate.space_id.clone(),
-        missing_type: candidate.missing_type,
-        accepted_structure: candidate.suggested_structure.clone(),
-        inferred_from: candidate.inferred_from.clone(),
-        rationale: candidate.rationale.clone(),
-        confidence: candidate.confidence,
+    let reason = required_text("reason", reason)?;
+    let provenance = Provenance::new(SourceRef::new(SourceKind::Ai), candidate.confidence)
+        .with_review_status(ReviewStatus::Candidate);
+    let reviewed =
+        Reviewed::<CompletionCandidate, Candidate>::candidate(candidate.clone(), provenance);
+    let accepted = reviewed.accept(ReviewMorphism {
         reviewer_id,
-        reason: required_text("reason", reason)?,
-        review_status: ReviewStatus::Accepted,
-    })
+        review_note: Some(reason),
+    });
+
+    AcceptedCompletion::from_accepted_review(&accepted)
 }
 
 /// Rejects a completion candidate and returns a separate rejection record.

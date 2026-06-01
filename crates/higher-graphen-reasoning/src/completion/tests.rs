@@ -490,6 +490,29 @@ fn accept_returns_separate_accepted_completion() {
 }
 
 #[test]
+fn accept_completion_matches_typed_review_accept_path() {
+    let candidate = candidate();
+    let accepted = accept_completion(&candidate, id("reviewer.architect"), "Reviewed plan")
+        .expect("accepted completion");
+    let provenance = Provenance::new(SourceRef::new(SourceKind::Ai), candidate.confidence)
+        .with_review_status(ReviewStatus::Candidate);
+    let reviewed = higher_graphen_core::typed_provenance::Reviewed::<
+        CompletionCandidate,
+        higher_graphen_core::typed_provenance::Candidate,
+    >::candidate(candidate.clone(), provenance);
+    let accepted_review = reviewed.accept(higher_graphen_core::typed_provenance::ReviewMorphism {
+        reviewer_id: id("reviewer.architect"),
+        review_note: Some("Reviewed plan".to_owned()),
+    });
+
+    let typed_path_accepted = AcceptedCompletion::from_accepted_review(&accepted_review)
+        .expect("accepted typestate review can materialize accepted completion");
+
+    assert_eq!(accepted.review_status, ReviewStatus::Accepted);
+    assert_eq!(accepted, typed_path_accepted);
+}
+
+#[test]
 fn reject_returns_rejection_record() {
     let candidate = candidate();
 
