@@ -1,5 +1,48 @@
 # Release Notes
 
+## v0.7.0
+
+Release scope:
+
+- Minor release for the HigherGraphen Rust workspace at `0.7.0`.
+- Extends the deterministic core's expressiveness for AI-authored,
+  incidence-centric, non-numeric advisory domains, in response to downstream
+  (AdvisoryGraphen) friction points. All additions stay deterministic, emit
+  structured records, preserve provenance/severity/review separation, and never
+  promote generated results into accepted facts. Design spec:
+  `docs/specs/advisory-domain-extensions.md`.
+- Git tag and GitHub Release are prepared for publication after maintainer
+  approval.
+
+Highlights:
+
+- Obstruction richness: `CheckResult::to_obstruction` now carries a custom
+  obstruction type, counterexample, and required resolution via optional
+  `Violation` fields. The built-in `InvariantViolation` / `ConstraintUnsatisfied`
+  mapping is preserved when the new fields are unset.
+- Projection loss: `measure_projection_loss` natively handles untraced and
+  empty attributable output, emitting `SourceTraceMissing` (item-level) without
+  conflating it with `UnsupportedLossMetric` (kind-level). `ProjectionEntry` /
+  `ProjectionSection` / `ProjectionOutput` constructors accept empty source
+  attribution and empty collections.
+- Completion taxonomy: `MissingType::Custom` extension mirroring
+  `ObstructionType::Custom`, flowing through rule-driven detection and completion
+  unchanged. Downstream domains can register custom missing kinds.
+- Wire ergonomics: stable `kind()` discriminant accessors on `GluingResult`,
+  `DifferenceSeverity`, and `OverlapWitnessKind`, verified against serde output.
+- Wire stability: `docs/specs/wire-stability-contract.md` declares the JSON
+  compatibility surface; cross-linked from `core-contracts.md`.
+- Incidence engine: `reasoning::incidence::IncidenceConsistencyEngine`, a bounded
+  deterministic engine over non-numeric incidence views that emits dangling,
+  uncovered-region, and context-mismatch obstructions derivable purely from
+  explicit input. It constructs no cells, morphisms, or complexes.
+
+Breaking changes:
+
+- `MissingType` is no longer `Copy` (now `Clone`) and gained a `Custom(String)`
+  variant with a manual serde implementation. Built-in variants keep their
+  existing snake_case wire form; custom values serialize with a `custom:` prefix.
+
 ## v0.6.0
 
 Release scope:
