@@ -379,7 +379,7 @@ impl ProjectionOutput {
         I: IntoIterator<Item = ProjectionSection>,
     {
         Ok(Self::Sections {
-            sections: collect_non_empty_items(sections, "sections")?,
+            sections: sections.into_iter().collect(),
         })
     }
 
@@ -408,7 +408,7 @@ impl ProjectionOutput {
         I: IntoIterator<Item = ProjectionEntry>,
     {
         Ok(Self::KeyValue {
-            entries: collect_non_empty_items(entries, "entries")?,
+            entries: entries.into_iter().collect(),
         })
     }
 }
@@ -434,7 +434,7 @@ impl ProjectionSection {
         Ok(Self {
             title: normalized_text(title, "title")?,
             body: normalized_text(body, "body")?,
-            source_ids: collect_non_empty_ids(source_ids, "source_ids")?,
+            source_ids: source_ids.into_iter().collect(),
         })
     }
 
@@ -465,7 +465,7 @@ impl ProjectionEntry {
         Ok(Self {
             key: normalized_text(key, "key")?,
             value: normalized_text(value, "value")?,
-            source_ids: collect_non_empty_ids(source_ids, "source_ids")?,
+            source_ids: source_ids.into_iter().collect(),
         })
     }
 
@@ -639,11 +639,7 @@ fn ensure_output_matches_schema(
     match (output_schema, output) {
         (OutputSchema::Text, ProjectionOutput::Text { .. }) => Ok(()),
         (OutputSchema::Sections { section_names }, ProjectionOutput::Sections { sections }) => {
-            if sections
-                .iter()
-                .map(|section| section.title.as_str())
-                .eq(section_names.iter().map(String::as_str))
-            {
+            if section_titles_match(section_names, sections) {
                 Ok(())
             } else {
                 Err(malformed_field(
@@ -669,11 +665,7 @@ fn ensure_output_matches_schema(
             }
         }
         (OutputSchema::KeyValue { keys }, ProjectionOutput::KeyValue { entries }) => {
-            if entries
-                .iter()
-                .map(|entry| entry.key.as_str())
-                .eq(keys.iter().map(String::as_str))
-            {
+            if entry_keys_match(keys, entries) {
                 Ok(())
             } else {
                 Err(malformed_field(
@@ -683,11 +675,7 @@ fn ensure_output_matches_schema(
             }
         }
         (OutputSchema::Custom { fields, .. }, ProjectionOutput::KeyValue { entries }) => {
-            if entries
-                .iter()
-                .map(|entry| entry.key.as_str())
-                .eq(fields.iter().map(String::as_str))
-            {
+            if entry_keys_match(fields, entries) {
                 Ok(())
             } else {
                 Err(malformed_field(
@@ -701,6 +689,22 @@ fn ensure_output_matches_schema(
             "projection output kind must match output_schema kind",
         )),
     }
+}
+
+fn section_titles_match(section_names: &[String], sections: &[ProjectionSection]) -> bool {
+    sections.is_empty()
+        || sections
+            .iter()
+            .map(|section| section.title.as_str())
+            .eq(section_names.iter().map(String::as_str))
+}
+
+fn entry_keys_match(keys: &[String], entries: &[ProjectionEntry]) -> bool {
+    entries.is_empty()
+        || entries
+            .iter()
+            .map(|entry| entry.key.as_str())
+            .eq(keys.iter().map(String::as_str))
 }
 
 fn normalized_text(value: impl Into<String>, field: &'static str) -> Result<String> {

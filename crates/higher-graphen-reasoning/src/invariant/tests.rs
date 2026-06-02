@@ -1,4 +1,5 @@
 use super::*;
+use crate::obstruction::{Counterexample, RequiredResolution};
 use higher_graphen_core::{Confidence, SourceKind, SourceRef};
 use higher_graphen_projection::{
     InformationLoss, OutputSchema, Projection, ProjectionAudience, ProjectionPurpose,
@@ -466,6 +467,125 @@ fn check_result_converts_violation_to_obstruction() {
     assert_eq!(
         obstruction.related_morphisms[0].morphism_id,
         id("morphism:projection")
+    );
+}
+
+#[test]
+fn check_result_default_obstruction_type_regression() {
+    let invariant = CheckResult::violated(
+        CheckTargetKind::Invariant,
+        id("inv:shape"),
+        Violation::new("shape changed", Severity::Medium),
+    )
+    .to_obstruction(
+        id("obstruction:shape"),
+        id("space:architecture"),
+        provenance(),
+    )
+    .expect("handoff should succeed")
+    .expect("violation should produce obstruction");
+    let constraint = CheckResult::violated(
+        CheckTargetKind::Constraint,
+        id("constraint:shape"),
+        Violation::new("shape missing", Severity::Medium),
+    )
+    .to_obstruction(
+        id("obstruction:constraint"),
+        id("space:architecture"),
+        provenance(),
+    )
+    .expect("handoff should succeed")
+    .expect("violation should produce obstruction");
+
+    assert_eq!(
+        invariant.obstruction_type,
+        ObstructionType::InvariantViolation
+    );
+    assert_eq!(
+        constraint.obstruction_type,
+        ObstructionType::ConstraintUnsatisfied
+    );
+}
+
+#[test]
+fn check_result_threads_custom_obstruction_richness() {
+    let counterexample = Counterexample::new("missing advisory focus")
+        .expect("counterexample")
+        .with_assignment("missing", "focus")
+        .expect("assignment")
+        .with_path_cell(id("cell:advice"));
+    let required_resolution = RequiredResolution::new("Add the focus cell")
+        .expect("resolution")
+        .with_target_cell(id("cell:focus"));
+    let result = CheckResult::violated(
+        CheckTargetKind::Constraint,
+        id("constraint:focus"),
+        Violation::new("focus is absent", Severity::High)
+            .with_obstruction_type(
+                ObstructionType::custom("advisory:missing_focus").expect("custom type"),
+            )
+            .with_counterexample(counterexample.clone())
+            .with_required_resolution(required_resolution.clone()),
+    );
+
+    let obstruction = result
+        .to_obstruction(
+            id("obstruction:focus"),
+            id("space:architecture"),
+            provenance(),
+        )
+        .expect("handoff should succeed")
+        .expect("violation should produce obstruction");
+
+    assert!(obstruction.obstruction_type.is_custom());
+    assert_eq!(obstruction.counterexample, Some(counterexample));
+    assert_eq!(obstruction.required_resolution, Some(required_resolution));
+}
+
+#[test]
+fn non_violated_results_do_not_produce_obstructions() {
+    let satisfied = CheckResult::satisfied(CheckTargetKind::Invariant, id("inv:shape"));
+    let unsupported = CheckResult::unsupported(
+        CheckTargetKind::Constraint,
+        id("constraint:future"),
+        "future",
+    );
+
+    assert!(satisfied
+        .to_obstruction(id("obstruction:s"), id("space:architecture"), provenance())
+        .expect("handoff should succeed")
+        .is_none());
+    assert!(unsupported
+        .to_obstruction(id("obstruction:u"), id("space:architecture"), provenance())
+        .expect("handoff should succeed")
+        .is_none());
+}
+
+#[test]
+fn violation_json_round_trips_with_and_without_richness() {
+    let plain = Violation::new("plain", Severity::Low);
+    let plain_json = serde_json::to_value(&plain).expect("serialize plain violation");
+
+    assert!(plain_json.get("obstruction_type").is_none());
+    assert!(plain_json.get("counterexample").is_none());
+    assert!(plain_json.get("required_resolution").is_none());
+    assert_eq!(
+        serde_json::from_value::<Violation>(plain_json).expect("deserialize plain"),
+        plain
+    );
+
+    let rich = Violation::new("rich", Severity::High)
+        .with_obstruction_type(ObstructionType::custom("advisory:focus").expect("custom type"))
+        .with_counterexample(Counterexample::new("focus missing").expect("counterexample"))
+        .with_required_resolution(RequiredResolution::new("add focus").expect("resolution"));
+    let rich_json = serde_json::to_value(&rich).expect("serialize rich violation");
+
+    assert_eq!(rich_json["obstruction_type"], "custom:advisory:focus");
+    assert!(rich_json.get("counterexample").is_some());
+    assert!(rich_json.get("required_resolution").is_some());
+    assert_eq!(
+        serde_json::from_value::<Violation>(rich_json).expect("deserialize rich"),
+        rich
     );
 }
 

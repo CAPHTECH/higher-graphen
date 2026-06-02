@@ -61,7 +61,7 @@ pub fn detect_obstruction_completion_candidates(
     CompletionDetectionResult::new(space_id, context_ids, candidates)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct ObstructionCompletionContract {
     missing_type: MissingType,
     structure_type: &'static str,
@@ -89,7 +89,7 @@ fn obstruction_to_candidate(
 
     let suggested_structure = SuggestedStructure::new(
         contract.structure_type,
-        obstruction_suggestion_summary(obstruction, contract),
+        obstruction_suggestion_summary(obstruction, &contract),
     )?
     .with_structure_id(Id::new(format!(
         "{OBSTRUCTION_STRUCTURE_PREFIX}{}",
@@ -100,10 +100,10 @@ fn obstruction_to_candidate(
     CompletionCandidate::new(
         Id::new(format!("{OBSTRUCTION_CANDIDATE_PREFIX}{}", obstruction.id))?,
         input_space_id.clone(),
-        contract.missing_type,
+        contract.missing_type.clone(),
         suggested_structure,
         obstruction_inferred_from(obstruction),
-        obstruction_rationale(obstruction, contract),
+        obstruction_rationale(obstruction, &contract),
         obstruction.provenance.confidence,
     )
     .map(Some)
@@ -152,7 +152,7 @@ fn obstruction_completion_contract(
 
 fn obstruction_suggestion_summary(
     obstruction: &Obstruction,
-    contract: ObstructionCompletionContract,
+    contract: &ObstructionCompletionContract,
 ) -> String {
     let resolution = obstruction
         .required_resolution
@@ -168,7 +168,7 @@ fn obstruction_suggestion_summary(
 
 fn obstruction_rationale(
     obstruction: &Obstruction,
-    contract: ObstructionCompletionContract,
+    contract: &ObstructionCompletionContract,
 ) -> String {
     let mut rationale = format!(
         "{} obstruction {} was recorded in space {}: {}",

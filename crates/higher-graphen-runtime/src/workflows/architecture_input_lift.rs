@@ -230,7 +230,7 @@ fn completion_rule(
     let rule = CompletionRule::new(
         id(format!("rule:architecture-input-lift:{}", inference.id))?,
         inference.id.clone(),
-        inference.missing_type,
+        inference.missing_type.clone(),
         suggested,
         inference.rationale.clone(),
         inference.confidence,
