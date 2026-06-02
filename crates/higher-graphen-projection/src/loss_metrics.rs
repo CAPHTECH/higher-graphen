@@ -119,6 +119,7 @@ pub fn measure_projection_loss(
     let eligible = sorted_unique_ids(eligible_source_ids.iter().cloned());
     let declared_loss_source_ids = declared_loss_source_ids(result.information_loss());
     let items = output_items(result.output());
+    let has_untraced_attributable_item = has_untraced_attributable_item(result.output(), &items);
     let unsupported_per_item_metrics = has_untraced_output_kind(result.output());
 
     let traced_sources = traced_sources(&items);
@@ -170,6 +171,7 @@ pub fn measure_projection_loss(
     let obstructions = obstructions(
         !undeclared_missing.is_empty(),
         !missing_from_ambiguity.is_empty(),
+        has_untraced_attributable_item,
         unsupported_per_item_metrics,
     );
     let risk_severity = risk_severity(&obstructions);
@@ -236,6 +238,18 @@ fn has_untraced_output_kind(output: &ProjectionOutput) -> bool {
         output,
         ProjectionOutput::Text { .. } | ProjectionOutput::Table { .. }
     )
+}
+
+fn has_untraced_attributable_item(output: &ProjectionOutput, items: &[OutputItem]) -> bool {
+    let carries_attribution = matches!(
+        output,
+        ProjectionOutput::Sections { .. } | ProjectionOutput::KeyValue { .. }
+    );
+    carries_attribution
+        && (items.is_empty()
+            || items
+                .iter()
+                .any(|item| matches!(&item.source_ids, Some(source_ids) if source_ids.is_empty())))
 }
 
 fn sorted_unique_ids<I>(ids: I) -> Vec<Id>
@@ -381,6 +395,7 @@ fn missing_sources(source_ids: &[Id], declared: &BTreeSet<Id>) -> BTreeSet<Id> {
 fn obstructions(
     has_undeclared_loss: bool,
     has_undeclared_ambiguity: bool,
+    has_untraced_attributable_item: bool,
     unsupported_per_item_metrics: bool,
 ) -> Vec<ProjectionLossObstruction> {
     let mut obstructions = BTreeSet::new();
@@ -389,6 +404,9 @@ fn obstructions(
     }
     if has_undeclared_ambiguity {
         obstructions.insert(ProjectionLossObstruction::AmbiguousProjectionOutput);
+    }
+    if has_untraced_attributable_item {
+        obstructions.insert(ProjectionLossObstruction::SourceTraceMissing);
     }
     if unsupported_per_item_metrics {
         obstructions.insert(ProjectionLossObstruction::SourceTraceMissing);

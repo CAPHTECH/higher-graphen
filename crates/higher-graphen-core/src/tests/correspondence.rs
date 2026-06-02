@@ -193,6 +193,61 @@ fn correspondence_schema_fixture_loads_as_core_model_after_schema_envelope() {
     ));
 }
 
+#[test]
+fn wire_enum_kind_accessors_match_serde_discriminants() {
+    for kind in [
+        OverlapWitnessKind::FeatureSet,
+        OverlapWitnessKind::PredicateSet,
+        OverlapWitnessKind::NormalizedClaim,
+        OverlapWitnessKind::Subgraph,
+        OverlapWitnessKind::Subcomplex,
+        OverlapWitnessKind::ConstraintSet,
+        OverlapWitnessKind::EvidenceSet,
+        OverlapWitnessKind::Boundary,
+        OverlapWitnessKind::ProjectionTrace,
+        OverlapWitnessKind::CausalPattern,
+        OverlapWitnessKind::ContextRestriction,
+    ] {
+        let serialized = serde_json::to_value(kind).expect("serialize witness kind");
+        assert_eq!(serialized, serde_json::json!(kind.kind()));
+    }
+
+    for severity in [
+        DifferenceSeverity::Informational,
+        DifferenceSeverity::Minor,
+        DifferenceSeverity::Major,
+        DifferenceSeverity::Blocking,
+    ] {
+        let serialized = serde_json::to_value(severity).expect("serialize severity");
+        assert_eq!(serialized, serde_json::json!(severity.kind()));
+    }
+
+    let gluing_results = [
+        GluingResult::Success {
+            merged_complex: None,
+            preservation_report: PreservationReport {
+                preserved_invariants: vec![id("invariant:kept")],
+                preserved_structures: Vec::new(),
+                summary: None,
+            },
+        },
+        GluingResult::Candidate {
+            completion_candidate: id("candidate:gluing"),
+            required_review: ReviewRequirement::new(true)
+                .with_decision_reason("review candidate")
+                .expect("review reason"),
+        },
+        GluingResult::Failure {
+            obstruction: id("obstruction:gluing"),
+        },
+    ];
+
+    for result in gluing_results {
+        let serialized = serde_json::to_value(&result).expect("serialize gluing result");
+        assert_eq!(serialized["kind"], result.kind());
+    }
+}
+
 fn correspondence_fixture(
     correspondence_kind: CorrespondenceKind,
     polarity: CorrespondencePolarity,

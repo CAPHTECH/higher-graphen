@@ -4,6 +4,8 @@ This document fixes the implementation contract for `higher-graphen-core`
 before downstream crates depend on it. It refines the shared-type section of
 [`rust-core-model.md`](rust-core-model.md) and the core crate responsibility in
 [`package-boundaries.md`](package-boundaries.md).
+The JSON compatibility surface is declared separately in
+[`wire-stability-contract.md`](wire-stability-contract.md).
 
 ## Scope
 

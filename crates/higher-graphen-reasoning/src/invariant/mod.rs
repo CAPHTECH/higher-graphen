@@ -1,6 +1,9 @@
 //! Invariants, constraints, invariant checks, and constraint check results for HigherGraphen.
 
-use crate::obstruction::{Obstruction, ObstructionExplanation, ObstructionType, RelatedMorphism};
+use crate::obstruction::{
+    Counterexample, Obstruction, ObstructionExplanation, ObstructionType, RelatedMorphism,
+    RequiredResolution,
+};
 use higher_graphen_core::{CoreError, Id, Provenance, Result, Severity};
 use higher_graphen_projection::Projection;
 use higher_graphen_structure::morphism::Morphism;
@@ -273,6 +276,15 @@ pub struct Violation {
     /// Morphisms related to the violation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub related_morphism_ids: Vec<Id>,
+    /// Optional obstruction type override for downstream domains.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub obstruction_type: Option<ObstructionType>,
+    /// Optional concrete witness for the violation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counterexample: Option<Counterexample>,
+    /// Optional requirement that must be resolved before the violation clears.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_resolution: Option<RequiredResolution>,
 }
 
 impl Violation {
@@ -284,6 +296,9 @@ impl Violation {
             location_cell_ids: Vec::new(),
             location_context_ids: Vec::new(),
             related_morphism_ids: Vec::new(),
+            obstruction_type: None,
+            counterexample: None,
+            required_resolution: None,
         }
     }
 
@@ -302,6 +317,27 @@ impl Violation {
     /// Returns this violation with related morphisms.
     pub fn with_related_morphisms(mut self, related_morphism_ids: Vec<Id>) -> Self {
         self.related_morphism_ids = related_morphism_ids;
+        self
+    }
+
+    /// Returns this violation with an obstruction type override.
+    #[must_use]
+    pub fn with_obstruction_type(mut self, obstruction_type: ObstructionType) -> Self {
+        self.obstruction_type = Some(obstruction_type);
+        self
+    }
+
+    /// Returns this violation with a concrete counterexample.
+    #[must_use]
+    pub fn with_counterexample(mut self, counterexample: Counterexample) -> Self {
+        self.counterexample = Some(counterexample);
+        self
+    }
+
+    /// Returns this violation with a required resolution hint.
+    #[must_use]
+    pub fn with_required_resolution(mut self, required_resolution: RequiredResolution) -> Self {
+        self.required_resolution = Some(required_resolution);
         self
     }
 }
@@ -428,10 +464,10 @@ impl CheckResult {
             )
         })?;
         let explanation = ObstructionExplanation::new(violation.message.clone())?;
-        let obstruction_type = match self.target_kind {
-            CheckTargetKind::Invariant => ObstructionType::InvariantViolation,
-            CheckTargetKind::Constraint => ObstructionType::ConstraintUnsatisfied,
-        };
+        let obstruction_type = violation
+            .obstruction_type
+            .clone()
+            .unwrap_or_else(|| default_obstruction_type(self.target_kind));
         let mut obstruction = Obstruction::new(
             obstruction_id,
             space_id,
@@ -450,6 +486,12 @@ impl CheckResult {
         for morphism_id in &violation.related_morphism_ids {
             obstruction =
                 obstruction.with_related_morphism(RelatedMorphism::new(morphism_id.clone()));
+        }
+        if let Some(counterexample) = &violation.counterexample {
+            obstruction = obstruction.with_counterexample(counterexample.clone());
+        }
+        if let Some(required_resolution) = &violation.required_resolution {
+            obstruction = obstruction.with_required_resolution(required_resolution.clone());
         }
 
         Ok(Some(obstruction))
@@ -483,6 +525,13 @@ impl CheckResult {
                 ensure_non_empty("unsupported_reason", reason)
             }
         }
+    }
+}
+
+fn default_obstruction_type(target_kind: CheckTargetKind) -> ObstructionType {
+    match target_kind {
+        CheckTargetKind::Invariant => ObstructionType::InvariantViolation,
+        CheckTargetKind::Constraint => ObstructionType::ConstraintUnsatisfied,
     }
 }
 

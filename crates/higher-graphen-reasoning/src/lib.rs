@@ -7,6 +7,7 @@ pub mod abstract_interpretation;
 pub mod completion;
 pub mod correspondence;
 pub mod gluing;
+pub mod incidence;
 pub mod invariant;
 pub mod model_checking;
 pub mod obstruction;

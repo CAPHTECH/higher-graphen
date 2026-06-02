@@ -7,6 +7,8 @@ use higher_graphen_core::{
 };
 use std::collections::BTreeMap;
 
+mod advisory_loss;
+
 fn id(value: &str) -> Id {
     Id::new(value).expect("test id should be valid")
 }

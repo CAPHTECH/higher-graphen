@@ -254,6 +254,24 @@ pub enum OverlapWitnessKind {
 }
 
 impl OverlapWitnessKind {
+    /// Returns the stable serde discriminant string for this witness kind.
+    #[must_use]
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::FeatureSet => "FeatureSet",
+            Self::PredicateSet => "PredicateSet",
+            Self::NormalizedClaim => "NormalizedClaim",
+            Self::Subgraph => "Subgraph",
+            Self::Subcomplex => "Subcomplex",
+            Self::ConstraintSet => "ConstraintSet",
+            Self::EvidenceSet => "EvidenceSet",
+            Self::Boundary => "Boundary",
+            Self::ProjectionTrace => "ProjectionTrace",
+            Self::CausalPattern => "CausalPattern",
+            Self::ContextRestriction => "ContextRestriction",
+        }
+    }
+
     /// Returns true when this witness kind is explicit enough to support accepted semantic overlap.
     #[must_use]
     pub fn supports_accepted_semantic_overlap(self) -> bool {
@@ -305,6 +323,19 @@ pub enum DifferenceSeverity {
     Major,
     /// Difference blocks silent gluing or merge.
     Blocking,
+}
+
+impl DifferenceSeverity {
+    /// Returns the stable serde discriminant string for this severity.
+    #[must_use]
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Informational => "informational",
+            Self::Minor => "minor",
+            Self::Major => "major",
+            Self::Blocking => "blocking",
+        }
+    }
 }
 
 /// Shared structure carried by an overlap witness.
@@ -714,6 +745,18 @@ pub enum GluingResult {
         /// Obstruction identifier.
         obstruction: Id,
     },
+}
+
+impl GluingResult {
+    /// Returns the stable serde discriminant string for this result variant.
+    #[must_use]
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Success { .. } => "success",
+            Self::Candidate { .. } => "candidate",
+            Self::Failure { .. } => "failure",
+        }
+    }
 }
 
 /// Full gluing attempt record.

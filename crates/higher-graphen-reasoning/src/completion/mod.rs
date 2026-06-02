@@ -4,15 +4,16 @@ use higher_graphen_core::typed_provenance::{Accepted, Candidate, ReviewMorphism,
 use higher_graphen_core::{
     Confidence, CoreError, Id, Provenance, Result, ReviewStatus, SourceKind, SourceRef,
 };
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeSet;
+use std::str::FromStr;
 
+const CUSTOM_MISSING_TYPE_PREFIX: &str = "custom:";
 const OBSTRUCTION_CANDIDATE_PREFIX: &str = "candidate.from_obstruction.";
 const OBSTRUCTION_STRUCTURE_PREFIX: &str = "suggested.from_obstruction.";
 
 /// Kind of missing structure a completion candidate proposes to fill.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum MissingType {
     /// A missing cell in a space or complex.
     Cell,
@@ -30,6 +31,86 @@ pub enum MissingType {
     Projection,
     /// A missing context boundary or grouping.
     Context,
+    /// Extension point for downstream missing-structure categories.
+    Custom(String),
+}
+
+impl MissingType {
+    /// Creates a downstream-owned missing-type extension.
+    pub fn custom(extension: impl Into<String>) -> Result<Self> {
+        Ok(Self::Custom(normalized_required_text(
+            "missing_type",
+            extension,
+        )?))
+    }
+
+    /// Returns true when this is a downstream-owned custom extension.
+    #[must_use]
+    pub fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
+    }
+
+    /// Returns the stable serialized string for this missing type.
+    pub fn serialized_value(&self) -> Result<String> {
+        match self {
+            Self::Cell => Ok("cell".to_owned()),
+            Self::Incidence => Ok("incidence".to_owned()),
+            Self::Morphism => Ok("morphism".to_owned()),
+            Self::Constraint => Ok("constraint".to_owned()),
+            Self::Invariant => Ok("invariant".to_owned()),
+            Self::Section => Ok("section".to_owned()),
+            Self::Projection => Ok("projection".to_owned()),
+            Self::Context => Ok("context".to_owned()),
+            Self::Custom(extension) => {
+                let extension = normalized_required_text("missing_type", extension)?;
+                Ok(format!("{CUSTOM_MISSING_TYPE_PREFIX}{extension}"))
+            }
+        }
+    }
+}
+
+impl FromStr for MissingType {
+    type Err = CoreError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "cell" => Ok(Self::Cell),
+            "incidence" => Ok(Self::Incidence),
+            "morphism" => Ok(Self::Morphism),
+            "constraint" => Ok(Self::Constraint),
+            "invariant" => Ok(Self::Invariant),
+            "section" => Ok(Self::Section),
+            "projection" => Ok(Self::Projection),
+            "context" => Ok(Self::Context),
+            custom if custom.starts_with(CUSTOM_MISSING_TYPE_PREFIX) => {
+                Self::custom(&custom[CUSTOM_MISSING_TYPE_PREFIX.len()..])
+            }
+            unknown => Err(CoreError::ParseFailure {
+                target: "MissingType".to_owned(),
+                value: unknown.to_owned(),
+                reason: "expected a known missing type or custom:<extension>".to_owned(),
+            }),
+        }
+    }
+}
+
+impl Serialize for MissingType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.serialized_value().map_err(serde::ser::Error::custom)?)
+    }
+}
+
+impl<'de> Deserialize<'de> for MissingType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::from_str(&value).map_err(serde::de::Error::custom)
+    }
 }
 
 /// Minimal portable payload for a proposed missing structure.
@@ -150,7 +231,7 @@ impl CompletionRule {
         CompletionCandidate::new(
             self.candidate_id.clone(),
             space_id.clone(),
-            self.missing_type,
+            self.missing_type.clone(),
             self.suggested_structure.clone(),
             self.inferred_from.clone(),
             self.rationale.clone(),
@@ -554,7 +635,7 @@ impl AcceptedCompletion {
         Ok(Self {
             candidate_id: candidate.id.clone(),
             space_id: candidate.space_id.clone(),
-            missing_type: candidate.missing_type,
+            missing_type: candidate.missing_type.clone(),
             accepted_structure: candidate.suggested_structure.clone(),
             inferred_from: candidate.inferred_from.clone(),
             rationale: candidate.rationale.clone(),
@@ -641,7 +722,7 @@ pub fn reject_completion(
     Ok(RejectedCompletion {
         candidate_id: candidate.id.clone(),
         space_id: candidate.space_id.clone(),
-        missing_type: candidate.missing_type,
+        missing_type: candidate.missing_type.clone(),
         rejected_structure: candidate.suggested_structure.clone(),
         inferred_from: candidate.inferred_from.clone(),
         rationale: candidate.rationale.clone(),
@@ -722,6 +803,10 @@ fn ensure_unreviewed_candidates(candidates: &[CompletionCandidate]) -> Result<()
 }
 
 fn required_text(field: &'static str, value: impl Into<String>) -> Result<String> {
+    normalized_required_text(field, value)
+}
+
+fn normalized_required_text(field: &'static str, value: impl Into<String>) -> Result<String> {
     let raw = value.into();
     let normalized = raw.trim().to_owned();
 

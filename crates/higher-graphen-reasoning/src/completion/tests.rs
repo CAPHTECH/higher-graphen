@@ -308,6 +308,73 @@ fn detection_materializes_matching_rules_as_unreviewed_candidates() {
 }
 
 #[test]
+fn detection_materializes_custom_missing_type_rules() {
+    let suggestion = SuggestedStructure::new("advisory_focus", "Add missing advisory focus")
+        .expect("valid suggestion")
+        .with_structure_id(id("focus.advisory"));
+    let custom_missing_type = MissingType::custom("advisory:focus").expect("custom missing type");
+    let rule = CompletionRule::new(
+        id("rule.focus"),
+        id("candidate.focus"),
+        custom_missing_type.clone(),
+        suggestion,
+        "The advisory has no focus structure.",
+        confidence(0.81),
+    )
+    .expect("valid rule");
+
+    let result = SimpleCompletionEngine
+        .detect_candidates(CompletionDetectionInput::new(
+            id("space.architecture"),
+            vec![rule],
+        ))
+        .expect("completion detection should succeed");
+
+    assert_eq!(result.candidates().len(), 1);
+    assert_eq!(result.candidates()[0].missing_type, custom_missing_type);
+    assert!(result.candidates()[0].missing_type.is_custom());
+    assert_eq!(
+        result.candidates()[0].review_status,
+        ReviewStatus::Unreviewed
+    );
+}
+
+#[test]
+fn missing_type_custom_rejects_empty_extension() {
+    assert!(MissingType::custom("").is_err());
+    assert!(MissingType::custom("   ").is_err());
+}
+
+#[test]
+fn missing_type_json_round_trips_builtin_and_custom_values() {
+    let builtin = MissingType::Cell;
+    let custom = MissingType::custom("advisory:focus").expect("custom missing type");
+
+    assert_eq!(
+        serde_json::to_string(&builtin).expect("builtin should serialize"),
+        "\"cell\""
+    );
+    assert_eq!(
+        serde_json::to_string(&custom).expect("custom should serialize"),
+        "\"custom:advisory:focus\""
+    );
+    assert_eq!(
+        custom.serialized_value().expect("serialized custom"),
+        "custom:advisory:focus"
+    );
+    assert_eq!(
+        serde_json::from_str::<MissingType>("\"cell\"").expect("builtin should deserialize"),
+        builtin
+    );
+    assert_eq!(
+        serde_json::from_str::<MissingType>("\"custom:advisory:focus\"")
+            .expect("custom should deserialize"),
+        custom
+    );
+    assert!(serde_json::from_str::<MissingType>("\"advisory:focus\"").is_err());
+}
+
+#[test]
 fn detection_skips_rules_for_missing_contexts() {
     let input = CompletionDetectionInput::new(id("space.architecture"), vec![rule()])
         .with_context_ids(vec![id("context.other")]);
