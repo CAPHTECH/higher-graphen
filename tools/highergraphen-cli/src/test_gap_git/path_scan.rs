@@ -45,7 +45,7 @@ fn resolve_input_path(repo: &Path, path: &Path) -> Result<PathBuf, String> {
 }
 
 fn collect_tests(repo: &Path, files: &mut BTreeSet<String>) -> Result<(), String> {
-    collect_current_tree_files_with_filter(repo, repo, files, &|relative| is_test_path(relative))
+    collect_current_tree_files_with_filter(repo, repo, files, &is_test_path)
 }
 
 fn collect_current_tree_files(
