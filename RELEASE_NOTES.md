@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.7.1
+
+Release scope:
+
+- Patch release for the HigherGraphen Rust workspace at `0.7.1`.
+- Three general-purpose primitive improvements over the v0.7.0 advisory
+  extensions, requested by AdvisoryGraphen. All additive and deterministic, no
+  new dependencies, no consumer domain vocabulary. Design spec:
+  `docs/specs/incidence-evaluator-hardening.md`.
+- Git tag and GitHub Release are prepared for publication after maintainer
+  approval.
+
+Highlights:
+
+- Incidence severity (latent-gap fix): `reasoning::incidence` obstructions no
+  longer hardcode `Severity::Medium`. `IncidenceRelation::with_dangling_severity`
+  / `with_context_mismatch_severity` and `RequiredRegion::with_severity` let the
+  caller declare a finding's severity. Default stays `Medium`.
+- Acyclicity parity: `EvaluatorCheck::Acyclicity` now reports every simple cycle
+  with edge witnesses (`related_morphism_ids`) and a per-cycle counterexample,
+  backed by the existing `InMemorySpaceStore::find_simple_cycles` (the bespoke
+  single-cycle DFS is removed). The reported representation changed from the
+  single-cycle message to an all-cycles, witnessed form.
+- Cross-context policy: `IncidenceRelation::with_cross_context_allowed()`
+  suppresses the context-mismatch obstruction for legitimately cross-context
+  edges; default unchanged.
+
 ## v0.7.0
 
 Release scope:

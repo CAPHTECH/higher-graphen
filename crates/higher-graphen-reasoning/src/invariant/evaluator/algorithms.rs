@@ -5,26 +5,26 @@ pub(super) fn evaluate_acyclicity(
     check: &AcyclicityCheck,
     context: &EvaluatorContext<'_>,
 ) -> Result<CheckResult> {
-    let relation_types = normalized_string_set("relation_types", &check.relation_types)?;
-    let cycle = directed_cycle(
-        context.space_store,
-        &context.check_input.space_id,
-        &relation_types,
-    )?;
+    let options = normalized_string_set("relation_types", &check.relation_types)?
+        .into_iter()
+        .fold(CycleSearchOptions::new(), |options, relation_type| {
+            options.with_relation_type(relation_type)
+        });
+    let cycles = context
+        .space_store
+        .find_simple_cycles(&context.check_input.space_id, &options)?;
 
-    Ok(cycle.map_or_else(
-        || CheckResult::satisfied(rule.target_kind, rule.target_id.clone()),
-        |cycle| {
-            CheckResult::violated(
-                rule.target_kind,
-                rule.target_id.clone(),
-                Violation::new(
-                    format!("cycle detected through cells: {}", join_ids(&cycle)),
-                    rule.severity,
-                )
-                .with_location_cells(cycle),
-            )
-        },
+    if cycles.is_empty() {
+        return Ok(CheckResult::satisfied(
+            rule.target_kind,
+            rule.target_id.clone(),
+        ));
+    }
+
+    Ok(CheckResult::violated(
+        rule.target_kind,
+        rule.target_id.clone(),
+        cycle_violation(&cycles, rule.severity)?,
     ))
 }
 
@@ -273,94 +273,49 @@ pub(super) fn evaluate_projection_loss_declared(
     }
 }
 
-fn directed_cycle(
-    store: &InMemorySpaceStore,
-    space_id: &Id,
-    relation_types: &BTreeSet<String>,
-) -> Result<Option<Vec<Id>>> {
-    let space = store
-        .space(space_id)
-        .ok_or_else(|| malformed_field("space_id", format!("identifier {space_id} is absent")))?;
-    let mut adjacency = space
-        .cell_ids
+fn cycle_violation(cycles: &[SimpleCycleIndicator], severity: Severity) -> Result<Violation> {
+    let location_cell_ids = cycles
         .iter()
-        .cloned()
-        .map(|cell_id| (cell_id, Vec::new()))
-        .collect::<BTreeMap<_, _>>();
+        .flat_map(|cycle| cycle.vertex_cell_ids.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let related_morphism_ids = cycles
+        .iter()
+        .flat_map(|cycle| {
+            std::iter::once(cycle.witness_edge_id.clone())
+                .chain(cycle.edge_cell_ids.iter().cloned())
+        })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
 
-    for incidence_id in &space.incidence_ids {
-        let incidence = store.incidence(incidence_id).ok_or_else(|| {
-            malformed_field(
-                "incidence_ids",
-                format!("identifier {incidence_id} is absent"),
-            )
-        })?;
-        if !relation_types.is_empty() && !relation_types.contains(&incidence.relation_type) {
-            continue;
-        }
-        adjacency
-            .entry(incidence.from_cell_id.clone())
-            .or_default()
-            .push(incidence.to_cell_id.clone());
-        adjacency.entry(incidence.to_cell_id.clone()).or_default();
-    }
-
-    for neighbors in adjacency.values_mut() {
-        normalize_ids(neighbors);
-    }
-
-    let mut states = BTreeMap::new();
-    let mut stack = Vec::new();
-    for cell_id in adjacency.keys().cloned().collect::<Vec<_>>() {
-        if states.contains_key(&cell_id) {
-            continue;
-        }
-        if let Some(cycle) = directed_cycle_from(&cell_id, &adjacency, &mut states, &mut stack) {
-            return Ok(Some(cycle));
-        }
-    }
-
-    Ok(None)
+    Ok(Violation::new(
+        format!("{} simple cycle(s) detected", cycles.len()),
+        severity,
+    )
+    .with_location_cells(location_cell_ids)
+    .with_related_morphisms(related_morphism_ids)
+    .with_counterexample(cycle_counterexample(cycles)?))
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum VisitState {
-    Visiting,
-    Visited,
-}
-
-fn directed_cycle_from(
-    cell_id: &Id,
-    adjacency: &BTreeMap<Id, Vec<Id>>,
-    states: &mut BTreeMap<Id, VisitState>,
-    stack: &mut Vec<Id>,
-) -> Option<Vec<Id>> {
-    states.insert(cell_id.clone(), VisitState::Visiting);
-    stack.push(cell_id.clone());
-
-    for neighbor_id in adjacency.get(cell_id).into_iter().flatten() {
-        match states.get(neighbor_id).copied() {
-            Some(VisitState::Visiting) => {
-                let start = stack
-                    .iter()
-                    .position(|candidate| candidate == neighbor_id)
-                    .unwrap_or(0);
-                let mut cycle = stack[start..].to_vec();
-                cycle.push(neighbor_id.clone());
-                return Some(cycle);
-            }
-            Some(VisitState::Visited) => {}
-            None => {
-                if let Some(cycle) = directed_cycle_from(neighbor_id, adjacency, states, stack) {
-                    return Some(cycle);
-                }
-            }
-        }
+fn cycle_counterexample(cycles: &[SimpleCycleIndicator]) -> Result<Counterexample> {
+    let mut counterexample = Counterexample::new("simple cycle(s) detected")?
+        .with_assignment("cycle_count", cycles.len().to_string())?;
+    for (index, cycle) in cycles.iter().enumerate() {
+        let prefix = format!("cycle_{}", index + 1);
+        counterexample = counterexample
+            .with_assignment(
+                format!("{prefix}_vertices"),
+                join_ids(&cycle.vertex_cell_ids),
+            )?
+            .with_assignment(format!("{prefix}_edges"), join_ids(&cycle.edge_cell_ids))?
+            .with_assignment(
+                format!("{prefix}_witness_edge"),
+                cycle.witness_edge_id.as_str(),
+            )?;
     }
-
-    stack.pop();
-    states.insert(cell_id.clone(), VisitState::Visited);
-    None
+    Ok(counterexample)
 }
 
 fn forbidden_reachability_result(

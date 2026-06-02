@@ -52,6 +52,15 @@ pub struct IncidenceRelation {
     /// Context labels explicitly declared for this incidence.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context_ids: Vec<Id>,
+    /// Severity for dangling endpoint findings on this incidence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dangling_severity: Option<Severity>,
+    /// Severity for context mismatch findings on this incidence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_mismatch_severity: Option<Severity>,
+    /// Whether this incidence is allowed to join disjoint endpoint contexts.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_cross_context: bool,
     /// Optional obstruction type override for dangling endpoint findings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dangling_obstruction_type: Option<ObstructionType>,
@@ -69,6 +78,9 @@ impl IncidenceRelation {
             source_cell_id,
             target_cell_id,
             context_ids: Vec::new(),
+            dangling_severity: None,
+            context_mismatch_severity: None,
+            allow_cross_context: false,
             dangling_obstruction_type: None,
             required_resolution: None,
         }
@@ -81,6 +93,27 @@ impl IncidenceRelation {
         I: IntoIterator<Item = Id>,
     {
         self.context_ids = sorted_unique_ids(context_ids);
+        self
+    }
+
+    /// Returns this incidence with a dangling-endpoint severity override.
+    #[must_use]
+    pub fn with_dangling_severity(mut self, severity: Severity) -> Self {
+        self.dangling_severity = Some(severity);
+        self
+    }
+
+    /// Returns this incidence with a context-mismatch severity override.
+    #[must_use]
+    pub fn with_context_mismatch_severity(mut self, severity: Severity) -> Self {
+        self.context_mismatch_severity = Some(severity);
+        self
+    }
+
+    /// Returns this incidence with cross-context edges explicitly allowed.
+    #[must_use]
+    pub fn with_cross_context_allowed(mut self) -> Self {
+        self.allow_cross_context = true;
         self
     }
 
@@ -111,6 +144,9 @@ pub struct RequiredRegion {
     /// Context identifiers that define the required region.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context_ids: Vec<Id>,
+    /// Severity for uncovered-region findings on this required region.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub severity: Option<Severity>,
     /// Optional resolution hint supplied by the input.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_resolution: Option<RequiredResolution>,
@@ -135,8 +171,16 @@ impl RequiredRegion {
             id,
             cell_ids,
             context_ids,
+            severity: None,
             required_resolution: None,
         })
+    }
+
+    /// Returns this required region with an uncovered-region severity override.
+    #[must_use]
+    pub fn with_severity(mut self, severity: Severity) -> Self {
+        self.severity = Some(severity);
+        self
     }
 
     /// Returns this required region with an input-supplied resolution hint.
@@ -276,6 +320,7 @@ fn append_dangling_obstruction(
             .clone()
             .unwrap_or(ObstructionType::MissingMorphism),
         "incidence references absent cell",
+        incidence.dangling_severity.unwrap_or(Severity::Medium),
     )?
     .with_counterexample(counterexample);
 
@@ -295,6 +340,9 @@ fn append_context_mismatch(
     input: &IncidenceConsistencyInput,
     obstructions: &mut Vec<Obstruction>,
 ) -> Result<()> {
+    if incidence.allow_cross_context {
+        return Ok(());
+    }
     let Some((source, target)) = present_endpoints(incidence, cell_map) else {
         return Ok(());
     };
@@ -307,6 +355,9 @@ fn append_context_mismatch(
         input,
         ObstructionType::ContextMismatch,
         "incidence joins incompatible contexts",
+        incidence
+            .context_mismatch_severity
+            .unwrap_or(Severity::Medium),
     )?
     .with_counterexample(context_counterexample(incidence, source, target)?)
     .with_location_cell(source.id.clone())
@@ -340,6 +391,7 @@ fn append_uncovered_region(
         input,
         ObstructionType::UncoveredRegion,
         "required region has no covering incidence",
+        region.severity.unwrap_or(Severity::Medium),
     )?
     .with_counterexample(region_counterexample(region)?);
     for cell_id in &region.cell_ids {
@@ -360,13 +412,14 @@ fn base_obstruction(
     input: &IncidenceConsistencyInput,
     obstruction_type: ObstructionType,
     summary: &'static str,
+    severity: Severity,
 ) -> Result<Obstruction> {
     Ok(Obstruction::new(
         id,
         input.space_id.clone(),
         obstruction_type,
         ObstructionExplanation::new(summary)?,
-        Severity::Medium,
+        severity,
         input.provenance.clone(),
     ))
 }
