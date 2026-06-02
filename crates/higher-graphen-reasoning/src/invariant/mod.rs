@@ -8,10 +8,11 @@ use higher_graphen_core::{CoreError, Id, Provenance, Result, Severity};
 use higher_graphen_projection::Projection;
 use higher_graphen_structure::morphism::Morphism;
 use higher_graphen_structure::space::{
-    GraphPath, InMemorySpaceStore, ReachabilityQuery, TraversalOptions,
+    CycleSearchOptions, GraphPath, InMemorySpaceStore, ReachabilityQuery, TraversalOptions,
 };
+use higher_graphen_structure::topology::SimpleCycleIndicator;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 /// Scope where an invariant must hold or be preserved.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

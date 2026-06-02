@@ -37,17 +37,27 @@ fn store_with_cells<const N: usize>(cell_ids: [&str; N]) -> InMemorySpaceStore {
     store
 }
 
-fn insert_dependency(store: &mut InMemorySpaceStore, incidence_id: &str, from: &str, to: &str) {
+fn insert_relation(
+    store: &mut InMemorySpaceStore,
+    incidence_id: &str,
+    from: &str,
+    to: &str,
+    relation_type: &str,
+) {
     store
         .insert_incidence(Incidence::new(
             id(incidence_id),
             id("space:architecture"),
             id(from),
             id(to),
-            "depends_on",
+            relation_type,
             IncidenceOrientation::Directed,
         ))
         .expect("incidence should insert");
+}
+
+fn insert_dependency(store: &mut InMemorySpaceStore, incidence_id: &str, from: &str, to: &str) {
+    insert_relation(store, incidence_id, from, to, "depends_on");
 }
 
 #[test]
@@ -215,7 +225,7 @@ fn evaluator_satisfies_acyclic_required_path_and_safety_rules() {
 }
 
 #[test]
-fn acyclicity_reports_cycle_locations() {
+fn acyclicity_reports_cycle_locations_and_edge_witnesses() {
     let mut store = store_with_cells(["cell:a", "cell:b"]);
     insert_dependency(&mut store, "incidence:a-b", "cell:a", "cell:b");
     insert_dependency(&mut store, "incidence:b-a", "cell:b", "cell:a");
@@ -231,9 +241,73 @@ fn acyclicity_reports_cycle_locations() {
         .expect("evaluation should succeed");
 
     assert!(result.is_violated());
-    let location_cell_ids = &result.violation().expect("violation").location_cell_ids;
-    assert!(location_cell_ids.contains(&id("cell:a")));
-    assert!(location_cell_ids.contains(&id("cell:b")));
+    let violation = result.violation().expect("violation");
+    assert_eq!(violation.message, "1 simple cycle(s) detected");
+    assert_eq!(violation.severity, Severity::High);
+    assert_eq!(
+        violation.location_cell_ids,
+        vec![id("cell:a"), id("cell:b")]
+    );
+    assert_eq!(
+        violation.related_morphism_ids,
+        vec![id("incidence:a-b"), id("incidence:b-a")]
+    );
+    let counterexample = violation.counterexample.as_ref().expect("counterexample");
+    assert_eq!(
+        counterexample.assignments.get("cycle_1_vertices"),
+        Some(&"cell:a, cell:b".to_owned())
+    );
+    assert_eq!(
+        counterexample.assignments.get("cycle_1_edges"),
+        Some(&"incidence:a-b, incidence:b-a".to_owned())
+    );
+}
+
+#[test]
+fn acyclicity_reports_all_cycles_and_stays_deterministic() {
+    let mut store = store_with_cells(["cell:a", "cell:b", "cell:c", "cell:d"]);
+    insert_dependency(&mut store, "incidence:a-b", "cell:a", "cell:b");
+    insert_dependency(&mut store, "incidence:b-c", "cell:b", "cell:c");
+    insert_dependency(&mut store, "incidence:c-a", "cell:c", "cell:a");
+    insert_dependency(&mut store, "incidence:a-d", "cell:a", "cell:d");
+    insert_dependency(&mut store, "incidence:d-a", "cell:d", "cell:a");
+    let input = CheckInput::new(id("space:architecture"));
+    let rule = EvaluatorRule::invariant(
+        id("inv:acyclic"),
+        Severity::High,
+        EvaluatorCheck::Acyclicity(AcyclicityCheck::new()),
+    );
+
+    let first = rule
+        .evaluate(&EvaluatorContext::new(&input, &store))
+        .expect("first evaluation should succeed");
+    let second = rule
+        .evaluate(&EvaluatorContext::new(&input, &store))
+        .expect("second evaluation should succeed");
+    let filtered = EvaluatorRule::invariant(
+        id("inv:acyclic"),
+        Severity::High,
+        EvaluatorCheck::Acyclicity(AcyclicityCheck::new().with_relation_type("test_only")),
+    )
+    .evaluate(&EvaluatorContext::new(&input, &store))
+    .expect("filtered evaluation should succeed");
+
+    assert_eq!(
+        serde_json::to_string(&first).expect("serialize first"),
+        serde_json::to_string(&second).expect("serialize second")
+    );
+    assert!(filtered.is_satisfied());
+    let violation = first.violation().expect("violation");
+    assert_eq!(violation.message, "2 simple cycle(s) detected");
+    assert_eq!(violation.location_cell_ids.len(), 4);
+    assert_eq!(violation.related_morphism_ids.len(), 5);
+    assert_eq!(
+        violation
+            .counterexample
+            .as_ref()
+            .and_then(|counterexample| counterexample.assignments.get("cycle_count")),
+        Some(&"2".to_owned())
+    );
 }
 
 #[test]
