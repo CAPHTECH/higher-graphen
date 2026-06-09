@@ -163,14 +163,11 @@ objects rather than hidden implementation details.
 ## Release And Install
 
 The latest release is
-[`v0.6.0`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.6.0),
-which includes Darwin arm64 binaries for:
+[`v0.7.1`](https://github.com/CAPHTECH/higher-graphen/releases/tag/v0.7.1),
+which includes Darwin arm64 binaries for the `casegraphen` and `highergraphen`
+CLIs.
 
-- `casegraphen`
-- `highergraphen`
-
-Cargo packages are configured for registry packaging. After the package
-publication step, install the CLI surfaces with:
+The workspace crates are published on crates.io. Install the CLI surfaces with:
 
 ```sh
 cargo install highergraphen-cli
@@ -181,22 +178,8 @@ Library consumers can depend on the workspace crates directly, for example:
 
 ```toml
 [dependencies]
-higher-graphen-core = "0.6.0"
-higher-graphen-runtime = "0.6.0"
-```
-
-Publish reusable crates before dependent crates and CLI tools:
-
-```sh
-cargo publish -p higher-graphen-core
-cargo publish -p higher-graphen-structure
-cargo publish -p higher-graphen-projection
-cargo publish -p higher-graphen-evidence
-cargo publish -p higher-graphen-reasoning
-cargo publish -p higher-graphen-interpretation
-cargo publish -p higher-graphen-runtime
-cargo publish -p casegraphen
-cargo publish -p highergraphen-cli
+higher-graphen-core = "0.7.1"
+higher-graphen-runtime = "0.7.1"
 ```
 
 The example workspace packages remain unpublished validation fixtures. To build
@@ -208,8 +191,37 @@ cargo build --workspace --release --locked
 
 ## What You Can Run Today
 
-The repository already includes a Rust workspace, core crates, schemas,
-reference examples, and two CLI surfaces:
+### Quick Start: Run It On Your Own Repository
+
+The fastest way to see the value is to point HigherGraphen at a real change in
+your own repository and ask what an AI-authored diff still leaves unverified.
+Both commands are fully deterministic: the same diff always produces the same
+report, so the output is auditable and diffable.
+
+```sh
+# What still needs human review, and what blocks treating this change
+# as "covered"? Ranks review targets and lists the unresolved obstructions.
+highergraphen pr-review input from-git --base main --head HEAD \
+  --format json --output /tmp/pr-input.json
+highergraphen pr-review targets recommend --input /tmp/pr-input.json --format json
+
+# Which changed code has no accompanying test? Each gap becomes a reviewable
+# missing-test candidate, kept separate from accepted fact until reviewed.
+highergraphen test-gap input from-git --base main --head HEAD \
+  --format json --output /tmp/tg-input.json
+highergraphen test-gap detect --input /tmp/tg-input.json --format json
+```
+
+Read the `projection.summary` and `result` fields for the human-facing payoff:
+a ranked list of where a reviewer should focus, the obstructions that block
+sign-off, and missing-test candidates that are never silently promoted to
+accepted fact.
+
+### Reference Reports
+
+The repository also includes a Rust workspace, core crates, schemas, reference
+examples, and two CLI surfaces. The reference Architecture Product smoke report
+runs on a built-in fixture:
 
 ```sh
 cargo run -q -p highergraphen-cli -- \
