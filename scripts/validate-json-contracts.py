@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Validate repository JSON contract coverage and schema conformance.
 
-This check verifies that every schema-bearing fixture resolves to a declared
-schema `$id` or alias, validates that fixture against the resolved JSON Schema,
+This check verifies that every covered schema-bearing fixture resolves to a
+declared schema `$id`, validates that fixture against the resolved JSON Schema,
 and keeps a lightweight report-envelope check for top-level reports.
 """
 
 from __future__ import annotations
 
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,7 +21,9 @@ except ImportError:  # pragma: no cover - exercised by environments, not tests.
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = ROOT / "schemas"
 FIXTURE_ROOTS = [ROOT / "schemas", ROOT / "examples"]
-ALIAS_PATH = SCHEMA_ROOT / "casegraphen" / "report-schema-aliases.json"
+# Retained CaseGraphen fixtures are still consumed by HigherGraphen tests, but
+# their JSON Schema contracts and validation gate moved to the extracted repo.
+CASEGRAPHEN_EXAMPLE_ROOT = ROOT / "examples" / "casegraphen"
 
 REPORT_REQUIRED_KEYS = {
     "schema",
@@ -55,37 +56,15 @@ def schema_ids() -> dict[str, Path]:
     return ids
 
 
-def alias_rules(known_schema_ids: dict[str, Path]) -> list[AliasRule]:
-    value = load_json(ALIAS_PATH)
-    aliases = value.get("aliases") if isinstance(value, dict) else None
-    if not isinstance(aliases, list):
-        raise ContractError(f"{ALIAS_PATH}: aliases must be an array")
-
-    rules = []
-    for index, alias in enumerate(aliases):
-        if not isinstance(alias, dict):
-            raise ContractError(f"{ALIAS_PATH}: aliases[{index}] must be an object")
-        pattern = alias.get("schema_pattern")
-        target = alias.get("target_schema_id")
-        if not isinstance(pattern, str) or not isinstance(target, str):
-            raise ContractError(
-                f"{ALIAS_PATH}: aliases[{index}] needs schema_pattern and target_schema_id"
-            )
-        if target not in known_schema_ids:
-            raise ContractError(
-                f"{ALIAS_PATH}: aliases[{index}] targets unknown schema id {target!r}"
-            )
-        rules.append(AliasRule(re.compile(pattern), target))
-    return rules
-
-
 def json_contract_paths() -> list[Path]:
     paths: list[Path] = []
     for root in FIXTURE_ROOTS:
         paths.extend(
             path
             for path in root.rglob("*.json")
-            if path != ALIAS_PATH and not path.name.endswith(".schema.json")
+            if CASEGRAPHEN_EXAMPLE_ROOT not in path.parents
+            and not path.name.startswith("casegraphen-")
+            and not path.name.endswith(".schema.json")
         )
     return sorted(paths)
 
@@ -102,13 +81,9 @@ def top_level_report(path: Path, value: Any) -> tuple[str, dict[str, Any]] | Non
 def resolve_schema_id(
     report_schema_id: str,
     known_schema_ids: dict[str, Path],
-    rules: list[AliasRule],
 ) -> str | None:
     if report_schema_id in known_schema_ids:
         return report_schema_id
-    for rule in rules:
-        if rule.pattern.match(report_schema_id):
-            return rule.target_schema_id
     return None
 
 
@@ -177,7 +152,6 @@ def json_path(path: Any) -> str:
 def main() -> int:
     try:
         known_schema_ids = schema_ids()
-        aliases = alias_rules(known_schema_ids)
         errors: list[str] = []
         report_count = 0
         schema_validated_count = 0
@@ -187,10 +161,10 @@ def main() -> int:
             location = str(path.relative_to(ROOT))
             schema_value = value.get("schema") if isinstance(value, dict) else None
             if isinstance(schema_value, str):
-                target = resolve_schema_id(schema_value, known_schema_ids, aliases)
+                target = resolve_schema_id(schema_value, known_schema_ids)
                 if target is None:
                     errors.append(
-                        f"{location}: no matching schema $id or explicit alias for {schema_value!r}"
+                        f"{location}: no matching schema $id for {schema_value!r}"
                     )
                 else:
                     schema_validated_count += 1
@@ -203,10 +177,10 @@ def main() -> int:
                 location, report = report_record
                 report_count += 1
                 report_schema_id = report["schema"]
-                target = resolve_schema_id(report_schema_id, known_schema_ids, aliases)
+                target = resolve_schema_id(report_schema_id, known_schema_ids)
                 if target is None:
                     errors.append(
-                        f"{location}: no matching schema $id or explicit alias for {report_schema_id!r}"
+                        f"{location}: no matching schema $id for {report_schema_id!r}"
                     )
                 errors.extend(validate_report_shape(location, report))
 
@@ -229,12 +203,6 @@ def main() -> int:
 
 class ContractError(Exception):
     pass
-
-
-class AliasRule:
-    def __init__(self, pattern: re.Pattern[str], target_schema_id: str) -> None:
-        self.pattern = pattern
-        self.target_schema_id = target_schema_id
 
 
 if __name__ == "__main__":

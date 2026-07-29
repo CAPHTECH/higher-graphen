@@ -19,7 +19,7 @@ name = "reference_workflow"
 path = "tests/reference_workflow.rs"
 
 [dev-dependencies]
-casegraphen = { path = "../../tools/casegraphen" }
+casegraphen = "0.7.1"
 higher-graphen-core.workspace = true
 higher-graphen-reasoning.workspace = true
 higher-graphen-runtime.workspace = true

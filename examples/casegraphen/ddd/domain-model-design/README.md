@@ -1,9 +1,8 @@
 # DDD Domain Model Design Diagnostic Example
 
-This example shows how to use native CaseGraphen as a DDD design review
-substrate with the `casegraphen-ddd-diagnostics` skill. The fixture models a
-proposed Sales/Billing `Customer` unification and records the domain review
-structure as a `CaseSpace` plus `MorphismLog`.
+This retained fixture models a proposed Sales/Billing `Customer` unification
+for HigherGraphen's DDD review workflow. It records the domain review structure
+as a `CaseSpace` plus `MorphismLog`.
 
 The example is intentionally small but it exercises the main diagnostic
 signals:
@@ -36,44 +35,23 @@ Important cells:
 
 ## Run
 
-Use a temporary native store:
+Create a HigherGraphen DDD input from the retained case-space fixture:
 
 ```sh
-cargo run -q -p casegraphen -- \
-  lift native \
-  --store /tmp/casegraphen-ddd-store \
-  --input examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json \
-  --revision-id revision:ddd-sales-billing-imported \
-  --format json
+highergraphen ddd input from-case-space \
+  --case-space examples/casegraphen/ddd/domain-model-design/sales-billing-customer.case.space.json \
+  --format json \
+  --output ddd-review.input.json
 ```
 
-Inspect focused diagnostic views:
-
-Command shorthand: `casegraphen space reason`,
-`casegraphen obstruction list`, `casegraphen completion candidates`,
-`casegraphen invariant check`, `casegraphen projection apply`, and
-`casegraphen invariant close-check`.
+Run the bounded review:
 
 ```sh
-cargo run -q -p casegraphen -- space validate --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- space reason --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- obstruction list --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- completion candidates --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- invariant check --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --format json
-cargo run -q -p casegraphen -- projection apply --store /tmp/casegraphen-ddd-store --case-space-id case_space:ddd-sales-billing-demo --projection schemas/casegraphen/projection.example.json --format json
+highergraphen ddd review --input ddd-review.input.json --format json
 ```
 
-Run the close gate:
-
-```sh
-cargo run -q -p casegraphen -- \
-  invariant close-check \
-  --store /tmp/casegraphen-ddd-store \
-  --case-space-id case_space:ddd-sales-billing-demo \
-  --base-revision-id revision:ddd-sales-billing-imported \
-  --validation-evidence-id evidence:workshop-notes \
-  --format json
-```
+Current CaseGraphen-native commands and schemas live in
+[`CAPHTECH/casegraphen`](https://github.com/CAPHTECH/casegraphen).
 
 ## Expected Findings
 

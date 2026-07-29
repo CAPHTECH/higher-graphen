@@ -51,8 +51,10 @@ crates.io after their reusable crate dependencies are available, and their
 binaries may also be attached to a GitHub Release if the release plan includes
 binary artifacts:
 
-- `tools/casegraphen` package `casegraphen`, binary `casegraphen`
 - `tools/highergraphen-cli` package `highergraphen-cli`, binary `highergraphen`
+
+The `casegraphen` package moved to https://github.com/CAPHTECH/casegraphen per
+ADR 0003 and is released from that repository (0.8.0 onward).
 
 If publishing binaries, run a release build in addition to the mandatory gate:
 
@@ -63,7 +65,6 @@ cargo build --workspace --release --locked
 If publishing CLI packages to crates.io, publish them after the reusable crates:
 
 ```sh
-cargo publish -p casegraphen
 cargo publish -p highergraphen-cli
 ```
 
@@ -76,8 +77,7 @@ These are releaseable agent integration surfaces:
 - `integrations/cli-skill-bundle/check-bundle.py`
 - `integrations/cli-skill-bundle/references/cli-contract.md`
 - distributed source skills under `skills/highergraphen`,
-  `skills/highergraphen-ddd`, `skills/casegraphen`, and
-  `skills/architecture-review`
+  `skills/highergraphen-ddd`, and `skills/architecture-review`
 - repository-local Codex skills under `.codex/skills/release-runner` and
   `.codex/skills/highergraphen-structure-builder`
 
@@ -90,12 +90,11 @@ the CLI skill bundle unless a future release explicitly adds it.
 
 These directories are stable machine-readable contracts and examples. Include them in release notes when changed:
 
-- `schemas/casegraphen/`
 - `schemas/inputs/`
 - `schemas/reports/`
 - reference reports and fixtures under `examples/architecture/reference/`, `examples/feed/reference/`, and `examples/casegraphen/`
 
-When schema IDs change or new report schemas are added, update direct schema files or `schemas/casegraphen/report-schema-aliases.json` and run the JSON contract validation gate.
+When schema IDs change or new report schemas are added, update the direct schema files and run the JSON contract validation gate. (CaseGraphen schemas and their alias file moved to the CaseGraphen repository.)
 
 ## Example and Smoke Packages
 
@@ -129,7 +128,7 @@ For each release, state which of these are included:
 
 - Git tag and GitHub Release
 - Rust workspace source/API release
-- CLI binaries for `casegraphen` and `highergraphen`
+- CLI binaries for `highergraphen`
 - CLI skill bundle
 - JSON schemas, fixtures, and report contracts
 - Documentation and reference examples

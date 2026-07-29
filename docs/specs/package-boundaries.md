@@ -74,7 +74,7 @@ The implementation naming contract is:
 | Python distribution | Use the same hyphenated package family as Rust. | `higher-graphen-core` |
 | Python import path | Use the `higher_graphen` namespace package. | `higher_graphen.core` |
 | Intermediate tool name | Use bare lowercase `*graphen`; do not prefix with `higher-graphen`. | `casegraphen` |
-| Intermediate tool package | Tool packages live under `tools/<tool-name>/`. | `tools/casegraphen/` |
+| Intermediate tool package | Tool packages live under `tools/<tool-name>/`. | `tools/morphographen/` |
 | Agent-facing skill name | Use the same bare tool name for tool-specific skills. | `casegraphen` |
 | Agent plugin bundle name | Use `highergraphen` for the umbrella bundle; tool skills sit inside it. | `highergraphen` |
 

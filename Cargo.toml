@@ -9,7 +9,6 @@ members = [
     "crates/higher-graphen-runtime",
     "examples/architecture",
     "examples/feed",
-    "tools/casegraphen",
     "tools/highergraphen-cli",
 ]
 resolver = "2"
