@@ -33,7 +33,6 @@ PACKAGE_ORDER = [
 ]
 
 TOOL_PACKAGES = {
-    "casegraphen",
     "highergraphen-cli",
 }
 

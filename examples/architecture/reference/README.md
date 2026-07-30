@@ -43,18 +43,18 @@ cargo run -q -p highergraphen-cli -- completion review accept \
   --format json \
   --output examples/architecture/reference/reports/completion-review-accepted.report.json
 
-cargo run -q -p casegraphen -- validate \
+casegraphen validate \
   --input examples/architecture/reference/casegraphen-reference.case.graph.json \
   --format json \
   --output examples/architecture/reference/reports/casegraphen-validate.report.json
 
-cargo run -q -p casegraphen -- coverage \
+casegraphen coverage \
   --input examples/architecture/reference/casegraphen-reference.case.graph.json \
   --coverage examples/architecture/reference/casegraphen-reference.coverage.policy.json \
   --format json \
   --output examples/architecture/reference/reports/casegraphen-coverage.report.json
 
-cargo run -q -p casegraphen -- project \
+casegraphen project \
   --input examples/architecture/reference/casegraphen-reference.case.graph.json \
   --projection examples/architecture/reference/casegraphen-reference.projection.json \
   --format json \

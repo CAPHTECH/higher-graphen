@@ -33,8 +33,8 @@ If `cargo audit -q` fails only because the advisory DB lock or update needs acce
 
 ## Release Invariants
 
-- `casegraphen native morphism propose` preserves `review_status: "unreviewed"` and reports `proposal_status: "checked"`; explicit apply/reject workflows perform review transitions.
-- Report schema IDs must resolve to a concrete schema file or through `schemas/casegraphen/report-schema-aliases.json`.
+- CaseGraphen release invariants (morphism proposal review status, its report schema aliases) moved with the tool to https://github.com/CAPHTECH/casegraphen per ADR 0003.
+- Report schema IDs must resolve to a concrete schema file under `schemas/`.
 - Documentation code blocks marked `sh` must contain copy-pastable shell, not placeholders or pseudo-shell.
 - `integrations/cli-skill-bundle/check-bundle.py` is part of the release gate for bundled skill compatibility.
 

@@ -179,10 +179,12 @@ fn reference_casegraphen_fixture_validates_and_projects_sources() {
     assert_eq!(projected.projection_result, "projected");
     assert!(projected
         .selected_source_ids
-        .contains(&id("source:architecture-reference-input")));
+        .iter()
+        .any(|source_id| source_id.as_str() == "source:architecture-reference-input"));
     assert!(projected
         .selected_source_ids
-        .contains(&id("source:completion-review-report")));
+        .iter()
+        .any(|source_id| source_id.as_str() == "source:completion-review-report"));
     assert!(!projected.information_loss.is_empty());
 }
 

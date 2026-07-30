@@ -26,18 +26,6 @@ REQUIRED_METADATA_PATHS = [
     ("contract_references", "agent_integration_spec"),
     ("contract_references", "report_schema"),
     ("contract_references", "report_fixture"),
-    ("contract_references", "casegraphen_workflow_contract"),
-    ("contract_references", "casegraphen_workflow_graph_schema"),
-    ("contract_references", "casegraphen_workflow_report_schema"),
-    ("contract_references", "casegraphen_workflow_graph_fixture"),
-    ("contract_references", "casegraphen_workflow_report_fixture"),
-    ("contract_references", "casegraphen_feature_completion_contract"),
-    ("contract_references", "casegraphen_native_contract"),
-    ("contract_references", "casegraphen_native_case_schema"),
-    ("contract_references", "casegraphen_native_report_schema"),
-    ("contract_references", "casegraphen_native_case_fixture"),
-    ("contract_references", "casegraphen_native_report_fixture"),
-    ("contract_references", "casegraphen_native_reference_readme"),
     ("contract_references", "ddd_review_contract"),
     ("contract_references", "ddd_review_input_schema"),
     ("contract_references", "ddd_review_input_fixture"),
@@ -46,8 +34,6 @@ REQUIRED_METADATA_PATHS = [
     ("contract_references", "ddd_review_legacy_example"),
     ("contract_references", "ddd_review_legacy_case_space_fixture"),
     ("contract_references", "ddd_review_source_skill"),
-    ("contract_references", "casegraphen_reference_readme"),
-    ("contract_references", "casegraphen_source_skill"),
     ("contract_references", "contract_validator"),
     ("contract_references", "bundle_contract_reference"),
 ]
@@ -59,149 +45,6 @@ ARCHITECTURE_REVIEW_TERMS = [
     "review_status: \"unreviewed\"",
     "deterministic smoke coverage",
     "projection.information_loss",
-]
-
-CASEGRAPHEN_ENTRYPOINT_TERMS = [
-    "casegraphen workflow validate",
-    "casegraphen workflow readiness",
-    "casegraphen workflow obstructions",
-    "casegraphen workflow completions",
-    "casegraphen workflow evidence",
-    "casegraphen workflow history topology",
-    "casegraphen workflow history topology diff",
-    "casegraphen workflow project",
-    "casegraphen workflow correspond",
-    "casegraphen workflow evolution",
-    "casegraphen cg workflow import",
-    "casegraphen cg workflow history topology",
-    "casegraphen cg workflow completion accept",
-    "casegraphen cg workflow completion reject",
-    "casegraphen cg workflow completion reopen",
-    "casegraphen cg workflow completion patch",
-    "casegraphen cg workflow patch check",
-    "casegraphen cg workflow patch apply",
-    "casegraphen cg workflow patch reject",
-    "casegraphen space new",
-    "casegraphen lift native",
-    "casegraphen lift workflow",
-    "casegraphen lift case-graph",
-    "casegraphen space list",
-    "casegraphen space inspect",
-    "casegraphen space history",
-    "casegraphen space topology",
-    "casegraphen space topology diff",
-    "casegraphen space replay",
-    "casegraphen space validate",
-    "casegraphen space reason",
-    "casegraphen space frontier",
-    "casegraphen obstruction list",
-    "casegraphen completion candidates",
-    "casegraphen projection apply",
-    "casegraphen equivalence check",
-    "casegraphen invariant check",
-    "casegraphen invariant close-check",
-    "casegraphen morphism propose",
-    "casegraphen morphism check",
-    "casegraphen morphism apply",
-    "casegraphen morphism reject",
-]
-
-CASEGRAPHEN_SKILL_TERMS = [
-    "Installed `cg`",
-    "Repo-Owned `casegraphen`",
-    "cg case show",
-    "cg frontier",
-    "cg blockers",
-    "cg evidence add",
-    "cg validate --case",
-    "casegraphen workflow validate",
-    "casegraphen workflow readiness",
-    "casegraphen workflow obstructions",
-    "casegraphen workflow completions",
-    "casegraphen workflow evidence",
-    "casegraphen workflow history topology",
-    "casegraphen workflow history topology diff",
-    "casegraphen workflow project",
-    "casegraphen workflow correspond",
-    "casegraphen workflow evolution",
-    "casegraphen cg workflow import",
-    "casegraphen cg workflow history topology",
-    "casegraphen cg workflow completion accept",
-    "casegraphen cg workflow completion reject",
-    "casegraphen cg workflow completion reopen",
-    "casegraphen cg workflow completion patch",
-    "casegraphen cg workflow patch check",
-    "casegraphen cg workflow patch apply",
-    "casegraphen cg workflow patch reject",
-    "casegraphen space new",
-    "casegraphen lift native",
-    "casegraphen space topology",
-    "casegraphen space topology diff",
-    "casegraphen space validate",
-    "casegraphen space reason",
-    "casegraphen space frontier",
-    "casegraphen invariant close-check",
-    "casegraphen morphism propose",
-    "casegraphen morphism check",
-    "casegraphen morphism apply",
-    "casegraphen morphism reject",
-    "CaseSpace plus MorphismLog",
-    "filtration_source",
-    "Do not treat installed `cg` as the native CaseGraphen product model.",
-    "projection.information_loss",
-    "Do not edit `.casegraphen` files directly.",
-]
-
-CASEGRAPHEN_CONTRACT_TERMS = [
-    "casegraphen workflow validate",
-    "casegraphen workflow readiness",
-    "casegraphen workflow obstructions",
-    "casegraphen workflow completions",
-    "casegraphen workflow evidence",
-    "casegraphen workflow history topology",
-    "casegraphen workflow history topology diff",
-    "casegraphen workflow project",
-    "casegraphen workflow correspond",
-    "casegraphen workflow evolution",
-    "casegraphen cg workflow import",
-    "casegraphen cg workflow history topology",
-    "casegraphen cg workflow completion accept",
-    "casegraphen cg workflow completion reject",
-    "casegraphen cg workflow completion reopen",
-    "casegraphen cg workflow patch check",
-    "casegraphen cg workflow patch apply",
-    "casegraphen cg workflow patch reject",
-    "cg validate --case",
-]
-
-CASEGRAPHEN_README_TERMS = [
-    "casegraphen workflow validate",
-    "casegraphen workflow readiness",
-    "casegraphen workflow history topology",
-    "casegraphen workflow history topology diff",
-    "casegraphen cg workflow import",
-    "casegraphen cg workflow history topology",
-    "casegraphen cg workflow completion accept",
-    "casegraphen cg workflow completion reject",
-    "casegraphen cg workflow completion reopen",
-    "casegraphen cg workflow patch check",
-    "casegraphen cg workflow patch apply",
-    "casegraphen cg workflow patch reject",
-    "cg validate --case",
-]
-
-CASEGRAPHEN_NATIVE_TERMS = [
-    "casegraphen lift native",
-    "casegraphen space reason",
-    "casegraphen space frontier",
-    "casegraphen space topology",
-    "casegraphen space topology diff",
-    "casegraphen invariant close-check",
-    "casegraphen morphism propose",
-    "casegraphen morphism apply",
-    "CaseSpace",
-    "MorphismLog",
-    "metadata-only",
 ]
 
 HIGHERGRAPHEN_DDD_SKILL_TERMS = [
@@ -295,9 +138,9 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
         require_path(errors, relative)
 
     skills = metadata.get("skills")
-    if not isinstance(skills, list) or len(skills) != 4:
+    if not isinstance(skills, list) or len(skills) != 3:
         errors.append(
-            "skills: expected highergraphen, highergraphen-ddd, casegraphen, and architecture-review"
+            "skills: expected highergraphen, highergraphen-ddd, and architecture-review"
         )
         return errors
 
@@ -305,7 +148,6 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
     if skill_names != {
         "highergraphen",
         "highergraphen-ddd",
-        "casegraphen",
         "architecture-review",
     }:
         errors.append(f"skills: unexpected names {sorted(skill_names)!r}")
@@ -323,25 +165,8 @@ def check_metadata(metadata: dict[str, Any]) -> list[str]:
     return errors
 
 
-def check_casegraphen_entrypoints(metadata: dict[str, Any]) -> list[str]:
-    entrypoints = metadata.get("entrypoints")
-    if not isinstance(entrypoints, dict):
-        return ["entrypoints: expected object"]
-
-    haystack = "\n".join(flatten_strings(entrypoints))
-    return [
-        f"entrypoints: missing CaseGraphen command term {term!r}"
-        for term in CASEGRAPHEN_ENTRYPOINT_TERMS
-        if term not in haystack
-    ]
-
-
 def check_highergraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
     return check_source_skill(metadata, "highergraphen")
-
-
-def check_casegraphen_skill_sync(metadata: dict[str, Any]) -> list[str]:
-    return check_source_skill(metadata, "casegraphen")
 
 
 def check_highergraphen_ddd_skill_sync(metadata: dict[str, Any]) -> list[str]:
@@ -371,57 +196,6 @@ def check_architecture_review_skill(metadata: dict[str, Any]) -> list[str]:
         for term in ARCHITECTURE_REVIEW_TERMS
         if term not in text
     ]
-
-
-def check_casegraphen_operator_surface(metadata: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-
-    skill = find_skill(metadata, "casegraphen")
-    if skill is None:
-        return ["casegraphen skill metadata is missing"]
-    skill_path = require_existing_path(skill, "source")
-    errors.extend(missing_terms(skill_path, CASEGRAPHEN_SKILL_TERMS))
-
-    references = metadata.get("contract_references", {})
-    if not isinstance(references, dict):
-        return errors + ["contract_references: expected object"]
-
-    contract_path = require_existing_path(
-        {"name": "casegraphen_feature_completion_contract", "source": references.get("casegraphen_feature_completion_contract")},
-        "source",
-    )
-    errors.extend(missing_terms(contract_path, CASEGRAPHEN_CONTRACT_TERMS))
-
-    reference_readme_path = require_existing_path(
-        {"name": "casegraphen_reference_readme", "source": references.get("casegraphen_reference_readme")},
-        "source",
-    )
-    errors.extend(missing_terms(reference_readme_path, CASEGRAPHEN_README_TERMS))
-
-    native_reference_readme_path = require_existing_path(
-        {"name": "casegraphen_native_reference_readme", "source": references.get("casegraphen_native_reference_readme")},
-        "source",
-    )
-    errors.extend(missing_terms(native_reference_readme_path, CASEGRAPHEN_NATIVE_TERMS))
-
-    bundle_contract_path = require_existing_path(
-        {"name": "bundle_contract_reference", "source": references.get("bundle_contract_reference")},
-        "source",
-    )
-    errors.extend(missing_terms(bundle_contract_path, CASEGRAPHEN_CONTRACT_TERMS))
-    errors.extend(missing_terms(bundle_contract_path, CASEGRAPHEN_NATIVE_TERMS))
-
-    native_contract_path = require_existing_path(
-        {"name": "casegraphen_native_contract", "source": references.get("casegraphen_native_contract")},
-        "source",
-    )
-    errors.extend(missing_terms(native_contract_path, CASEGRAPHEN_NATIVE_TERMS))
-
-    readme_path = BUNDLE_DIR / "README.md"
-    errors.extend(missing_terms(readme_path, CASEGRAPHEN_README_TERMS))
-    errors.extend(missing_terms(readme_path, CASEGRAPHEN_NATIVE_TERMS))
-
-    return errors
 
 
 def check_highergraphen_ddd_surface(metadata: dict[str, Any]) -> list[str]:
@@ -485,22 +259,6 @@ def require_existing_path(metadata: dict[str, Any], key: str) -> Path:
     return path
 
 
-def flatten_strings(value: Any) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        strings: list[str] = []
-        for item in value:
-            strings.extend(flatten_strings(item))
-        return strings
-    if isinstance(value, dict):
-        strings = []
-        for item in value.values():
-            strings.extend(flatten_strings(item))
-        return strings
-    return []
-
-
 def missing_terms(path: Path, terms: list[str]) -> list[str]:
     text = path.read_text(encoding="utf-8")
     return [
@@ -523,12 +281,9 @@ def main() -> int:
         metadata = load_metadata()
         errors = []
         errors.extend(check_metadata(metadata))
-        errors.extend(check_casegraphen_entrypoints(metadata))
         errors.extend(check_highergraphen_skill_sync(metadata))
-        errors.extend(check_casegraphen_skill_sync(metadata))
         errors.extend(check_highergraphen_ddd_skill_sync(metadata))
         errors.extend(check_architecture_review_skill(metadata))
-        errors.extend(check_casegraphen_operator_surface(metadata))
         errors.extend(check_highergraphen_ddd_surface(metadata))
         errors.extend(check_provider_specific_files())
     except BundleError as error:
